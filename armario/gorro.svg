@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="48" viewBox="0 0 64 48">
+  <!-- Un gorro de lana para una bolita de 46 px. Cada capa, un grupo con su id:
+       así se llaman desde la escena y así se animan por separado. -->
+  <g id="corona">
+    <path d="M14 36 C14 12 50 12 50 36 Z" fill="#3f7d6a"/>
+  </g>
+  <g id="ala">
+    <path d="M9 32 h46 a6 6 0 0 1 0 12 h-46 a6 6 0 0 1 0 -12 z" fill="#2f5d50"/>
+  </g>
+  <g id="pompon">
+    <circle cx="32" cy="11" r="7" fill="#e8c07a"/>
+  </g>
+</svg>

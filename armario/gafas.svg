@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="56" height="26" viewBox="0 0 56 26">
+  <!-- Unas gafas redondas. Van pegadas a su cara, así que no persiguen nada:
+       heredan su giro, su aplastamiento y su salto. -->
+  <g id="izquierdo">
+    <circle cx="15" cy="13" r="8.5" fill="none" stroke="#f0ece4" stroke-width="2.4"/>
+  </g>
+  <g id="derecho">
+    <circle cx="41" cy="13" r="8.5" fill="none" stroke="#f0ece4" stroke-width="2.4"/>
+  </g>
+  <g id="puente">
+    <path d="M23.5 12 C26 9.5 30 9.5 32.5 12" fill="none" stroke="#f0ece4" stroke-width="2.2"/>
+  </g>
+</svg>

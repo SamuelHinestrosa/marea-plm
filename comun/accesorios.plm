@@ -1,0 +1,111 @@
+// Los accesorios de la bolita: la FÍSICA, que es lo único que se comparte.
+//
+// Un accesorio no es un dibujo pegado encima. Es una pieza aparte, y lo que la
+// hace suya no es dónde está: es **cómo persigue**. Un sombrero se apoya, unas
+// gafas están pegadas, una taza acompaña, y esas tres cosas no se diferencian
+// en la altura a la que se dibujan sino en la manera de llegar.
+//
+// De ahí sale gratis lo demás: el «¡ajá!» no es un caso especial de nada, es el
+// rebase de un muelle pasando de un umbral; «en el aire» no se pregunta, es que
+// la pieza no esté donde está el cuerpo; y el ángulo no se anima, **es** el
+// retraso. Dos números —rigidez y amortiguación— dan el retraso, el rebase y el
+// asentamiento a la vez, y se portan igual a 60 que a 144 Hz.
+//
+// La pieza va dentro de la copia, así que esto no sabe qué lleva puesto: sirve
+// igual para un gorro, para una corona o para lo que dibujes esta tarde.
+
+library Accesorios {
+    //  Poco frenado: llega tarde y rebasa. Es el carácter de un gorro.
+    spring apoyo = 420, 26
+    //  Más blando todavía: lo que acompaña flota aunque ella no se mueva.
+    spring flota = 62, 9
+
+    // ── arriba: se apoya ─────────────────────────────────────────
+    //  «La bolita sigue al cursor; el gorro sigue a la bolita.» Y si lo que
+    //  ella hace para seguirte es MIRAR —esta bolita no gira la cabeza, gira
+    //  mirando—, eso es lo que el gorro tiene que seguir: la mirada entra en el
+    //  objetivo con su propio factor, o el gorro se queda quieto justo cuando
+    //  más se espera que se mueva.
+    component Apoyado(x: number, y: number, mira: number, puesto: number, alto: number = 30, lado: number = 3.4) {
+        size: 0, 0
+        //  Dónde le toca estar.
+        let mx = x + mira * lado
+        let my = y - alto
+        //  Y dónde va el muelle, que es otra cosa: llega tarde, rebasa y se
+        //  asienta. Los dos números son el carácter de la pieza.
+        prop px = 0 ~apoyo
+        prop py = 0 ~apoyo
+        follow px = mx
+        follow py = my
+        //  El retraso es lo que le da vida, pero con tope: un gorro se arrastra
+        //  un poco sobre su cabeza, no se queda a cien píxeles de ella cuando
+        //  ella cruza media pantalla. El muelle sigue siendo el muelle; lo que
+        //  se acota es cuánto se le nota.
+        let dx = clamp(mx - px, -16, 16)
+        let dy = clamp(my - py, -12, 12)
+        //  Dónde se pinta. Es una cuenta y no un muelle: un muelle de un frame
+        //  aquí costaba 33 px de retraso a 1 200 px/s y ensuciaba la medida.
+        //  Que acompañe y que llegue tarde se comprueban con `px` y `x`, que
+        //  son las dos cosas que de verdad hay que mirar.
+        //  Sin poner, espera 44 px más arriba: ponérselo es dejarlo caer.
+        let gx = mx - dx
+        let gy = my - dy + (1 - puesto) * 44
+        //  Y el «¡ajá!» tampoco es un caso especial: es el REBASE pasando de un
+        //  umbral. Cuando el muelle se pasa de su sitio más de 7 px —solo pasa
+        //  si venía lanzado—, la pieza da un respingo. Nada que programar: ya
+        //  estaba ahí, solo había que mirarlo.
+        prop aja = 0 ~lively
+        on change dx > 7 while dx > 7 { impulse aja 7 }
+        group {
+            opacity: puesto
+            pivot: gx, gy
+            //  Y el ángulo no se anima: **es** el retraso. Si no llega tarde,
+            //  no se inclina, y eso es exactamente lo que se quiere.
+            rotate: clamp(dx, -9, 9) * 1.5deg
+            scale: 1 + aja * 0.05, 1 + aja * 0.05
+            children { move: gx, gy }
+        }
+    }
+
+    // ── en la cara: pegado ───────────────────────────────────────
+    //  No persigue nada, y por eso va aquí: colgado de su cuerpo, el giro, el
+    //  aplastamiento y el salto le llegan gratis. El retraso, que es lo que le
+    //  da vida a un gorro, en unas gafas sería que se están resbalando.
+    component Pegado(x: number, y: number, giro: number, ex: number, ey: number, puesto: number) {
+        size: 0, 0
+        group {
+            opacity: puesto
+            pivot: x, y
+            rotate: giro
+            scale: ex, ey
+            children { move: x, y }
+        }
+    }
+
+    // ── al lado: acompaña ────────────────────────────────────────
+    //  Ni se apoya ni está pegada: **acompaña**, que es quedarse atrás. Persigue
+    //  la altura con un muelle blando, el ángulo se lo saca del retraso —igual
+    //  que el gorro, porque es la misma idea— y flota aunque ella no se mueva,
+    //  que es lo que separa «acompañar» de «estar al lado».
+    component Acompana(x: number, y: number, puesto: number, vaiven: number, lejos: number = 44) {
+        size: 0, 0
+        let mx = x + lejos
+        let my = y + 6 + vaiven * 3
+        prop px = 0 ~flota
+        prop py = 0 ~flota
+        follow px = mx
+        follow py = my
+        //  Acompaña con más manga ancha que un gorro: lo que va al lado puede
+        //  quedarse más atrás sin que parezca roto.
+        let dx = clamp(mx - px, -26, 26)
+        let dy = clamp(my - py, -20, 20)
+        let gx = mx - dx
+        let gy = my - dy + (1 - puesto) * 18
+        group {
+            opacity: puesto
+            pivot: gx, gy
+            rotate: clamp(dy, -7, 7) * 1.2deg
+            children { move: gx, gy }
+        }
+    }
+}

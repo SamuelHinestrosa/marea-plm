@@ -947,6 +947,89 @@ conserva el tamaño real:
 | separación | 13 px entre centros |
 | altura de los ojos | 2,5 px por debajo del centro del cuerpo |
 
+## El armario: un accesorio no es un dibujo pegado encima
+
+![Su armario](evidencia/armario.png)
+
+> «Un accesorio no es un dibujo pegado encima de la bolita. Es una pieza aparte,
+> con su geometría, su pivote y sus capas separables… **la personalidad vive en
+> la pieza, no en la cara**: no hace falta inventar estados de ojos para que se
+> note que está investigando; basta con que el gorro le llegue un poco tarde.»
+
+Se dibuja un SVG con sus capas nombradas, se suelta en `armario/` y ya está: es
+un `figure` de pleamar, así que cada capa es un **camino de verdad** —se tiñe,
+se funde, gira sobre su pivote y escala sin píxeles—, y tocar el fichero lo
+recarga en pantalla sin tocar la escena.
+
+### Las zonas no son sitios, son físicas
+
+Lo que hace que una pieza sea suya no es dónde se dibuja: es **cómo persigue**.
+Eso es toda la biblioteca (`comun/accesorios.plm`), y la pieza va dentro, así que
+la física no sabe qué lleva puesto.
+
+| | cómo persigue | quién la usa |
+| --- | --- | --- |
+| `Apoyado` | muelle poco frenado: llega tarde, rebasa y se asienta. Persigue **la mirada** además del cuerpo | el gorro |
+| `Pegado` | nada: cuelga de su cuerpo y el giro, el aplastamiento y el salto le llegan gratis | las gafas |
+| `Acompana` | muelle blando, con más manga ancha, y flota aunque ella esté quieta | la taza |
+
+«La bolita sigue al cursor; el gorro sigue a la bolita»: si lo que ella hace
+para seguirte es **mirar** —esta bolita no gira la cabeza, gira mirando—, eso es
+lo que el gorro tiene que perseguir, o se queda quieto justo cuando más se
+espera que se mueva. Por eso la mirada entra en el objetivo con su propio factor.
+
+Y el retraso, en unas gafas, sería que se están resbalando. Por eso `Pegado` no
+persigue nada: colgado de su cuerpo, lo hereda todo.
+
+![El gorro, arrastrándose en el viaje](evidencia/gorro-retraso.png)
+
+### Que acompañe y que llegue tarde son dos pruebas distintas
+
+El contrato lo dice con todas las letras, y por un motivo: la prueba antigua
+comprobaba que la pieza no estuviera donde el cuerpo, y **eso se cumple igual si
+la pieza no se mueve nunca**; con el gorro clavado pasaba en verde. Medido por
+separado, con ella cruzando media pantalla al abrir el panel:
+
+| | |
+| --- | --- |
+| acompaña | **0,00 px** de error en reposo |
+| llega tarde | **16,0 px** de retraso máximo |
+
+Los 16 son el tope a propósito. El muelle sigue siendo el muelle —de ahí salen
+el retraso, el rebase y el asentamiento—, pero lo que se le nota va acotado: sin
+tope, un viaje de 240 px en 290 ms dejaba el gorro a **150 px** de su cabeza, y
+eso ya no es llegar tarde, es habérselo dejado en el otro lado.
+
+### Lo que sale gratis
+
+- **El ángulo no se anima: es el retraso.** `rotate: clamp(dx, -9, 9) * 1.5deg`,
+  con `dx` lo que va atrasado. Si no llega tarde, no se inclina.
+- **El «¡ajá!» no es un caso especial**: es el rebase pasando de un umbral
+  (`on change dx > 7`), y lo que hace es un respingo de 5 %.
+- **Ponérselo es dejarlo caer**: sin poner, la pieza espera 44 px más arriba, y
+  `puesto` es un muelle vivo. Medido: **250 ms** desde el clic hasta que se posa.
+
+Se elige desde **«Personalizar»**, en su menú: abre el panel con su armario, y
+lo que se ve de cada pieza es **la pieza de verdad** —el mismo SVG, no un icono
+suyo—, así que el día que dibujes otra aparece ahí sin tocar nada.
+
+### Lo que esto destapó en pleamar
+
+**Un SVG solo podía entrar como estampa.** Rasterizado en un atlas se ve, pero
+no se funde con nada, no se tiñe por partes, no se anima por capas y al escalar
+es píxeles: justo lo contrario de lo que un accesorio necesita. Ahora está
+`figure`, que lee el mismo fichero como caminos con el `usvg` que ya estaba
+dentro por las imágenes. `figure hat { … }` es la pieza entera y
+`figure hat.ala { … }` una capa **en su sitio dentro de la pieza**, así que dos
+capas dibujadas por separado siguen encajando: es lo que deja que el ala gire y
+la corona no.
+
+**Y `--registrar` no decía qué nombres hay.** Un nombre que no existe se
+apuntaba como `?` durante toda la medición, sin saber si estaba mal escrito o es
+que la escena no lo movía. Dentro de una copia los nombres llevan su marca
+(`px#Apoyado2`) y eso no hay quien lo adivine: ahora lo dice al empezar, con los
+que se le parecen.
+
 ## El cerco negro, el halo que no hizo falta, y el filo
 
 ![Antes y ahora, con el panel abierto](evidencia/halo-vs-sombra.png)
@@ -987,7 +1070,7 @@ Con `panel` a cero no hay sombra que calcular: el render ni la mira.
 
 ## Lo que le faltó al lenguaje, y ya no
 
-Dieciséis, todas arregladas en pleamar en vez de esquivadas aquí:
+Dieciocho, todas arregladas en pleamar en vez de esquivadas aquí:
 
 1. **No había forma de comprobar un tiempo.** Sondear desde fuera cuesta 16 ms
    por lectura, que es un frame entero. Ahora está `--registrar`.
@@ -1051,6 +1134,16 @@ Dieciséis, todas arregladas en pleamar en vez de esquivadas aquí:
    aparece con la tarjeta y se va con ella (`32% * panel`), y con la cuenta a
    cero el render ni la mira. El color va en los tres huecos que `color1` ya
    tenía libres, así que no cuesta ni un byte más por elemento.
+
+17. **Un SVG solo podía entrar como estampa.** Rasterizado en un atlas se ve,
+   pero no se funde con nada, no se tiñe por partes, no se anima por capas y al
+   escalar es píxeles. Ahora está `figure`: el mismo fichero leído como
+   caminos, por capas, con el `usvg` que ya estaba dentro por las imágenes. Y
+   se vigila como una biblioteca: dibujas el gorro, guardas, y está puesto.
+18. **`--registrar` no decía qué nombres hay.** Un nombre que no existe se
+   apuntaba como `?` toda la medición. Dentro de la copia de un componente los
+   nombres llevan su marca (`px#Apoyado2`) y eso no se adivina: ahora lo dice al
+   empezar, con los que se le parecen.
 
 ## Lo siguiente
 

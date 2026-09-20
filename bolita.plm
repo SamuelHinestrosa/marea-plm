@@ -13,6 +13,7 @@
 // Todo lo de este fichero lo ejecuta el render. Aquí no hay lógica ninguna.
 
 import "comun/paleta.plm"
+import "comun/accesorios.plm"
 
 scene Marea {
     permissions {
@@ -31,7 +32,7 @@ scene Marea {
     //  Pulsar una tarjeta abre su página, y **la página sale de la tarjeta**:
     //  crece desde su sitio hasta llenar el panel. No es una pantalla que
     //  sustituye a otra; es la misma tarjeta, abierta.
-    fact pagina: ninguna | wifi | bluetooth | concentracion = ninguna
+    fact pagina: ninguna | wifi | bluetooth | concentracion | armario = ninguna
     prop pag = 0 ~240ms
     follow pag = if(pagina == ninguna, 0, 1)
     model redes max 8 { nombre: text; senal: number; puesta: bool }
@@ -1246,6 +1247,46 @@ scene Marea {
     //  las demás: declarada después se quedaba con sus clics. Van cinco.
     zone box menu_conj { at: cx + 60, menu.cy; size: 300, menu.h + 90; corner: 24; active: menu > 0.01 }
 
+    // ── el armario ───────────────────────────────────────────────
+    //  Las piezas son SVG: se dibujan en un editor, se sueltan en `armario/` y
+    //  ya están. Cada capa es un camino de verdad —no una estampa—, así que se
+    //  tiñe, se funde y gira sobre su pivote, y la física se la pone la ZONA:
+    //  el gorro se apoya, las gafas van pegadas, la taza acompaña.
+    figure gorro = file "armario/gorro.svg"
+    figure gafas = file "armario/gafas.svg"
+    figure taza = file "armario/taza.svg"
+
+    fact viste.gorro = false
+    fact viste.gafas = false
+    fact viste.taza = false
+    //  Ponérselo no es encenderlo: cae encima con su muelle, y al quitarlo se
+    //  va por donde vino.
+    repeat k in 1..4 {
+        prop puesto.$k = 0 ~lively
+    }
+    follow puesto.1 = if(viste.gorro, 1, 0)
+    follow puesto.2 = if(viste.gafas, 1, 0)
+    follow puesto.3 = if(viste.taza, 1, 0)
+    //  El vaivén de lo que acompaña: flota aunque ella esté quieta.
+    prop vaiven = 0
+    wave vaiven = 1 at 0.9
+
+    //  Arriba: se apoya en su cabeza, llega tarde y se inclina por el retraso.
+    Apoyado(cx, cy_real, gaze.x, puesto.1, alto: 30) {
+        figure gorro.ala     { at: 0, 0; size: 58, 43 }
+        figure gorro.corona  { at: 0, 0; size: 58, 43 }
+        figure gorro.pompon  { at: 0, 0; size: 58, 43 }
+    }
+    //  En su cara: no persigue nada, hereda lo suyo. Y la mirada la lleva
+    //  dentro, como los ojos, porque unas gafas miran con ella.
+    Pegado(cx + gaze.x * 0.5, cy_real - 2 + gaze.y * 0.5, tilt + lean, sx, sy, puesto.2) {
+        figure gafas { at: 0, 0; size: 46, 21 }
+    }
+    //  Al lado: acompaña, se queda atrás y flota.
+    Acompana(cx, cy_real, puesto.3, vaiven, lejos: 42) {
+        figure taza { at: 0, 0; size: 34, 34 }
+    }
+
     // ── lo que se ve de su menú ──────────────────────────────────
     //  El dibujo va aquí y las zonas al final del todo, y no es un capricho:
     //  el recorte de la tarjeta es suelto y se lleva todo lo que venga detrás
@@ -1541,8 +1582,11 @@ scene Marea {
         //  Crece desde el sitio de la tarjeta que se pulsó hasta llenar el
         //  panel. Lo de debajo se va mientras tanto: no hay dos cosas a medias.
         let pg.k = if(pagina == bluetooth, 2, 0) + if(pagina == concentracion, 3, 0) + if(pagina == wifi, 1, 0)
-        let pg.ox = card.x + 90
-        let pg.oy = card.y - 96 + (pg.k - 1) * 74
+        //  Las tres primeras salen de su tarjeta; el armario no tiene tarjeta
+        //  —se entra por su menú—, así que crece desde el centro del panel.
+        let pg.suya = if(pagina == armario, 0, 1)
+        let pg.ox = card.x + 90 * pg.suya
+        let pg.oy = card.y + (-96 + (pg.k - 1) * 74 + 26) * pg.suya - 26 * pg.suya
         let pg.x = pg.ox + (card.x - pg.ox) * pag
         let pg.y = pg.oy + (card.y + 26 - pg.oy) * pag
         let pg.w = 173 + 183 * pag
@@ -1558,6 +1602,7 @@ scene Marea {
             text "Wi-Fi" { at: px0, card.y - 117; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == wifi }
             text "Bluetooth" { at: px0, card.y - 117; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == bluetooth }
             text "Concentración" { at: px0, card.y - 117; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == concentracion }
+            text "Su armario" { at: px0, card.y - 117; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == armario }
             zone box atras { at: card.x - 166, card.y - 117; size: 34, 34; corner: 17; cursor: pointer; active: pag > 0.9 }
             on press atras { pagina = ninguna }
 
@@ -1608,6 +1653,41 @@ scene Marea {
             }
             text "Nada emparejado" { at: card.x, card.y + 20; anchor: center; size: 11.5; color: #8b8f95
                                      show: pagina == bluetooth and cacharros.count < 1 }
+
+            // ── el armario ───────────────────────────────────────
+            //  Las piezas que hay, una por zona. Lo que se ve de cada una es la
+            //  pieza de verdad —el mismo SVG, no un icono suyo—, así que el día
+            //  que dibujes otra aparece aquí sin tocar esto.
+            group {
+                show: pagina == armario
+                text "Cada pieza persigue a su manera: el gorro se apoya, las gafas van pegadas y la taza acompaña." {
+                    at: card.x - 170, card.y - 84; anchor: left center; size: 11.5; width: 340; lines: 2; color: #8b8f95 }
+                repeat a in 1..4 {
+                    let ax = card.x - 114 + (a - 1) * 114
+                    prop aluz.$a = 0 ~140ms
+                    box { at: ax, card.y - 14; size: 104, 96; corner: 14
+                          color: mix(#202021, #262728, aluz.$a) }
+                    //  El filo de menta de la que lleva puesta, como en las tarjetas.
+                    box { at: ax, card.y - 14; size: 104, 96; corner: 14; stroke: 1; color: mint
+                          opacity: puesto.$a }
+                    zone box azona.$a { at: ax, card.y - 14; size: 104, 96; corner: 14; cursor: pointer
+                                        active: pagina == armario and pag > 0.9 }
+                    on enter azona.$a { aluz.$a: 1 }
+                    on leave azona.$a { aluz.$a: 0 }
+                }
+                figure gorro  { at: card.x - 114, card.y - 28; size: 62, 46 }
+                figure gafas  { at: card.x,       card.y - 28; size: 54, 25 }
+                figure taza   { at: card.x + 114, card.y - 28; size: 40, 40 }
+                text "Gorro"  { at: card.x - 114, card.y + 16; anchor: center; size: 12; color: ink }
+                text "Gafas"  { at: card.x,       card.y + 16; anchor: center; size: 12; color: ink }
+                text "Taza"   { at: card.x + 114, card.y + 16; anchor: center; size: 12; color: ink }
+                text "se apoya"  { at: card.x - 114, card.y + 30; anchor: center; size: 10; color: #8b8f95 }
+                text "pegadas"   { at: card.x,       card.y + 30; anchor: center; size: 10; color: #8b8f95 }
+                text "acompaña"  { at: card.x + 114, card.y + 30; anchor: center; size: 10; color: #8b8f95 }
+                on press azona.1 { toggle viste.gorro }
+                on press azona.2 { toggle viste.gafas }
+                on press azona.3 { toggle viste.taza }
+            }
 
             //  Concentración: lo que hace, dicho. No hay lista que traer.
             group {
@@ -1952,7 +2032,7 @@ scene Marea {
     on key Down while menuab { elegida = min(elegida + 1, 1 + entradas.count) }
     on key Up while menuab { elegida = max(elegida - 1, 0) }
     on key Return while menuab and elegida < 1 { emit ajustes; menuab = false }
-    on key Return while menuab and elegida == 1 { emit personalizar; menuab = false }
+    on key Return while menuab and elegida == 1 { emit personalizar; menuab = false; open = true; pagina = armario }
     on key Return while menuab and elegida > 1 { emit del_menu(elegida - 2); menuab = false }
     on del_menu { menuab = false }
 
@@ -1964,7 +2044,8 @@ scene Marea {
         on leave casa_zona.$m { casa.$m: 0 }
     }
     on press casa_zona.0 { emit ajustes; menuab = false }
-    on press casa_zona.1 { emit personalizar; menuab = false }
+    //  «Personalizar» abre su armario, que es donde vive esto.
+    on press casa_zona.1 { emit personalizar; menuab = false; open = true; pagina = armario }
 
     // ── la esquina ───────────────────────────────────────────────
     //  Asoma el 82 %: con algo más de la mitad el ojo rojo se pasaba el rato
