@@ -126,6 +126,22 @@ existe porque lo que se declara lo ejecuta el render y la lógica solo cuenta co
 Y cuando no hay nada que mover, marea-plm baja a 0,3 % y Marea no: sigue en su
 sitio.
 
+## 20 de septiembre de 2026 · la medida justa
+
+Las dos a la vez, las dos recién arrancadas, las dos animándose en el mismo
+monitor. Esta es la que vale.
+
+| | CPU | memoria real (PSS) | frames por segundo | CPU por frame pintado |
+| --- | --- | --- | --- | --- |
+| Marea (Quickshell) | 6,17 % | 335,8 MB | ~24 | 0,257 % |
+| marea-plm | 4,96 % | 81,3 MB | 60 | 0,083 % |
+
+**Lo que dice.** En CPU a secas la diferencia es de un 20 %, no de tres veces: hay
+que decirlo. Pero marea-plm está pintando **dos veces y media más frames**. Por
+cada frame que sale a la pantalla, pleamar gasta **tres veces menos**.
+
+Y en memoria no hay discusión: **cuatro veces menos**, con la misma barra.
+
 ## Una advertencia sobre estas medidas
 
 Marea recién arrancada gasta 5,75 % de CPU y 386 MB; la misma Marea llevando
