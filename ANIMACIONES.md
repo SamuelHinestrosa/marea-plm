@@ -218,7 +218,25 @@ muelles. Y la superficie de la esquina se queda abierta mientras quede algo de
 ella dentro (`open: tuck > 0.01`), así que al parar se desliza fuera en vez de
 desaparecer con la ventana.
 
-**Lo que no se puede todavía:** fuera de su superficie no sabe dónde está el
+### Acercarse saca el reloj y «Detener»
+
+![El panel nace de ella](evidencia/panel-de-la-esquina.png)
+
+En Marea es un rectángulo que se funde en 150 ms a su lado. Aquí **sale de
+ella**: es el mismo cuerpo, que se estira hacia dentro de la pantalla como una
+gota, hace cuello a mitad de camino y se separa hasta quedar a 8 px. El
+contenido entra tarde, cuando el panel ya se ha despegado —antes el botón
+quedaba debajo de su cara—. Se recoge con 320 ms de gracia, porque el hueco
+entre ella y el panel es real y no puede perderse al cruzarlo.
+
+El reloj lo cuenta el render (`every 1s while taping`) y lo escribe un hueco
+nuevo de pleamar: `{secs, time}` → `0:07`. Comprobado con el ratón de mentira:
+acercarse lo saca, el botón se enciende al pasar, y pulsar «Detener» la
+devuelve arriba.
+
+**Lo que no se puede todavía:** elegir entre las cuatro esquinas —el `anchor:`
+de una superficie es fijo; anotado en pleamar como S13—, y fuera de su
+superficie no sabe dónde está el
 puntero —Wayland no lo dice, es la limitación S5 de pleamar—, así que en la
 esquina solo sigue al ratón cuando lo tiene encima.
 
@@ -278,7 +296,5 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
 
 ## Lo siguiente
 
-- En la esquina: que acercarse saque el reloj y «Detener» a su lado, y elegir
-  entre las cuatro esquinas la que caiga fuera de lo grabado.
 - La nota de la hora, que nace por detrás de ella.
 - Los avisos como oleaje: la tarjeta que aterriza como gota y vuelve a serlo.

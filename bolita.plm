@@ -544,7 +544,8 @@ scene Marea {
     //  detrás del borde, que es justo lo único para lo que sirve este modo.
     //  46 × 0,82 − 23 = 14,7: a eso del ángulo queda su centro.
     surface rincon {
-        size: 120, 120
+        //  Ancha para el panel que le sale al acercarse, con su sombra.
+        size: 260, 120
         anchor: top_right
         level: overlay
         screens: "HDMI-A-1"
@@ -552,7 +553,7 @@ scene Marea {
         //  en vez de desaparecer con la ventana.
         open: tuck > 0.01
 
-        let rx = 120 - 14.7 + (1 - tuck) * 44
+        let rx = 260 - 14.7 + (1 - tuck) * 44
         let ry = 14.7 - (1 - tuck) * 44
 
         //  La mirada, plegada sobre su lado visible: mirar hacia su propia
@@ -561,11 +562,47 @@ scene Marea {
         prop rgaze.y = 0 ~gentle
         look rgaze.x, rgaze.y at rx, ry reach 6, 3.5 within 260
 
+        //  El reloj y «Detener», que salen DE ella al acercarse. No es un panel
+        //  que aparece al lado: es el mismo cuerpo, que se estira hacia dentro de
+        //  la pantalla como una gota y se separa —con su cuello a mitad de
+        //  camino— hasta quedar a 8 px. Marea lo funde en 150 ms; aquí nace.
+        fact cerca = false
+        prop near = 0 ~lively
+        follow near = if(cerca and tuck > 0.9, 1, 0)
+        let p.w = 124 * near
+        let p.x = rx - (23 + 8 + 62) * near
+        let p.y = 23
+        //  Cuánto tiempo lleva. Lo cuenta el render: un segundo es un segundo
+        //  aunque la lógica esté ocupada arrancando un grabador.
+        fact secs = 0
+        on change taping while taping { secs = 0 }
+        every 1s while taping { secs = secs + 1 }
+
+        //  La zona de gracia va DEBAJO de todo lo demás: la pulsación es de la
+        //  zona de más arriba, y declarada al final se quedaba con el clic de
+        //  «Detener» y con el de ella.
+        zone box alrededor { from: p.x - 70, 0; size: rx - p.x + 100, 60; active: cerca }
+
         body {
             color: coal
             rim: 6%
             shadow: 0, 7, 16, 34%
-            ellipse ella { at: rx, ry; radius: 23; scale: sx + press * 0.04, sy - press * 0.05 }
+            box { at: p.x, p.y; size: p.w, 42 * clamp(near * 3, 0, 1); corner: 13 }
+            ellipse ella { at: rx, ry; radius: 23; scale: sx + press * 0.04, sy - press * 0.05; blend: 16 * 4 * near * (1 - near) }
+        }
+        group {
+            //  Entra tarde: hasta que el panel no se ha despegado de ella, el
+            //  botón quedaría debajo de su cara.
+            opacity: clamp(near * 5 - 4, 0, 1)
+            move: (1 - near) * 14, 0
+            text "{secs, time}" { at: p.x - 46, p.y; anchor: left center; size: 13; weight: 600; color: ink }
+            prop caliente = 0 ~140ms
+            box { at: p.x + 22, p.y; size: 64, 26; corner: 8; color: mix(#e0655a, #f0796a, caliente) }
+            text "Detener" { at: p.x + 22, p.y; anchor: center; size: 12; weight: 600; color: #060000 }
+            zone box parar { at: p.x + 22, p.y; size: 64, 26; corner: 8; cursor: pointer; active: near > 0.8 }
+            on enter parar { caliente: 1 }
+            on leave parar { caliente: 0 }
+            on press parar { emit stop }
         }
         //  La cara va un poco hacia dentro, para que el disco quede a la vista.
         Cara(rx - 5, ry + 4, min(rgaze.x, 0), max(rgaze.y, 0))
@@ -574,5 +611,10 @@ scene Marea {
         zone box ella_zona { at: rx, ry; size: 46, 46; corner: 23; cursor: pointer }
         on press ella_zona { press: 1; emit stop }
         on release ella_zona { press: 0 }
+        //  Acercarse lo saca; y se recoge con 320 ms de gracia, porque el hueco
+        //  entre ella y el panel es real y no puede perderse al cruzarlo.
+        on enter ella_zona { cerca = true }
+        on away alrededor for 320ms { cerca = false }
+        on stop { cerca = false }
     }
 }
