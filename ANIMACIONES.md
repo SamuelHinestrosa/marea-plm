@@ -433,6 +433,19 @@ sabe **leer** la red y no cambiarla, y de bluetooth no sabe nada todavía. Está
 apuntado como su limitación B15. Un interruptor que se mueve sin hacer nada es
 mentira, así que no se mueve.
 
+### Y con maquetación, no a mano
+
+Las tres tarjetas se pisaban: el nombre de la red se metía debajo del
+interruptor y «Concentración» le daba a la flecha. No era de pleamar —tiene
+`row` y `column` con su `gap`, y `wrap: n` que es una rejilla—: era que yo las
+estaba colocando a mano con coordenadas.
+
+Ahora van en una `column`, así que dónde cae cada una lo pone la maquetación. Lo
+que sí sigue siendo mío es el ancho de los textos dentro de cada tarjeta, porque
+**en pleamar un hijo no puede pedir el sitio que le queda**: no hay crecimiento
+ni pesos. Está apuntado como su G28. Mientras tanto, cada texto dice su ancho y
+lo que no cabe se corta con puntos suspensivos, que es lo que tiene que pasar.
+
 ### Lo que esto destapó en pleamar
 
 **No había servicio de brillo.** Es la primera pista que busca cualquiera en un
