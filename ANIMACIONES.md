@@ -234,9 +234,26 @@ nuevo de pleamar: `{secs, time}` → `0:07`. Comprobado con el ratón de mentira
 acercarse lo saca, el botón se enciende al pasar, y pulsar «Detener» la
 devuelve arriba.
 
-**Lo que no se puede todavía:** elegir entre las cuatro esquinas —el `anchor:`
-de una superficie es fijo; anotado en pleamar como S13—, y fuera de su
-superficie no sabe dónde está el
+### Las cuatro esquinas
+
+![En las cuatro esquinas](evidencia/cuatro-esquinas.png)
+
+El contrato dice que la esquina **se elige para que caiga fuera de lo grabado**.
+Quien sabe qué se está grabando es la lógica, así que aquí sólo se obedece: un
+hecho con tipo, `fact rincon: top_right | top_left | bottom_right | bottom_left`,
+y la superficie se pega a ese borde. Se cambia **en marcha**, sin volver a crear
+nada: es lo que le faltaba a pleamar y lo que ahora hace `anchor: rincon`.
+
+Todo lo que cuelga de ella sigue al rincón: por qué ángulo entra y sale, hacia
+dónde se pliega la mirada, y por qué lado sale el panel del reloj —siempre hacia
+dentro de la pantalla, nunca fuera—.
+
+| | Centro de ella | Panel |
+| --- | --- | --- |
+| `top_right` · `bottom_right` | a 14,7 px del ángulo derecho | a su izquierda |
+| `top_left` · `bottom_left` | a 14,7 px del ángulo izquierdo | a su derecha |
+
+**Lo que no se puede todavía:** fuera de su superficie no sabe dónde está el
 puntero —Wayland no lo dice, es la limitación S5 de pleamar—, así que en la
 esquina solo sigue al ratón cuando lo tiene encima.
 
