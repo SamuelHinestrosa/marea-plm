@@ -726,6 +726,33 @@ punto, los dos al medio —un «!» descentrado no es un «!»—, con el salto 
 Marea. **Una vez por episodio**, desde el primero hasta que no queda ninguno: un
 aviso que salta cada vez es un aviso que se acaba tapando con una ventana.
 
+### El modo demostración, y lo que destapó
+
+![Los avisos llegando solos](evidencia/demo-gotas.png)
+
+Hasta ahora los cinco avisos eran texto fijo en la escena y `notice` lo
+disparaba yo a mano con `--decir`. Ahora los suelta la lógica: una tanda que
+entra sola —uno, otro, **dos seguidos** para ver la ráfaga, otro, y un urgente
+al final— y que llena la bandeja con lo que va llegando. Lo que cruza la
+frontera es exactamente lo que mandaría el servicio de verdad: `cat`, `who`,
+`line` y el suceso.
+
+![La bandeja, con lo que ha ido llegando](evidencia/demo-oleaje.png)
+
+pleamar **sabe recibir las notificaciones del escritorio** —`sys.watch(
+"notifications")` da la lista viva y `notifications.invoke` / `dismiss` actúan
+sobre ellas—, pero aquí ese permiso no está dado a propósito: el primero que lo
+pide se queda el sitio, y en esta máquina ese sitio es de Marea. Un prototipo no
+le quita los avisos a la barra de verdad. El día que se dé el permiso, lo único
+que cambia es de dónde salen.
+
+**Y el primer aviso de verdad destapó un fallo que llevaba semanas escondido:**
+el color de una fila salía de **su sitio en la lista**, no de su categoría. Con
+cinco filas de ejemplo —una por categoría, y justo en ese orden— no se notaba
+nunca; en cuanto llegaron dos de Telegram seguidos, salieron de colores
+distintos. Es exactamente para lo que sirve enchufar una cosa a datos que no has
+elegido tú.
+
 **Lo que falta de la bandeja:** la gota de sudor y la gota ámbar que sube y se
 queda arriba mientras dure.
 

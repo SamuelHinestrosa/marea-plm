@@ -102,6 +102,12 @@ scene Marea {
     //  a su lado, ella se sobresalta y la mira, se queda lo que hace falta para
     //  leerla y luego se estrecha hasta ser una gota del color de su categoría,
     //  que vuela por una curva a su hombro. Al llegar, un trago.
+    //  Mientras esto sea verdad, la lógica va soltando una tanda de avisos
+    //  inventados: es el modo demostración, para poder ver el oleaje entero sin
+    //  esperar a que a alguien le escriban. `--decir "fact demo false"` lo para.
+    //  Los de verdad los sabe traer pleamar, pero pide su permiso y en esta
+    //  máquina ese sitio es de Marea.
+    fact demo = true
     event notice                       // llega uno: antes se dicen `cat`, `who` y `line`
     event landed
     event tray ->                      // pulsar la tarjeta: la lógica abre la bandeja
@@ -1168,9 +1174,15 @@ scene Marea {
             //  debajo de ella y no se vería nunca.
             let fx0 = tx0 + 232
             let fx = fx0 + fuera.$k * 520 + tira.$k
-            //  El ámbar de un urgente pisa al color de su categoría: lo que
-            //  importa de esa fila ya no es de quién es, es que corre prisa.
-            let color.$k = mix(mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5), #e2b25a, if(urg.$k, 1, 0))
+            //  El color es el de SU CATEGORÍA, no el de su sitio en la lista.
+            //  Salía de `k` —la fila— y con cinco filas de ejemplo, una por
+            //  categoría y en ese orden, no se notaba: dos avisos de Telegram
+            //  seguidos salían de colores distintos en cuanto llegaron de
+            //  verdad. Es lo que destapó el modo demostración.
+            //
+            //  Y el ámbar de un urgente pisa al de su categoría: lo que importa
+            //  de esa fila ya no es de quién es, es que corre prisa.
+            let color.$k = mix(mix(mix(mix(azul, lila, catfila.$k > 1.5), verde, catfila.$k > 2.5), ambar, catfila.$k > 3.5), #e2b25a, if(urg.$k, 1, 0))
             group {
                 opacity: sube.$k * (1 - fuera.$k)
                 show: viva.$k

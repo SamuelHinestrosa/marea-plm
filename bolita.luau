@@ -156,6 +156,99 @@ on("del_menu", function(i)
     log("a plugin entry from her menu", e ~= nil and e.id or i)
 end)
 
+-- ── el oleaje, en modo demostración ────────────────────────────────
+--  pleamar sabe recibir las notificaciones del escritorio de verdad: se pide
+--  el permiso `notifications` y `sys.watch("notifications", …)` da la lista
+--  viva, con su aplicación, su título, su cuerpo y su urgencia. Aquí ese
+--  permiso NO está dado a propósito: quien ocupa ese sitio en esta máquina es
+--  Marea, y el primero que lo pide se lo queda. Un prototipo no le quita los
+--  avisos a la barra de verdad.
+--
+--  Así que esto es lo otro: una tanda inventada que entra sola, para poder ver
+--  el oleaje entero —la llegada, la ráfaga, la bandeja y el urgente— sin
+--  esperar a que a alguien le escriban. Lo que se manda por la frontera es
+--  exactamente lo mismo que mandaría el servicio: `cat`, `who`, `line` y el
+--  suceso. El día que se dé el permiso, lo único que cambia es de dónde salen.
+--
+--  Se para con `pleamar --decir bolita "fact demo false"`.
+
+--  1 mensajes · 2 trabajo · 3 calendario · 4 sistema. Es lo que decide de qué
+--  color es la gota, así que un aviso sin categoría conocida es «sistema».
+local DE = { TELEGRAM = 1, CORREO = 2, CALENDARIO = 3, SISTEMA = 4 }
+
+local tanda = {
+    { app = "TELEGRAM",   que = "Ana Ruiz",             mas = "¿Comemos hoy? Tengo mesa a las dos", en = 1400 },
+    { app = "CORREO",     que = "Factura de septiembre", mas = "vence el 30",                        en = 5200 },
+    --  Dos seguidos: la ráfaga se apila y sale «+N más» en vez de tres saltos.
+    { app = "TELEGRAM",   que = "Grupo de la obra",     mas = "6 mensajes sin leer",                 en = 8600 },
+    { app = "TELEGRAM",   que = "Marcos",               mas = "te llamo en cinco",                   en = 9100 },
+    { app = "CALENDARIO", que = "Revisión de diseño",   mas = "en 10 minutos · sala grande",         en = 13000 },
+    --  Y uno urgente, que no se agrupa: fila propia, arriba y en ámbar.
+    { app = "SISTEMA",    que = "Batería al 8 %",       mas = "quedan unos 12 minutos", urgente = true, en = 18000 },
+}
+--  Lo que va diciendo cada fila de cuándo llegó. No hay reloj aquí: el sitio en
+--  la lista ya cuenta la historia, y es lo que hace el contrato.
+local EDAD = { "ahora", "2 min", "9 min", "26 min", "1 h" }
+
+local filas = {}
+
+local function pintar()
+    for k = 1, 5 do
+        local f = filas[k]
+        fact["viva." .. k] = f ~= nil
+        if f ~= nil then
+            text["fila." .. k .. ".app"] = f.app
+            text["fila." .. k .. ".que"] = f.que
+            text["fila." .. k .. ".mas"] = f.mas
+            text["fila." .. k .. ".hora"] = EDAD[k]
+            fact["catfila." .. k] = f.cat
+            fact["urg." .. k] = f.urgente == true
+        end
+    end
+end
+
+--  Llega uno: primero se dice QUÉ es —la escena lo necesita antes del suceso,
+--  porque la tarjeta que vuela ya lleva su nombre escrito— y luego que ha
+--  llegado. Un urgente, además, se anuncia como tal.
+local function llega(n)
+    n.cat = DE[n.app] or 4
+    table.insert(filas, 1, n)
+    while #filas > 5 do table.remove(filas) end
+    pintar()
+    fact.cat = n.cat
+    text.who = n.que
+    text.line = n.mas
+    emit("notice")
+    if n.urgente then emit("urge") end
+end
+
+--  La tanda entera, y otra vez pasados 22 s. Antes de repetir se vacía la
+--  bandeja y las cuentas de las gotas: si no, la segunda vuelta empieza con la
+--  primera todavía encima y ya no se ve nada.
+local function vaciar()
+    filas = {}
+    pintar()
+    for k = 1, 5 do
+        fact["n." .. k] = 0
+        fact["last." .. k] = 0
+    end
+end
+
+local function tandaEntera()
+    if fact.demo == false then return end
+    for _, n in ipairs(tanda) do
+        after(n.en, function() if fact.demo ~= false then llega(n) end end)
+    end
+    after(22000 + tanda[#tanda].en, function()
+        if fact.demo == false then return end
+        vaciar()
+        after(1200, tandaEntera)
+    end)
+end
+
+log("demo · los avisos son inventados: pleamar cede el sitio a quien ya lo tenga")
+after(600, tandaEntera)
+
 -- ── el oleaje ──────────────────────────────────────────────────────
 --  Resolver una fila es marcarla leída donde de verdad viva. Aquí solo se
 --  apunta: lo que se ve —la fila yéndose, la gota volviendo, la cuenta
