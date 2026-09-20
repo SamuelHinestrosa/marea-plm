@@ -40,6 +40,12 @@ scene Marea {
     prop gaze.y = 0 ~gentle
     prop press = 0 ~quick             // la compresión bajo el clic
 
+    //  El viaje de salir del borde y volver: 620 ms, que es lo que dice el
+    //  contrato. Una gota que se va en 200 ms es una gota que nadie vio irse.
+    fact hidden = true                // «meterse en el borde», encendido
+    fact needed = false               // algo la reclama: un aviso, el puntero…
+    prop out = 0 ~620ms               // 0 hundida, 1 separada del todo
+
     // ── reposo vivo ──────────────────────────────────────────────
     //  Parpadeo breve, cada 5,2 s. Y la mirada, que sigue al ratón de cerca.
     blink lid every 5.2s for 120ms
@@ -59,17 +65,31 @@ scene Marea {
     }
     every 12s..24s { play breathe }
 
+    follow out = if(hidden and not needed, 0, 1)
+
+    //  Hundida asoma algo menos de la mitad; separada cuelga a su propia altura.
+    let sube = if(hidden, (1 - out) * 49, 0)
+    let cy_real = cy + body.y - sube
+
+    //  El cuello: mínimo en reposo y máximo a mitad de la separación, que es una
+    //  campana. Al final no queda nada y el hilo se rompe solo.
+    let cuello = 30 * 4 * out * (1 - out) * if(hidden, 1, 0)
+
     // ── el cuerpo ────────────────────────────────────────────────
-    //  La sombra es una copia de ella misma, no una elipse plana debajo.
+    //  El agua del borde y la bolita son una sola silueta: el cuello no se
+    //  dibuja, sale de fundirlas. Por eso se afina y rompe sin que nadie lo
+    //  calcule, y por eso es cóncavo.
     body {
         color: coal
         rim: 6%
         shadow: 0, 7, 16, 34%
+        box agua { from: cx - 70, -70; size: 140, 70 * if(hidden, 1, 0) }
         ellipse cuerpo {
-            at: cx, cy + body.y
+            at: cx, cy_real
             radius: r
             rotate: tilt
             scale: 1 + press * 0.04, 1 - press * 0.05
+            blend: cuello
         }
     }
 
@@ -77,16 +97,16 @@ scene Marea {
     //  Recortada al cuerpo: lo que se salga de la bolita no existe. Es lo que
     //  dejará que los ojos se conviertan en otra cosa sin salirse de ella.
     group {
-        clip inset 1 ellipse { at: cx, cy + body.y; radius: r }
+        clip inset 1 ellipse { at: cx, cy_real; radius: r }
         move: gaze.x, gaze.y + look.y
         box {
-            at: cx - 6.5, cy + body.y + 2.5
+            at: cx - 6.5, cy_real + 2.5
             size: 5, eyes * lid
             corner: 2.5
             color: ink
         }
         box {
-            at: cx + 6.5, cy + body.y + 2.5
+            at: cx + 6.5, cy_real + 2.5
             size: 5, eyes * lid
             corner: 2.5
             color: ink
@@ -94,7 +114,11 @@ scene Marea {
     }
 
     // ── lo que responde al ratón ─────────────────────────────────
-    zone box cuerpo_zona { at: cx, cy + body.y; size: 2 * r, 2 * r; corner: r; cursor: pointer }
+    zone box cuerpo_zona { at: cx, cy_real; size: 2 * r, 2 * r + 30; corner: r; cursor: pointer }
+    //  Cualquier cosa que la necesite la saca; y vuelve a hundirse tras 2,6 s de
+    //  gracia, que es lo que el contrato llama gracia y aquí se dice tal cual.
+    on enter cuerpo_zona { needed = true }
+    on away cuerpo_zona for 2.6s { needed = false }
     on press cuerpo_zona { press: 1 }
     on release cuerpo_zona { press: 0 }
 }
