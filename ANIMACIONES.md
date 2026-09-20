@@ -463,6 +463,14 @@ sabe **leer** la red y no cambiarla, y de bluetooth no sabe nada todavía. Está
 apuntado como su limitación B15. Un interruptor que se mueve sin hacer nada es
 mentira, así que no se mueve.
 
+### También brota de ella
+
+![El cuello del centro de control](evidencia/centro-brota.png)
+
+Igual que la bandeja: el panel va en el mismo `body` que su cuerpo, se solapan
+17 px, y entre los dos hay un cuello que nadie dibuja. No es una tarjeta que
+aparece al lado; es ella, estirada.
+
 ### Y con maquetación, sin un solo ancho a mano
 
 Las tres tarjetas se pisaban: el nombre de la red se metía debajo del
@@ -549,9 +557,29 @@ modelo no tiene identidad todavía (su limitación G12), así que el sitio de ca
 fila es «cuántas vivas tengo encima», escrito fila por fila, y un muelle que lo
 sigue.
 
-**Lo que falta de la bandeja:** «Deshacer» durante 5 s con su mecha, descartar
-—que no manda gota, porque lo descartado no vuelve—, la fila propia en ámbar de
-un urgente, y el Remanso entero.
+### Deshacer, con su mecha
+
+> «"Deshacer" durante 5 s, con una mecha que se consume.»
+
+![La mecha](evidencia/deshacer-mecha.png)
+
+Recién hecho y a punto de apagarse.
+
+Cinco segundos exactos y **a ritmo constante** no los da un muelle: los da un
+gesto, que es una línea de tiempo con su curva. `5s linear { mecha: 0 }`, y al
+acabar el fotograma siguiente emite que se apagó. Es lo que hace que una mecha
+parezca una mecha y no algo que frena al final.
+
+Medido: la mecha va de 1,00 a 0,02 en 4,7 s y se apaga sola. Y deshacer
+devuelve la fila —sube a su sitio— y la cuenta de su gota vuelve a subir con su
+latido: comprobado con el ratón de mentira, `viva.1` de 1 a 0 y otra vez a 1,
+`n.1` de 2 a 1 y otra vez a 2.
+
+Mientras se puede deshacer, la mecha ocupa el sitio del pie: es más urgente que
+un enlace a «Historial».
+
+**Lo que falta de la bandeja:** descartar —que no manda gota, porque lo
+descartado no vuelve—, la fila propia en ámbar de un urgente, y el Remanso.
 
 ## Medidas de la lámina
 

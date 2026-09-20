@@ -92,6 +92,19 @@ scene Marea {
     event abrir_bandeja
     event cerrar_bandeja
     event resolver ->                  // con cuál, de carga: la lógica la marca leída
+    //  «Deshacer» durante 5 s, con una mecha que se consume. Cinco segundos
+    //  exactos y a ritmo constante no los da un muelle: los da un gesto, que es
+    //  una línea de tiempo con su curva. `linear` es lo que hace que una mecha
+    //  parezca una mecha y no algo que frena al final.
+    fact deshacer = false
+    fact ultima = 0                    // qué fila se resolvió, para devolverla
+    event se_apago
+    pose mecha = 1
+    gesture arde state {
+        5s linear { mecha: 0 }
+        10ms emit se_apago
+    }
+    on se_apago { deshacer = false }
     //  De qué es cada fila. Lo pondría la lógica; aquí se nace con algo.
     prop tray = 0 ~240ms               // 0 dentro de ella, 1 tarjeta entera
     prop carril = 0 ~240ms             // las gotas: 0 en su hombro, 1 en el carril
@@ -415,6 +428,15 @@ scene Marea {
             size: tray.w, tray.h
             corner: 22 * tray
             blend: 30 * 4 * tray * (1 - tray) + 24 * tray
+        }
+        //  Y el centro de control igual: brota de ella con su cuello, y cuando
+        //  está abierto queda unido por un fillet. Un panel que aparece al lado
+        //  es un panel; esto es ella, estirada.
+        box tarjeta {
+            at: card.x, card.y
+            size: card.w, card.h
+            corner: 22 * card
+            blend: 30 * 4 * card * (1 - card) + 24 * card
         }
         box nota_caja {
             at: nota.x, cy_real
@@ -846,9 +868,31 @@ scene Marea {
             }
         }
 
-        //  El pie: lo que ha llegado, y sus ajustes.
-        text "Historial" { at: tx0, tray.y + 198; anchor: left center; size: 11.5; color: #8b8f95 }
-        text "Ajustes" { at: tray.x + 232, tray.y + 198; anchor: right center; size: 11.5; color: #8b8f95 }
+        //  El pie: lo que ha llegado, y sus ajustes. Mientras se puede deshacer
+        //  su sitio es de la mecha, que es más urgente que un enlace.
+        group {
+            show: not deshacer
+            text "Historial" { at: tx0, tray.y + 198; anchor: left center; size: 11.5; color: #8b8f95 }
+            text "Ajustes" { at: tray.x + 232, tray.y + 198; anchor: right center; size: 11.5; color: #8b8f95 }
+        }
+
+        // ── deshacer, con su mecha ───────────────────────────────
+        //  Cinco segundos, y se ve cuántos quedan: la mecha se consume de
+        //  izquierda a derecha a ritmo constante. Que se vea el tiempo irse es
+        //  lo que hace que no haya que leer «5 s» en ninguna parte.
+        group {
+            show: deshacer
+            let dz.y = tray.y + 198
+            prop dz.luz = 0 ~140ms
+            box { at: tray.x, dz.y; size: 456, 40; corner: 12; color: mix(#1b1b1c, #232425, dz.luz) }
+            //  La mecha, pegada al borde de abajo de su pastilla.
+            box { from: tray.x - 228, dz.y + 16; size: 456 * mecha, 4; corner: 2; color: mint }
+            text "Hecho. ¿Lo deshago?" { at: tray.x - 208, dz.y - 3; anchor: left center; size: 11.5; color: #8b8f95 }
+            text "Deshacer" { at: tray.x + 192, dz.y - 3; anchor: right center; size: 12; weight: 600; color: mint }
+            zone box deshacer_zona { at: tray.x, dz.y; size: 456, 40; corner: 12; cursor: pointer; active: deshacer }
+            on enter deshacer_zona { dz.luz: 1 }
+            on leave deshacer_zona { dz.luz: 0 }
+        }
     }
 
     //  La zona de gracia del panel va DEBAJO de lo que lleva dentro: la
@@ -869,15 +913,12 @@ scene Marea {
     //  ControlCenter de ahora, que ya no es esta lámina.
     let card.w = 390 * card
     let card.h = 410 * card
-    let card.x = cx + 40 + card.w / 2
+    //  Pegada a ella, no al lado: se solapan 17 px y con eso el fundido hace un
+    //  cuello. Es lo mismo que la bandeja, y por la misma razón: la tarjeta no
+    //  aparece al lado, sale de ella.
+    let card.x = cx + 6 + card.w / 2
     let card.y = cy_real + card.h / 2 - 8
 
-    body {
-        color: #16181a
-        rim: 5%
-        shadow: 0, 18, 44, 46%
-        box tarjeta { at: card.x, card.y; size: card.w, card.h; corner: 22 * card }
-    }
 
     clip inset 2 box { at: card.x, card.y; size: card.w, card.h; corner: 22 * card }
     group {
@@ -1183,6 +1224,9 @@ scene Marea {
         on press filazona.$k while viva.$k {
             fuera.$k: 1 ~220ms
             suelta.$k: 1 ~380ms
+            deshacer = true
+            ultima = k
+            play arde
             emit resolver(k)
         }
         //  Cuando la gota llega a ella: la fila se apaga y ella da un trago.
@@ -1198,6 +1242,14 @@ scene Marea {
             on still suelta.$k for 60ms while suelta.$k > 0.97 and catfila.$k == c and n.$c > 0 {
                 n.$c = n.$c - 1
                 impulse late.$c 4
+            }
+            //  Y deshacer la devuelve: la fila vuelve a su sitio subiendo, y la
+            //  cuenta de su gota sube otra vez con su latido.
+            on press deshacer_zona while ultima == k and catfila.$k == c {
+                viva.$k = true
+                n.$c = n.$c + 1
+                impulse late.$c 5
+                deshacer = false
             }
         }
     }
