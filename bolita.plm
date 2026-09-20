@@ -16,7 +16,10 @@ import "comun/paleta.plm"
 
 scene Marea {
     surface {
-        size: 760, 470
+        //  La superficie tiene que dar de sí para la tarjeta **y su sombra**: 18 px
+        //  de desplazamiento más 44 de difusión, por abajo y por los lados. Si no,
+        //  la sombra se corta en seco contra el borde y se ve el recorte.
+        size: 820, 580
         anchor: top
         margin: 0
         screens: "HDMI-A-1"
@@ -149,13 +152,13 @@ scene Marea {
         text "Centro de control" { at: x0, y0 + 24; anchor: left center; size: 19; weight: 500; color: ink }
 
         //  Los dos deslizadores de la lámina: brillo y volumen.
-        box { at: card.x - 176, card.y + 18; size: 192, 232; corner: 16; color: #1d2022 }
+        box { at: card.x - 176, card.y - 6; size: 192, 200; corner: 16; color: #1d2022 }
         repeat k in 0..2 {
             let sx = card.x - 224 + k * 96
-            box { at: sx, card.y - 4; size: 26, 150; corner: 13; color: #2a2e30 }
-            box { from: sx - 13, card.y + 24 - k * 26; size: 26, 47 + k * 26; corner: 13; color: mint }
-            ellipse { at: sx, card.y + 22 - k * 26; radius: 11; color: #eef3f0 }
-            text "{if(k == 0, 68, 35)} %" { at: sx, card.y + 106; anchor: center; size: 11; color: ink; opacity: 60% }
+            box { at: sx, card.y - 26; size: 26, 140; corner: 13; color: #2a2e30 }
+            box { from: sx - 13, card.y - 6 - k * 24; size: 26, 50 + k * 24; corner: 13; color: mint }
+            ellipse { at: sx, card.y - 8 - k * 24; radius: 11; color: #eef3f0 }
+            text "{if(k == 0, 68, 35)} %" { at: sx, card.y + 68; anchor: center; size: 11; color: ink; opacity: 60% }
         }
 
         //  Y la columna de filas, como en la lámina: icono, título, lo que pasa
@@ -166,7 +169,7 @@ scene Marea {
         text detalle.1 = "Casa"
         text detalle.2 = "Auriculares"
         text detalle.3 = "25 min"
-        column filas { at: card.x + 24, card.y - 108; gap: 10
+        column filas { at: card.x + 24, card.y - 106; gap: 10
             repeat k in 1..4 {
                 group {
                     size: 232, 58
@@ -185,15 +188,15 @@ scene Marea {
         }
 
         //  Abajo, lo que suena.
-        box { at: card.x, card.y + 152; size: 512, 76; corner: 16; color: #1d2022 }
+        box { at: card.x, card.y + 148; size: 512, 76; corner: 16; color: #1d2022 }
         body {
-            gradient: radial card.x - 218, card.y + 152 radius 46, #7e9c8b, #2f4a3e
-            box { at: card.x - 218, card.y + 152; size: 56, 56; corner: 12 }
+            gradient: radial card.x - 218, card.y + 148 radius 46, #7e9c8b, #2f4a3e
+            box { at: card.x - 218, card.y + 148; size: 56, 56; corner: 12 }
         }
-        text "Sin prisa" { at: card.x - 178, card.y + 144; anchor: left center; size: 12.5; color: ink }
-        text "Sesión de tarde" { at: card.x - 178, card.y + 162; anchor: left center; size: 10.5; color: ink; opacity: 42% }
+        text "Sin prisa" { at: card.x - 178, card.y + 140; anchor: left center; size: 12.5; color: ink }
+        text "Sesión de tarde" { at: card.x - 178, card.y + 158; anchor: left center; size: 10.5; color: ink; opacity: 42% }
         //  Anterior, pausa y siguiente. Los triángulos son caminos: tres puntos.
-        let by = card.y + 152
+        let by = card.y + 148
         let bx1 = card.x + 120
         let bx3 = card.x + 212
         path { at: bx1 - 7, by - 7; color: ink; move 12, 0; line 12, 14; line 0, 7; close }

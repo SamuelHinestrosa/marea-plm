@@ -61,6 +61,14 @@ on change open while open      { card: 1 ~290ms;  content: 1 ~200ms after 90ms }
 on change open while not open  { content: 0 ~50ms; card: 0 ~210ms after 50ms }
 ```
 
+**Dos cosas que se vieron al mirarla, y que no se ven en los números:** la
+tarjeta se salía por abajo de la superficie, y el bloque de lo que suena se
+montaba encima de los deslizadores. La segunda era maqueta mía; la primera es que
+**una superficie no crece con lo que lleva dentro, ni siquiera para una sombra**:
+la de la tarjeta necesita 62 px por debajo (18 de desplazamiento y 44 de
+difusión), y sin ellos se corta en seco contra el borde. Está anotado en pleamar
+como S1.
+
 **Esta pieza no necesitó tocar el lenguaje.** Con `on change` y `while`, los
 retrasos de las transiciones y los muelles dichos en tiempo, la coreografía salió
 tal cual está escrita en el contrato. La tarjeta, en `evidencia/centro-de-control.png`,
