@@ -367,6 +367,35 @@ marca el paso. El frame más largo en vuelo pasó de **300–780 ms a 17**.
 Para una alternativa a Quickshell cuyo argumento es la fluidez, esto valía más
 que la gota.
 
+## El centro de control, con lo que lleva de verdad
+
+![El centro de control](evidencia/centro-de-control.png)
+
+Ya no es una maqueta mía: es lo que hay en `prototype/ControlCenter.qml`.
+
+| | |
+| --- | --- |
+| **Los niveles** | Salida y micrófono, uno al lado del otro. El cuerpo de la tarjeta abre el detalle de sonido; las pistas y los iconos se quedan con su propia pulsación, así que arrastrar un nivel o silenciar no abre nada |
+| **Las seis de la casa** | Wi-Fi, Bluetooth, Faro, Sistema, Conversación y Sesión, con su icono, su título y un subtítulo que contesta la pregunta sin abrir nada. Las tres primeras se encienden y se apagan; las otras tres abren una página, y eso es una flecha |
+| **La órbita** | Lo que está en segundo plano, como un puñado de cosas girando alrededor de lo que haces y no como iconos apretados en una esquina. El punto de estado va aparte: teñir el icono sería pisarle su identidad a quien lo pone |
+| **Lo que suena** | Solo mientras suena algo. Sin música lo dice, y no deja el hueco |
+
+**Y dos de ellas no necesitan lógica.** El Wi-Fi enciende su interruptor y
+escribe su subtítulo desde `service network`, y lo que suena sale de
+`service media`. Un plugin no puede meterse entre el volumen y el wifi —eso es
+la casa y tiene su orden—: lo suyo iría en la franja de abajo.
+
+### Lo que esto destapó en pleamar
+
+**`show:` no hacía nada.** Estaba ofrecido en formas, `body`, `text`, `image`,
+`input`, `group` y maquetación, `--comprobar` decía que bien, y solo funcionaba
+en la copia de un componente. Los dos rótulos de los niveles salían uno encima
+del otro, y las seis tarjetas llevaban interruptor **y** flecha a la vez. Ahora
+funciona donde está ofrecido, y apaga también la zona.
+
+**Y el servicio `audio` no tenía micrófono.** Solo daba la salida, y un panel de
+sonido enseña siempre los dos. Ahora `audio.input` y `audio.input_muted`.
+
 ## Medidas de la lámina
 
 De `design/concepts/2026-09-12-reposo-vivo/referencia-real-limpia.png`, que

@@ -15,9 +15,11 @@
 import "comun/paleta.plm"
 
 scene Marea {
-    permissions { services: "audio", "clock" }
+    permissions { services: "audio", "clock", "media", "network" }
     service clock as ahora { time: text = "--:--"; date: text }
-    service audio as sonido { volume: number; muted: bool }
+    service audio as sonido { volume: number; muted: bool; input: number; input_muted: bool }
+    service media as medios { playing: bool; title: text; artist: text }
+    service network as red { online: bool; name: text; kind: text; strength: number }
 
     surface {
         //  La superficie tiene que dar de sí para la tarjeta **y su sombra**: 18 px
@@ -100,6 +102,21 @@ scene Marea {
     //  La nota de la hora.
     fact note = false
     event calendar ->                  // un clic en ella: la lógica abre el calendario
+    //  Lo que la tarjeta le pide a la lógica. Aquí no hay lógica, así que se
+    //  quedan dichos: la frontera está escrita, que es lo que importa.
+    event mute_salida ->
+    event mute_micro ->
+    event tocar_pausa ->
+    event abrir ->                     // con cuál de las seis, de carga
+    repeat k in 1..7 {
+        fact puesta.$k = false
+        prop encendida.$k = 0 ~180ms
+        follow encendida.$k = if(puesta.$k, 1, 0)
+    }
+    //  Y la primera la enciende la red, no un hecho que alguien tenga que poner.
+    follow encendida.1 = if(red.online, 1, 0)
+    repeat k in 2..7 {
+    }
     prop nota = 0 ~190ms
     follow nota = if(note and not open and face == eye and out > 0.9 and fase == 0, 1, 0)
     let nota.x = cx + (23 + 14 + 52) * nota
@@ -112,6 +129,8 @@ scene Marea {
     //  exactamente igual desde aquí —que es justo lo que pide el contrato—.
     prop meter = 0 ~180ms             // 0 cara, 1 barra
     prop nivel = 0 ~quick             // lo que marca la barra
+    prop micro = 0 ~quick             // y lo que marca la del micrófono
+    follow micro = sonido.input
 
     //  ── lo que la cara puede ser ────────────────────────────────
     //  Un hecho con tipo: el compilador comprueba contra qué se compara, así
@@ -577,7 +596,10 @@ scene Marea {
         box tarjeta { at: card.x, card.y; size: card.w, card.h; corner: 22 * card }
     }
 
-    //  Lo de dentro, recortado a la tarjeta mientras se abre.
+    //  Lo que lleva dentro es lo de Marea, no una maqueta: los dos niveles a la
+    //  izquierda, las seis tarjetas de la casa a la derecha, la órbita —lo que
+    //  está en segundo plano— y lo que suena. Todo recortado a la tarjeta
+    //  mientras se abre.
     clip inset 2 box { at: card.x, card.y; size: card.w, card.h; corner: 22 * card }
     group {
         opacity: content
@@ -588,62 +610,154 @@ scene Marea {
         text "MAREA" { at: x0, y0; anchor: left center; size: 9.5; weight: 600; color: ink; opacity: 35% }
         text "Centro de control" { at: x0, y0 + 24; anchor: left center; size: 19; weight: 500; color: ink }
 
-        //  Los dos deslizadores de la lámina: brillo y volumen.
-        box { at: card.x - 176, card.y - 6; size: 192, 200; corner: 16; color: #1d2022 }
+        // ── los niveles ──────────────────────────────────────────
+        //  Salida y micrófono. El cuerpo de la tarjeta abre el detalle de
+        //  sonido; las pistas y los iconos se quedan con su propia pulsación,
+        //  así que arrastrar un nivel o silenciar no abre nada.
+        let niv.x = card.x - 190
+        let niv.y = card.y - 50
+        prop niv.luz = 0 ~140ms
+        zone box niveles_zona { at: niv.x, niv.y; size: 160, 178; corner: 16; cursor: pointer; active: content > 0.9 }
+        box { at: niv.x, niv.y; size: 160, 178; corner: 16; color: mix(#171717, #1b1b1c, niv.luz) }
+        on enter niveles_zona { niv.luz: 1 }
+        on leave niveles_zona { niv.luz: 0 }
+
         repeat k in 0..2 {
-            let sx = card.x - 224 + k * 96
-            box { at: sx, card.y - 26; size: 26, 140; corner: 13; color: #2a2e30 }
-            box { from: sx - 13, card.y - 6 - k * 24; size: 26, 50 + k * 24; corner: 13; color: mint }
-            ellipse { at: sx, card.y - 8 - k * 24; radius: 11; color: #eef3f0 }
-            text "{if(k == 0, 68, 35)} %" { at: sx, card.y + 68; anchor: center; size: 11; color: ink; opacity: 60% }
+            let sx = niv.x - 38 + k * 76
+            let val = if(k == 0, nivel, micro)
+            let mudo = if(k == 0, if(sonido.muted, 1, 0), if(sonido.input_muted, 1, 0))
+            //  La pista, y lo lleno encima. En gris cuando está silenciado: el
+            //  nivel sigue siendo verdad, pero no suena.
+            box { at: sx, niv.y + 8; size: 26, 100; corner: 13; color: #242527 }
+            box { from: sx - 13, niv.y + 58 - 100 * val; size: 26, 100 * val; corner: 13
+                  color: mix(mint, #6b7280, mudo) }
+            text "{val * 100, 0} %" { at: sx, niv.y + 72; anchor: center; size: 10.5; color: ink; opacity: 55% }
+            text "Salida" { at: sx, niv.y + 86; anchor: center; size: 10; color: #8b8f95; show: k == 0 }
+            text "Micro" { at: sx, niv.y + 86; anchor: center; size: 10; color: #8b8f95; show: k == 1 }
         }
-
-        //  Y la columna de filas, como en la lámina: icono, título, lo que pasa
-        //  debajo, y el interruptor a la derecha.
-        text ajuste.1 = "Wi-Fi"
-        text ajuste.2 = "Bluetooth"
-        text ajuste.3 = "Concentración"
-        text detalle.1 = "Casa"
-        text detalle.2 = "Auriculares"
-        text detalle.3 = "25 min"
-        column filas { at: card.x + 24, card.y - 106; gap: 10
-            repeat k in 1..4 {
-                group {
-                    size: 232, 58
-                    prop luz = 0 ~140ms
-                    zone box fila.$k { from: 0, 0; size: 232, 58; corner: 14; cursor: pointer }
-                    box { from: 0, 0; size: 232, 58; corner: 14; color: mix(#1d2022, #272c2e, luz) }
-                    ellipse { at: 28, 29; radius: 9; color: mint; opacity: 55% + luz * 25% }
-                    text ajuste.$k { at: 50, 22; anchor: left center; size: 12.5; color: ink }
-                    text detalle.$k { at: 50, 38; anchor: left center; size: 10.5; color: ink; opacity: 42% }
-                    box { at: 202, 29; size: 34, 18; corner: 9; color: mix(#2f3436, mint, if(k < 3, 1, 0)) }
-                    ellipse { at: 202 + if(k < 3, 7, -7), 29; radius: 7; color: #eef3f0 }
-                    on enter fila.$k { luz: 1 }
-                    on leave fila.$k { luz: 0 }
-                }
+        //  Y su icono, que es lo que se pulsa para silenciar: un altavoz y un
+        //  micrófono, tachados cuando lo están.
+        repeat k in 0..2 {
+            let sx = niv.x - 38 + k * 76
+            let iy = niv.y - 62
+            let mudo = if(k == 0, if(sonido.muted, 1, 0), if(sonido.input_muted, 1, 0))
+            group {
+                opacity: 1 - mudo * 0.55
+                //  El altavoz: el cuerpo y su bocina.
+                path { at: sx - 7, iy - 5; color: ink; show: k == 0
+                       move 0, 3; line 4, 3; line 9, 0; line 9, 11; line 4, 8; line 0, 8; close }
+                arc { at: sx + 4, iy; radius: 6; span: 120deg; width: 1.6; rotate: 90deg; color: ink; show: k == 0 }
+                //  El micrófono: la cápsula y el arco que la sostiene.
+                box { at: sx, iy - 3; size: 7, 13; corner: 3.5; color: ink; show: k == 1 }
+                arc { at: sx, iy + 1; radius: 7; span: 180deg; width: 1.6; rotate: 180deg; color: ink; show: k == 1 }
+                line { from: sx, iy + 8; to: sx, iy + 12; width: 1.6; color: ink; show: k == 1 }
             }
+            //  Tachado, que es como se dice «silenciado» sin escribirlo.
+            line { from: sx - 9, iy - 9; to: sx + 9, iy + 9; width: 1.8; color: #e0655a; opacity: mudo }
+            zone box mute.$k { at: sx, iy; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 }
+        }
+        on press mute.0 { emit mute_salida }
+        on press mute.1 { emit mute_micro }
+
+        // ── las seis de la casa ──────────────────────────────────
+        //  Un plugin no puede meterse entre el volumen y el wifi: eso es la
+        //  casa y tiene su orden. Lo suyo va en la franja de abajo.
+        text titulo.1 = "Wi-Fi"
+        text titulo.2 = "Bluetooth"
+        text titulo.3 = "Faro"
+        text titulo.4 = "Sistema"
+        text titulo.5 = "Conversación"
+        text titulo.6 = "Sesión"
+        text sub.1 = "—"
+        text sub.2 = "—"
+        text sub.3 = "Nada está mirando"
+        text sub.4 = "CPU, memoria y discos"
+        text sub.5 = "—"
+        text sub.6 = "Bloquear, salir, apagar"
+        repeat k in 1..7 {
+            let tx = card.x - 10 + if(k > 3, 164, 0)
+            let ty = card.y - 112 + if(k > 3, k - 4, k - 1) * 60
+            prop luz.$k = 0 ~140ms
+            zone box fila.$k { at: tx, ty; size: 156, 54; corner: 14; cursor: pointer; active: content > 0.9 }
+            //  Encendida lleva filo de menta: es el único borde de la tarjeta, y
+            //  por eso se lee como estado y no como decoración.
+            body {
+                color: mix(#171717, #1d1d1e, luz.$k)
+                border: if(encendida.$k > 0.5, 1, 0), mint
+                box { at: tx, ty; size: 156, 54; corner: 14 }
+            }
+            text titulo.$k { at: tx - 62, ty - 8; anchor: left center; size: 13; color: ink }
+            //  El Wi-Fi no necesita que nadie se lo cuente: la red es un
+            //  servicio. Es el subtítulo que contesta la pregunta sin abrir nada.
+            text sub.$k { at: tx - 62, ty + 9; anchor: left center; size: 10.5; width: 92; lines: 1; color: #8b8f95; show: k != 1 }
+            text red.name { at: tx - 62, ty + 9; anchor: left center; size: 10.5; width: 92; lines: 1; color: #8b8f95; show: k == 1 }
+            //  El interruptor solo lo llevan las tres que se encienden y se
+            //  apagan; las otras tres abren una página, y eso es una flecha.
+            group {
+                show: k < 4
+                box { at: tx + 52, ty; size: 42, 24; corner: 12; color: mix(#242527, mint, encendida.$k) }
+                ellipse { at: tx + 43 + 18 * encendida.$k, ty; radius: 9; color: #ffffff }
+            }
+            path { at: tx + 58, ty - 5; color: #8b8f95; stroke: 1.6; show: k > 3
+                   move 0, 0; line 5, 5; line 0, 10 }
+            on enter fila.$k { luz.$k: 1 }
+            on leave fila.$k { luz.$k: 0 }
+            on press fila.$k { emit abrir(k) }
         }
 
-        //  Abajo, lo que suena.
-        box { at: card.x, card.y + 148; size: 512, 76; corner: 16; color: #1d2022 }
-        body {
-            gradient: radial card.x - 218, card.y + 148 radius 46, #7e9c8b, #2f4a3e
-            box { at: card.x - 218, card.y + 148; size: 56, 56; corner: 12 }
+        // ── la órbita ────────────────────────────────────────────
+        //  Lo que está en segundo plano, dibujado como lo que es —un puñado de
+        //  cosas girando alrededor de lo que haces— y no como una fila de
+        //  iconos apretados en una esquina. El punto de estado va aparte, abajo
+        //  a la derecha: teñir el icono sería pisarle su identidad a quien lo
+        //  pone, y «necesita atención» lo dice la aplicación, no nosotros.
+        let orb.y = card.y + 90
+        text "EN SEGUNDO PLANO" { at: x0, orb.y - 34; anchor: left center; size: 8.5; weight: 600; color: #8b8f95 }
+        repeat k in 0..5 {
+            let ox = x0 + 22 + k * 54
+            prop orb.luz.$k = 0 ~140ms
+            box { at: ox, orb.y; size: 44, 44; corner: 22; color: mix(#171717, #1d1d1e, orb.luz.$k) }
+            ellipse { at: ox, orb.y - 2; radius: 9; color: mix(#4a4d50, #6b7075, orb.luz.$k) }
+            //  Ámbar cuando lo pide, menta cuando está normal, apagado si dice
+            //  que está pasiva. Es un estado del protocolo, no una suposición.
+            ellipse { at: ox + 13, orb.y + 13; radius: 4
+                      color: mix(mint, #e2b25a, if(k == 1, 1, 0)); opacity: if(k == 3, 25%, 100%) }
+            zone box orbe.$k { at: ox, orb.y; size: 44, 44; corner: 22; cursor: pointer; active: content > 0.9 }
+            on enter orbe.$k { orb.luz.$k: 1 }
+            on leave orbe.$k { orb.luz.$k: 0 }
         }
-        text "Sin prisa" { at: card.x - 178, card.y + 140; anchor: left center; size: 12.5; color: ink }
-        text "Sesión de tarde" { at: card.x - 178, card.y + 158; anchor: left center; size: 10.5; color: ink; opacity: 42% }
-        //  Anterior, pausa y siguiente. Los triángulos son caminos: tres puntos.
-        let by = card.y + 148
-        let bx1 = card.x + 120
-        let bx3 = card.x + 212
-        path { at: bx1 - 7, by - 7; color: ink; move 12, 0; line 12, 14; line 0, 7; close }
-        box { at: bx1 - 9, by; size: 3, 14; corner: 1.5; color: ink }
-        ellipse { at: card.x + 166, by; radius: 17; color: ink; opacity: 92% }
-        box { at: card.x + 162, by; size: 3.5, 13; corner: 1.75; color: #16181a }
-        box { at: card.x + 170, by; size: 3.5, 13; corner: 1.75; color: #16181a }
-        path { at: bx3 - 5, by - 7; color: ink; move 0, 0; line 12, 7; line 0, 14; close }
-        box { at: bx3 + 9, by; size: 3, 14; corner: 1.5; color: ink }
+
+        // ── lo que suena ─────────────────────────────────────────
+        //  La fila solo existe mientras suena algo, y se le dice a quien mide la
+        //  tarjeta para que no quede un hueco donde estaba la música.
+        group {
+            show: medios.playing
+            box { at: card.x, card.y + 160; size: 512, 76; corner: 16; color: #171717 }
+            body {
+                gradient: radial card.x - 218, card.y + 160 radius 46, #7e9c8b, #2f4a3e
+                box { at: card.x - 218, card.y + 160; size: 56, 56; corner: 12 }
+            }
+            text medios.title { at: card.x - 178, card.y + 152; anchor: left center; size: 12.5; width: 250; lines: 1; color: ink }
+            text medios.artist { at: card.x - 178, card.y + 170; anchor: left center; size: 10.5; width: 250; lines: 1; color: #8b8f95 }
+            let by = card.y + 160
+            let bx1 = card.x + 120
+            let bx3 = card.x + 212
+            path { at: bx1 - 7, by - 7; color: ink; move 12, 0; line 12, 14; line 0, 7; close }
+            box { at: bx1 - 9, by; size: 3, 14; corner: 1.5; color: ink }
+            ellipse { at: card.x + 166, by; radius: 17; color: ink; opacity: 92% }
+            //  Pausa mientras suena, y un triángulo cuando no.
+            box { at: card.x + 162, by; size: 3.5, 13; corner: 1.75; color: #16181a }
+            box { at: card.x + 170, by; size: 3.5, 13; corner: 1.75; color: #16181a }
+            path { at: bx3 - 5, by - 7; color: ink; move 0, 0; line 12, 7; line 0, 14; close }
+            box { at: bx3 + 9, by; size: 3, 14; corner: 1.5; color: ink }
+            zone box tocar { at: card.x + 166, by; size: 40, 40; corner: 20; cursor: pointer; active: content > 0.9 }
+            on press tocar { emit tocar_pausa }
+        }
+        //  Sin música, la tarjeta no deja el hueco: lo dice, y ya.
+        text "No suena nada" { at: card.x, card.y + 160; anchor: center; size: 11.5; color: #8b8f95
+                               show: not medios.playing }
     }
+
 
     // ── abrir y cerrar ───────────────────────────────────────────
     //  Al abrir manda la geometría y el contenido entra detrás. Al cerrar, al
