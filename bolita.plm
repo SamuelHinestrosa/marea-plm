@@ -467,6 +467,9 @@ scene Marea {
     let sube = if(hidden, (1 - out) * 40, 0)
     //  Y al abrir la bandeja sube 5 px, que es lo que dice el contrato.
     let cy_real = cy + body.y - sube - away * 84 - 5 * tray
+    //  Cuánto hay de panel fuera: la tarjeta o la bandeja. Es lo que lleva su
+    //  halo de luz a sombra.
+    let panel = clamp(max(card, tray) * 2, 0, 1)
     //  La cápsula, 12 px más abajo que ella: mide 92 de alto y centrada en su
     //  centro se salía por el borde de arriba.
     let cap.y = cy_real + 12
@@ -555,7 +558,12 @@ scene Marea {
         //  Y cuando de ella sale un panel, vuelve a ser sombra: un halo claro
         //  de 390 × 410 es una mancha. El color es una expresión, así que el
         //  mismo cuerpo pasa de halo a sombra según lo que lleve fuera.
-        shadow: 0, 0, 13, 45%, mix(ink, #05070a, clamp(max(card, tray) * 2, 0, 1))
+        //  Y cuando de ella sale un panel, vuelve a ser sombra: un halo claro
+        //  de 390 × 410 es una mancha. Todo lo de una sombra es una cuenta, así
+        //  que el mismo cuerpo va de un sitio al otro sin elegir: el halo la
+        //  abraza sin desplazarse, y la sombra del panel cae un poco y se
+        //  extiende, que es lo que hace una sombra.
+        shadow: 0, 2 * panel, 8 + 4 * panel, 22% + 10% * panel, mix(mint, #05070a, panel)
         box agua { from: cx - 70, -70; size: 140, 70 * if(hidden, 1, 0) }
         //  El bulto que el agua hace alrededor de ella: es la misma lámina, que
         //  se estira. Fundido con ella y con la bolita, así que los tres son una

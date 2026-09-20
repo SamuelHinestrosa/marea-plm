@@ -917,16 +917,20 @@ Marea ya pasó por aquí y lo dejó escrito en su tema:
 
 ![El halo](evidencia/halo.png)
 
-Aquí es lo mismo: `shadow: 0, 0, 13, 45%` de color claro. Sin desplazamiento, el
-halo la rodea entera en vez de caer hacia abajo, y lo que la separa del
-escritorio es luz y no suciedad.
+Aquí es lo mismo, y con su color: menta al **22 %**, que es el número de la
+lámina —«oscurece el fondo un 22 % a dos píxeles del filo»— puesto del derecho.
+Sin desplazamiento, el halo la rodea entera en vez de caer hacia un lado, y lo
+que la separa del escritorio es luz y no suciedad. Con blanco y al 45 % dejaba
+de ser un halo y era una sombra blanca, que es el mismo problema con otro color.
 
 Y cuando de ella sale un panel, vuelve a ser sombra: un halo claro de 390 × 410
-es una mancha. El color es una expresión, así que el mismo cuerpo va de halo a
-sombra según lo que lleve fuera:
+es una mancha. **Todo lo de una sombra es una cuenta**, así que el mismo cuerpo
+va de una cosa a la otra sin tener que elegir —el halo la abraza sin
+desplazarse; la sombra del panel cae un poco y se extiende—:
 
 ```plm
-shadow: 0, 0, 13, 45%, mix(ink, #05070a, clamp(max(card, tray) * 2, 0, 1))
+let panel = clamp(max(card, tray) * 2, 0, 1)
+shadow: 0, 2 * panel, 8 + 4 * panel, 22% + 10% * panel, mix(mint, #05070a, panel)
 ```
 
 Lo que sigue siendo de ella —la nota de la hora, el menú, la cápsula del
@@ -991,11 +995,14 @@ Dieciséis, todas arregladas en pleamar en vez de esquivadas aquí:
    decide el render, que es quien mira las zonas: si el clic no cayó encima de
    ninguna, cierra. Encima de ella sale su menú; dos dedos más allá, se cierra.
 
-16. **Una sombra solo podía ser negra.** Y una sombra negra sobre un escritorio
-   de ventanas oscuras no tiene nada que oscurecer: se ve como un cerco sucio
-   alrededor de lo que quería separar del fondo. Ahora `shadow` lleva color, y
-   es una expresión: el mismo cuerpo pasa de halo claro a sombra oscura según lo
-   que le salga fuera. El color va en los tres huecos que `color1` ya tenía
+16. **Una sombra solo podía ser negra, y sus números eran fijos.** Una sombra
+   negra sobre un escritorio de ventanas oscuras no tiene nada que oscurecer:
+   se ve como un cerco sucio alrededor de lo que quería separar del fondo.
+   Ahora `shadow` lleva color, y **todo lo suyo son expresiones**: el mismo
+   cuerpo pasa de halo de menta al 22 % a sombra oscura y desplazada según lo
+   que le salga fuera. Con un solo juego de números había que elegir entre el
+   halo que quiere una bolita y la sombra que quiere un panel de 390 × 410,
+   siendo el mismo cuerpo. El color va en los tres huecos que `color1` ya tenía
    libres, así que no cuesta ni un byte más por elemento.
 
 ## Lo siguiente
