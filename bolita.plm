@@ -18,9 +18,14 @@ import "comun/accesorios.plm"
 scene Marea {
     permissions {
         services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*"
+        //  El buscador: qué aplicaciones hay, lanzarlas, y dónde vive tu casa.
+        //  Lo que NO está es `notifications`: el primero que lo pide se queda
+        //  el sitio, y en esta máquina ese sitio es de Marea.
+        services: "apps", "apps.launch", "env"
         //  Cambiar de red o de auricular no lo sabe hacer pleamar todavía (su
-        //  B15), así que lo hace la lógica con las herramientas del sistema.
-        run: "nmcli", "bluetoothctl"
+        //  B15), así que lo hace la lógica con las herramientas del sistema. Y
+        //  `fd` busca los archivos y las carpetas.
+        run: "nmcli", "bluetoothctl", "fd"
     }
     service clock as ahora { time: text = "--:--"; date: text }
     service audio as sonido { volume: number; muted: bool; input: number; input_muted: bool }
@@ -52,7 +57,12 @@ scene Marea {
         //  Teclado solo mientras el menú esté abierto, y a petición: se pide al
         //  pulsar y se devuelve al cerrarlo. «El clic da foco de teclado, pero
         //  no los deja pegados a la pantalla.»
-        keyboard: on_demand while menuab
+        //  Al pulsar, no entero. `exclusive` reconfigura la superficie y el
+        //  compositor manda un «el puntero se ha ido»: con el ratón quieto, el
+        //  menú se cerraba solo 300 ms después de abrirlo, porque su zona de
+        //  gracia dejaba de tener a nadie dentro. Y no hace falta: al buscador
+        //  se entra pulsando, así que la superficie ya tiene el foco.
+        keyboard: on_demand while busca or menuab
     }
 
     // ── dónde vive ───────────────────────────────────────────────
@@ -136,6 +146,24 @@ scene Marea {
     //  exactos y a ritmo constante no los da un muelle: los da un gesto, que es
     //  una línea de tiempo con su curva. `linear` es lo que hace que una mecha
     //  parezca una mecha y no algo que frena al final.
+    // ── el buscador ──────────────────────────────────────────────
+    //  «Sustituir el cajón de aplicaciones por una búsqueda principal de apps,
+    //  archivos y carpetas» —revisión del 31 de agosto—, y la lámina de la
+    //  secuencia lo cuenta en seis tiempos: reposa, se aparta, **busca**,
+    //  encuentra, abre y se recoge. Lo que la hace suya y no un lanzador
+    //  cualquiera es el tercero: **sus ojos se vuelven una lupa**.
+    fact busca = false
+    event buscar ->                    // desde su menú, o desde un atajo de fuera
+    event abrir_hallazgo ->            // `emit abrir_hallazgo(2)`: abre el tercero
+    text consulta = ""
+    //  Lo que se encuentra, tal cual lo entrega la lógica: apps del servicio del
+    //  sistema, y archivos y carpetas de `fd`. El icono viaja en la ficha.
+    model hallazgos max 7 { nombre: text; clase: text; icono: image 40, 40 }
+    fact elegido = 0
+    prop lupa = 0 ~320ms               // la cara, volviéndose lupa
+    prop busc = 0 ~290ms               // la geometría del panel
+    prop bcont = 0 ~200ms              // y lo que se lee dentro
+
     // ── dormir ───────────────────────────────────────────────────
     //  «Adormecerse: bajan los párpados, cabecea suavemente y se acomoda.
     //  1,24 s. Empieza al pulsar “Dormir” o tras 45 s inactiva.» Y dormida:
@@ -561,9 +589,26 @@ scene Marea {
     let sube = if(hidden, (1 - out) * 40, 0)
     //  Y al abrir la bandeja sube 5 px, que es lo que dice el contrato.
     let cy_real = cy + body.y - sube - away * 84 - 5 * tray
-    //  Cuánto hay de panel fuera: la tarjeta o la bandeja. Es lo que lleva su
-    //  halo de luz a sombra.
-    let panel = clamp(max(card, tray) * 2, 0, 1)
+    //  El buscador: 640 de ancho —los 780 de la lámina por 46/56— y de alto lo
+    //  que pida su lista, que es lo que hace que crezca y se encoja mientras
+    //  escribes en vez de dejar un hueco negro esperando.
+    prop bh = 150 ~quick
+    prop seley = 0 ~quick
+    prop pase = 0 ~520ms               // el escalonado de la lista
+    fact escribiendo = false
+    event pintado                      // la lógica ha dejado otra lista
+    //  Cada fila entra un poco después que la de arriba, con UN solo muelle:
+    //  `pase` va de 0 a 1 y cada una se sirve de él con su índice restado. Es
+    //  lo mismo que hace el oleaje de la bandeja, y por lo mismo: una lista que
+    //  aparece entera de golpe es una tabla, no algo que llega.
+    on pintado { pase: 0 ~16ms; pase: 1 ~520ms after 30ms }
+    let busc.w = 640 * busc
+    let busc.h = bh * busc
+    let busc.x = cx + 6 + busc.w / 2
+    let busc.y = cy_real + busc.h / 2 - 8
+    //  Cuánto hay de panel fuera: la tarjeta, la bandeja o el buscador. Es lo
+    //  que lleva su halo de luz a sombra.
+    let panel = clamp(max(max(card, tray), busc) * 2, 0, 1)
     //  La cápsula, 12 px más abajo que ella: mide 92 de alto y centrada en su
     //  centro se salía por el borde de arriba.
     let cap.y = cy_real + 12
@@ -574,7 +619,7 @@ scene Marea {
     //  la hora: su medio ancho va en la cuenta.
     let menu.x = cx + (23 + 9 + 82) * menu
     let menu.w = 163
-    let menu.h = 8 + 69 + 6 + entradas.count * 23 + grupos * 16
+    let menu.h = 8 + 92 + 6 + entradas.count * 23 + grupos * 16
     //  Su primera fila a la altura de su cara, y el resto colgando.
     let menu.y0 = cy_real - 15
     let menu.cy = menu.y0 + menu.h / 2
@@ -725,6 +770,14 @@ scene Marea {
             corner: 16
             blend: 18 * 4 * capsula * (1 - capsula)
         }
+        //  El buscador, que también sale de ella: es lo mismo de siempre, una
+        //  caja más en su cuerpo con su cuello.
+        box buscador_caja {
+            at: busc.x, busc.y
+            size: busc.w, busc.h
+            corner: max(22 * busc, min(busc.w, busc.h) / 2 * (1 - busc))
+            blend: 30 * 4 * busc * (1 - busc) + 24 * busc
+        }
         //  Y su menú, por el mismo lado y de la misma caja que la hora: «en el
         //  mismo sitio donde sale la nota del reloj y en la misma caja».
         box menu_caja {
@@ -801,7 +854,9 @@ scene Marea {
         let l.h = g.h + (ojo.l - g.h) * cam
         let r.w = g.w + (24.6 - g.w) * cam
         let r.h = g.h + (17.3 - g.h) * cam
-        let sep = c.sep * (1 - cam) * (1 - alarma)
+        //  Buscando, los dos se van al centro: el aro se queda ahí y el mango
+        //  sale de su borde, no de donde estaba un ojo.
+        let sep = c.sep * (1 - cam) * (1 - alarma) * (1 - lupa)
 
         //  4. El disco de grabar: el ojo izquierdo, y solo él. El derecho sigue
         //  siendo un ojo y sigue al puntero, que es lo que la mantiene viva
@@ -828,6 +883,12 @@ scene Marea {
         let z.rw2 = z.rw + (9.5 - z.rw) * mirada
         let z.rh2 = z.rh + (9.5 - z.rh) * mirada
 
+        //  8. Buscando: los ojos se vuelven **una lupa**. El izquierdo se abre
+        //  en el aro —un disco al que otro del color del cuerpo le come el
+        //  centro, igual que el diafragma de la cuenta atrás— y el derecho se
+        //  estira en el mango, abajo a la derecha y en diagonal. Es la misma
+        //  cadena: la cara no se cambia por otra, se dobla hasta ser otra cosa.
+
         //  7. Dormida: dos rayitas. No es el trazo del Remanso —ahí sigue
         //  mirando, aquí no hay nadie—: son más finas y caen un poco, como un
         //  párpado que ya se ha rendido.
@@ -840,6 +901,11 @@ scene Marea {
         //  entera, que es lo que hace que no parezca que se ha despertado.
         let s.rw2 = s.rw + (8.6 - s.rw) * ojo.d
         let s.rh2 = s.rh + (8.6 - s.rh) * ojo.d
+        //  Y la lupa, al final de la cadena: el aro y el mango.
+        let u.w = s.w + (17.4 - s.w) * lupa
+        let u.h = s.h + (17.4 - s.h) * lupa
+        let u.rw = s.rw2 + (4.4 - s.rw2) * lupa
+        let u.rh = s.rh2 + (11.6 - s.rh2) * lupa
 
         let ojo.y = y + 2.5 + sueno * 1.4
         let l.x = x - sep
@@ -847,8 +913,8 @@ scene Marea {
         //  Redondo cuando es redondo: la mitad del lado corto sale pill de pie,
         //  pill tumbado, gota, objetivo y disco sin decirlo cinco veces. El cuerpo
         //  de la cámara es el único que se aparta, porque tiene esquina propia.
-        let l.corner = min(s.w, s.h) / 2
-        let r.corner = min(s.rw2, s.rh2) / 2 + (4.9 - min(s.rw2, s.rh2) / 2) * cam
+        let l.corner = min(u.w, u.h) / 2
+        let r.corner = min(u.rw, u.rh) / 2 + (4.9 - min(u.rw, u.rh) / 2) * cam
         //  Y el puente entre los dos: campana, como la del menisco. Máximo justo
         //  cuando se tocan —a mitad del viaje del nivel, y al juntarse en la gota—
         //  y nada en los extremos.
@@ -864,8 +930,9 @@ scene Marea {
             //  lee como un nivel; y se van cuando la gota se abre.
             body {
                 color: mix(ink, #34373a, meter)
-                box { at: l.x, ojo.y - 2.8 * alarma; size: s.w, s.h; corner: l.corner; blend: ojo.fusion }
-                box { at: r.x, ojo.y + 6.2 * alarma; size: s.rw2, s.rh2; corner: r.corner; blend: ojo.fusion }
+                box { at: l.x, ojo.y - 2.8 * alarma; size: u.w, u.h; corner: l.corner; blend: ojo.fusion }
+                box { at: r.x + 8.8 * lupa, ojo.y + 6.2 * alarma + 8.8 * lupa; size: u.rw, u.rh
+                      corner: r.corner; rotate: 45deg * lupa; blend: ojo.fusion }
             }
 
             //  Lo lleno del nivel es **la misma pista**, pintada otra vez y
@@ -877,9 +944,18 @@ scene Marea {
                 body {
                     color: mix(mint, #6b7280, sonido.muted)
                     opacity: meter
-                    box { at: l.x, ojo.y - 2.8 * alarma; size: s.w, s.h; corner: l.corner; blend: ojo.fusion }
-                    box { at: r.x, ojo.y + 6.2 * alarma; size: s.rw2, s.rh2; corner: r.corner; blend: ojo.fusion }
+                    box { at: l.x, ojo.y - 2.8 * alarma; size: u.w, u.h; corner: l.corner; blend: ojo.fusion }
+                    box { at: r.x + 8.8 * lupa, ojo.y + 6.2 * alarma + 8.8 * lupa; size: u.rw, u.rh
+                      corner: r.corner; rotate: 45deg * lupa; blend: ojo.fusion }
                 }
+            }
+
+            //  El hueco del aro de la lupa, del color del cuerpo: aquí todo son
+            //  distancias, así que un agujero es una forma más. Es el mismo
+            //  truco que el diafragma de aquí abajo.
+            body {
+                color: coal
+                ellipse { at: l.x, ojo.y; radius: 6.4 * lupa }
             }
 
             //  El diafragma. La gota no se desvanece: se le come el centro con una
@@ -1455,6 +1531,76 @@ scene Marea {
         figure taza { at: 0, 0; size: 34, 34 }
     }
 
+    // ── lo que se ve del buscador ────────────────────────────────
+    //  Va aquí por lo mismo que el menú: el recorte de la tarjeta es suelto y
+    //  se lleva todo lo que venga detrás.
+    let bx0 = busc.x - 300
+    let by0 = busc.y - busc.h / 2
+
+    //  Una fila. La lista la trae la lógica, así que es un componente: cada
+    //  copia con su muelle y su zona.
+    component Hallazgo(h: record, escoge: event, turno: number) {
+        size: 600, 44
+        prop luz = 0 ~140ms
+        //  Su turno: la de arriba entra antes, y la última algo más tarde.
+        let entra = clamp(turno * 8 - h.index, 0, 1)
+        zone box toca { from: 0, 0; size: 600, 44; corner: 12; cursor: pointer }
+        box { from: 0, 0; size: 600, 44; corner: 12; color: #23282b; opacity: luz * 70% * entra }
+        group {
+            opacity: entra
+            move: (1 - entra) * -14, 0
+                //  El `at` de una imagen es su ESQUINA, no su centro —al revés que
+            //  una caja o una figura—, así que centrarla en una fila de 44 es
+            //  (44 − 30) / 2. Puesta en el centro salía 8 px por debajo.
+            image h.icono { at: 8, 7; size: 30, 30 }
+            text h.nombre { at: 48, 22; anchor: left center; size: 14; width: 400; lines: 1
+                            color: mix(#dfe1e3, #f6f6f5, luz) }
+            text h.clase { at: 592, 22; anchor: right center; size: 11.5; color: #8b8f95 }
+        }
+        on enter toca { luz: 1 }
+        on leave toca { luz: 0 }
+        on press toca { emit escoge(h.index) }
+    }
+
+    //  El recorte va DENTRO de un grupo, y con él todo lo suyo: suelto se
+    //  llevaría por delante lo que viniera detrás —el menú— hasta la siguiente
+    //  superficie con nombre, que es lo que pasó nada más escribirlo. Un
+    //  recorte acaba donde acaba su grupo, y eso es lo que se quiere aquí.
+    group {
+    clip inset 2 box { at: busc.x, busc.y; size: busc.w, busc.h; corner: 22 * busc }
+    group {
+        opacity: bcont
+        move: 0, (1 - bcont) * 10
+        text "MAREA" { at: bx0, by0 + 22; anchor: left center; size: 9; weight: 600; color: mint; opacity: 80% }
+        //  La lupa del campo: la misma que lleva ella en la cara.
+        arc { at: bx0 + 14, by0 + 54; radius: 8; span: 360deg; width: 2.2; color: ink; opacity: 75% }
+        line { from: bx0 + 20, by0 + 60; to: bx0 + 26, by0 + 66; width: 2.4; color: ink; opacity: 75% }
+        input consulta { at: bx0 + 40, by0 + 54; width: 470; size: 21; color: ink
+                         placeholder: "¿Qué quieres encontrar?"; selection: #2f5f52 }
+        box { at: bx0 + 570, by0 + 54; size: 44, 26; corner: 8; color: #202021 }
+        text "Esc" { at: bx0 + 570, by0 + 54; anchor: center; size: 11.5; color: #8b8f95 }
+        text "Apps, archivos y carpetas" { at: bx0 + 40, by0 + 86; anchor: left center; size: 11.5; color: #8b8f95 }
+        line { from: bx0, by0 + 108; to: bx0 + 600, by0 + 108; width: 1; color: ink; opacity: 10% }
+        text "A mano" { at: bx0 + 8, by0 + 126; anchor: left center; size: 11; weight: 600; color: #8b8f95
+                        show: not escribiendo }
+        text "Resultados" { at: bx0 + 8, by0 + 126; anchor: left center; size: 11; weight: 600; color: #8b8f95
+                            show: escribiendo }
+        //  La selección es UNA sola que viaja entre filas con su muelle, no una
+        //  por fila encendiéndose y apagándose. Es lo que hace que elegir con
+        //  las flechas se lea como mover algo y no como parpadear.
+        box { at: busc.x - 2, seley; size: 600, 44; corner: 12; color: mint; opacity: 16% * clamp(hallazgos.count, 0, 1) }
+        box { at: bx0 + 2, seley; size: 3, 24; corner: 1.5; color: mint; opacity: clamp(hallazgos.count, 0, 1) }
+        column lista {
+            at: bx0, by0 + 140
+            gap: 2
+            for h in hallazgos { Hallazgo(h, escoge: abrir_hallazgo, turno: pase) }
+        }
+        text "↑↓ elegir · Intro abrir" { at: busc.x, by0 + bh - 20; anchor: center; size: 11; color: #8b8f95; opacity: 70% }
+        text "Nada por aquí" { at: busc.x, by0 + 164; anchor: center; size: 12.5; color: #8b8f95
+                               show: hallazgos.count < 1 }
+    }
+    }
+
     // ── lo que se ve de su menú ──────────────────────────────────
     //  El dibujo va aquí y las zonas al final del todo, y no es un capricho:
     //  el recorte de la tarjeta es suelto y se lleva todo lo que venga detrás
@@ -1493,41 +1639,47 @@ scene Marea {
         let mx0 = menu.x - menu.w / 2 + 4
         //  Las dos de la casa. Van escritas y no en el modelo porque son de
         //  ella: un complemento no puede poner ni quitar Ajustes.
-        repeat m in 0..3 {
+        repeat m in 0..4 {
             prop casa.$m = 0 ~110ms
             box { at: menu.x, menu.y0 + 15.5 + m * 23; size: 155, 23; corner: 7
                   color: #23282b; opacity: casa.$m }
             box { at: menu.x, menu.y0 + 15.5 + m * 23; size: 155, 23; corner: 7; stroke: 1; color: mint
                   opacity: if(elegida == m, 1, 0) * (1 - casa.$m) }
         }
-        let ry.casa = menu.y0 + 15.5
-        let ry.pers = menu.y0 + 38.5
-        let ry.duerme = menu.y0 + 61.5
+        let ry.busca = menu.y0 + 15.5
+        let ry.casa = menu.y0 + 38.5
+        let ry.pers = menu.y0 + 61.5
+        let ry.duerme = menu.y0 + 84.5
+        //  Buscar va la primera porque es lo que más se hace. Y su icono es la
+        //  lupa, la misma que se le pone a ella en la cara.
+        arc { at: mx0 + 12, ry.busca - 1; radius: 4.6; span: 360deg; width: 1.5; color: mix(#8b8f95, #f6f6f5, casa.0) }
+        line { from: mx0 + 15, ry.busca + 2; to: mx0 + 18, ry.busca + 5; width: 1.6; color: mix(#8b8f95, #f6f6f5, casa.0) }
+        text "Buscar…" { at: mx0 + 26, ry.busca; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, casa.0) }
         //  El engranaje de Ajustes, el mismo de la cabecera del panel.
-        arc { at: mx0 + 13, ry.casa; radius: 5; span: 300deg; width: 1.4; color: mix(#8b8f95, #f6f6f5, casa.0) }
-        ellipse { at: mx0 + 13, ry.casa; radius: 1.9; color: mix(#8b8f95, #f6f6f5, casa.0) }
-        text "Ajustes" { at: mx0 + 26, ry.casa; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, casa.0) }
+        arc { at: mx0 + 13, ry.casa; radius: 5; span: 300deg; width: 1.4; color: mix(#8b8f95, #f6f6f5, casa.1) }
+        ellipse { at: mx0 + 13, ry.casa; radius: 1.9; color: mix(#8b8f95, #f6f6f5, casa.1) }
+        text "Ajustes" { at: mx0 + 26, ry.casa; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, casa.1) }
         //  Y el destello de Personalizar: una estrella de cuatro puntas, que es
         //  un cuadrado al que se le han comido los lados.
-        path { at: mx0 + 13, ry.pers; color: mix(#8b8f95, #f6f6f5, casa.1)
+        path { at: mx0 + 13, ry.pers; color: mix(#8b8f95, #f6f6f5, casa.2)
                move 0, -5.5; curve 5.5, 0 via 1.2, -1.2; curve 0, 5.5 via 1.2, 1.2
                curve -5.5, 0 via -1.2, 1.2; curve 0, -5.5 via -1.2, -1.2; close }
-        text "Personalizar" { at: mx0 + 26, ry.pers; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, casa.1) }
+        text "Personalizar" { at: mx0 + 26, ry.pers; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, casa.2) }
         //  Y la tercera de la casa: dormir. En Marea esto son las «zZ» del
         //  centro de control; aquí el centro es el de la lámina —tres tarjetas,
         //  y ninguna es esta—, así que va con las suyas, que es donde están las
         //  cosas que hace ELLA.
         text "z" { at: mx0 + 10, ry.duerme - 3; anchor: center; size: 9; weight: 600
-                   color: mix(#8b8f95, #f6f6f5, casa.2) }
+                   color: mix(#8b8f95, #f6f6f5, casa.3) }
         text "z" { at: mx0 + 16, ry.duerme + 3; anchor: center; size: 12; weight: 600
-                   color: mix(#8b8f95, #f6f6f5, casa.2) }
-        text "Dormir" { at: mx0 + 26, ry.duerme; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, casa.2) }
+                   color: mix(#8b8f95, #f6f6f5, casa.3) }
+        text "Dormir" { at: mx0 + 26, ry.duerme; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, casa.3) }
         //  La línea, y debajo lo de los complementos.
-        line { from: mx0 + 8, menu.y0 + 76; to: mx0 + 147, menu.y0 + 76; width: 1; color: #1f2226 }
+        line { from: mx0 + 8, menu.y0 + 99; to: mx0 + 147, menu.y0 + 99; width: 1; color: #1f2226 }
         column menu_col {
-            at: mx0, menu.y0 + 79
+            at: mx0, menu.y0 + 102
             gap: 0
-            for e in entradas { FilaMenu(e, marcada: elegida - 3, escoge: del_menu) }
+            for e in entradas { FilaMenu(e, marcada: elegida - 4, escoge: del_menu) }
         }
     }
 
@@ -1961,6 +2113,51 @@ scene Marea {
         impulse rebote -70
     }
 
+    // ── abrir y cerrar el buscador ───────────────────────────────
+    //  «Se aparta» y **se vuelve lupa**: las dos cosas a la vez, porque es el
+    //  mismo movimiento. Y al cerrar, el orden de siempre —primero lo que se
+    //  lee, luego la geometría— y ella vuelve después, con su muelle.
+    on buscar { busca = true }
+    on change busca while busca {
+        open = false
+        menuab = false
+        dormida = false
+        needed = true
+        wanted = true
+        elegido = 0
+        sitio: 1 ~290ms
+        lupa: 1 ~320ms
+        busc: 1 ~290ms
+        bcont: 1 ~200ms after 90ms
+        focus consulta
+    }
+    on change busca while not busca {
+        bcont: 0 ~50ms
+        busc: 0 ~210ms after 30ms
+        lupa: 0 ~280ms after 60ms
+        sitio: 0 ~vuelta after 200ms
+        blur
+    }
+    on key Escape while busca { busca = false }
+    //  Las flechas eligen y el Intro abre. La lista la ordena la lógica; aquí
+    //  solo se dice cuál está señalada.
+    on key Down while busca { elegido = min(elegido + 1, max(hallazgos.count - 1, 0)) }
+    on key Up while busca { elegido = max(elegido - 1, 0) }
+    on submit consulta { emit abrir_hallazgo(elegido); busca = false }
+    //  «Abre»: la lámina la dibuja con los ojos contentos. Un guiño corto y un
+    //  salto, y a lo suyo: lo que celebra es haberlo encontrado, no ella.
+    gesture contenta reflex {
+        140ms out_quad { eyes: 6.5; sx: 1.06; sy: 0.92; body.y: 2.4 }
+        220ms out_back { eyes: 6.5; sx: 0.97; sy: 1.05; body.y: -3.2 }
+        240ms          { eyes: 8 }
+    }
+    on abrir_hallazgo { busca = false; play contenta }
+    //  El alto sigue a lo que ocupa la lista, y la selección viaja a su fila.
+    //  Las dos cosas con muelle, así que escribir mueve el panel y las flechas
+    //  mueven la marca, sin que nadie las recoloque.
+    follow bh = 176 + lista.height
+    follow seley = by0 + 140 + elegido * 46 + 22
+
     // ── el nivel ─────────────────────────────────────────────────
     //  Se dispara con lo que cambie el volumen, venga de donde venga. Y no
     //  ocurre hundida: la tecla del volumen no va dirigida a ella.
@@ -2234,30 +2431,35 @@ scene Marea {
     on change menuab while menuab { open = false; note = false; elegida = -1 }
     //  Se cierra como la nota: al llevar un rato fuera del conjunto —ella y el
     //  menú—, con Esc, al elegir algo, o con otro clic derecho.
-    on away menu_conj for 300ms { menuab = false }
+    //  Y no antes de estar abierto: mientras crece, su zona todavía no está, y
+    //  «llevo 300 ms fuera» se cumplía sin que nadie se hubiera movido. El menú
+    //  se cerraba solo a los 370 ms de abrirlo si el puntero se quedaba en ella.
+    on away menu_conj for 300ms while menu > 0.9 { menuab = false }
     on key Escape while menuab { menuab = false }
     //  Con el teclado: las flechas mueven la fila señalada y Enter la elige.
     //  Enter sin haber señalado nada coge la primera, que es Ajustes: lo que el
     //  botón derecho hacía antes sigue estando a una tecla.
-    on key Down while menuab { elegida = min(elegida + 1, 2 + entradas.count) }
+    on key Down while menuab { elegida = min(elegida + 1, 3 + entradas.count) }
     on key Up while menuab { elegida = max(elegida - 1, 0) }
-    on key Return while menuab and elegida < 1 { emit ajustes; menuab = false }
-    on key Return while menuab and elegida == 1 { emit personalizar; menuab = false; open = true; pagina = armario }
-    on key Return while menuab and elegida == 2 { emit dormir; menuab = false }
-    on key Return while menuab and elegida > 2 { emit del_menu(elegida - 3); menuab = false }
+    on key Return while menuab and elegida < 1 { emit buscar; menuab = false }
+    on key Return while menuab and elegida == 1 { emit ajustes; menuab = false }
+    on key Return while menuab and elegida == 2 { emit personalizar; menuab = false; open = true; pagina = armario }
+    on key Return while menuab and elegida == 3 { emit dormir; menuab = false }
+    on key Return while menuab and elegida > 3 { emit del_menu(elegida - 4); menuab = false }
     on del_menu { menuab = false }
 
     //  Las zonas de la casa, fuera del dibujo y después del conjunto.
-    repeat m in 0..3 {
+    repeat m in 0..4 {
         zone box casa_zona.$m { at: menu.x, menu.y0 + 4 + 11.5 + m * 23; size: 155, 23
                                 corner: 7; cursor: pointer; active: menu > 0.9 }
         on enter casa_zona.$m { casa.$m: 1; elegida = -1 }
         on leave casa_zona.$m { casa.$m: 0 }
     }
-    on press casa_zona.0 { emit ajustes; menuab = false }
-    on press casa_zona.2 { emit dormir; menuab = false }
+    on press casa_zona.0 { emit buscar; menuab = false }
+    on press casa_zona.1 { emit ajustes; menuab = false }
+    on press casa_zona.3 { emit dormir; menuab = false }
     //  «Personalizar» abre su armario, que es donde vive esto.
-    on press casa_zona.1 { emit personalizar; menuab = false; open = true; pagina = armario }
+    on press casa_zona.2 { emit personalizar; menuab = false; open = true; pagina = armario }
 
     // ── la esquina ───────────────────────────────────────────────
     //  Asoma el 82 %: con algo más de la mitad el ojo rojo se pasaba el rato

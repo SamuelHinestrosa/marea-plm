@@ -122,6 +122,113 @@ end)
 on("ajustes", function() log("settings would open here") end)
 on("personalizar", function() log("customize would open here") end)
 
+-- ── el buscador ────────────────────────────────────────────────────
+--  «Apps, archivos y carpetas.» Las apps las da el sistema —el servicio `apps`
+--  lee los `.desktop`, con su icono y su orden—, y los archivos y carpetas los
+--  busca `fd` por debajo de tu casa. La escena no sabe nada de esto: pide una
+--  lista y la pinta.
+local apps = {}
+local casa = sys.ask("env", "HOME") or "."
+
+--  Lo que se escribe cambia en cuanto se teclea, pero `fd` tarda: se apunta la
+--  consulta con la que se lanzó y, cuando vuelve, se tira si ya no es la de
+--  ahora. Sin esto, escribir deprisa deja la lista de hace tres letras.
+local vuelta = 0
+
+local function pinta(q, lista)
+    local fuera = {}
+    for _, e in ipairs(lista) do
+        if #fuera < 7 then fuera[#fuera + 1] = e end
+    end
+    model.hallazgos = fuera
+    fact.escribiendo = q ~= ""
+    fact.elegido = 0
+    --  Y que la escena sepa que hay lista nueva, para escalonar su entrada.
+    emit("pintado")
+end
+
+--  «A mano» no es «las primeras por orden alfabético»: son las de siempre.
+--  Sin datos de uso, esto es lo más honrado que se puede hacer —una lista
+--  corta de las que casi todo el mundo tiene a mano— y el día que haya cuentas
+--  de uso, se cambia aquí y ya.
+local A_MANO = { "firefox", "zen", "nautilus", "files", "archivos", "kitty", "alacritty", "terminal", "code", "gimp" }
+
+local function prefiere(a, b)
+    local function sitio(x)
+        local n = x.name:lower()
+        for k, v in ipairs(A_MANO) do
+            if n:find(v, 1, true) then return k end
+        end
+        return 99
+    end
+    local pa, pb = sitio(a), sitio(b)
+    if pa ~= pb then return pa < pb end
+    return a.name < b.name
+end
+
+local function buscar()
+    local q = (text.consulta or ""):lower()
+    vuelta = vuelta + 1
+    local mia = vuelta
+    local cabe = {}
+    for _, a in ipairs(apps) do
+        if q == "" or a.name:lower():find(q, 1, true) then cabe[#cabe + 1] = a end
+    end
+    table.sort(cabe, prefiere)
+    local lista = {}
+    for _, a in ipairs(cabe) do
+        if #lista < 7 then
+            lista[#lista + 1] = { nombre = a.name, clase = "Aplicación", icono = a.icon, exec = a.exec }
+        end
+    end
+    --  Sin consulta, «a mano»: lo que da el sistema de primeras.
+    if q == "" then pinta(q, lista); return end
+    pinta(q, lista)
+    --  Y los archivos y carpetas, que llegan cuando llegan. Con menos de tres
+    --  letras no se busca: `fd` con una letra devuelve media casa —miles de
+    --  rutas que ni caben ni dicen nada— y lo único que consigue es que la
+    --  lista dé un salto por cada tecla.
+    if #q < 3 then return end
+    run("fd", { "--max-depth", "4", "--max-results", "12", "--hidden",
+                "--exclude", ".git", "--exclude", "node_modules", "--exclude", ".cache",
+                "--color", "never", q, casa }, function(salida)
+        if mia ~= vuelta then return end
+        for linea in tostring(salida):gmatch("[^\n]+") do
+            if #lista < 7 then
+                local carpeta = linea:sub(-1) == "/"
+                local limpia = carpeta and linea:sub(1, -2) or linea
+                local nombre = limpia:match("([^/]+)$") or limpia
+                local donde = limpia:sub(#casa + 2, #limpia - #nombre - 1)
+                lista[#lista + 1] = {
+                    nombre = nombre,
+                    clase = (carpeta and "Carpeta" or "Archivo") .. (donde ~= "" and " · " .. donde or ""),
+                    icono = carpeta and "folder" or "text-x-generic",
+                }
+            end
+        end
+        if mia == vuelta then pinta(q, lista) end
+    end)
+end
+
+if not sys.watch("apps", function(lista) apps = lista; buscar() end) then
+    log("este sistema no sabe qué aplicaciones tiene")
+end
+on("text:consulta", buscar)
+on("fact:busca", function(abierto) if abierto then buscar() end end)
+
+--  Abrir: una app se lanza; un archivo o una carpeta, a quien sepa abrirlos.
+on("abrir_hallazgo", function(i)
+    local h = model.hallazgos[i + 1]
+    if h == nil then return end
+    if h.exec then
+        log("abriendo", h.nombre)
+        sys.call("apps.launch", h.exec)
+    else
+        log("abriendo", h.nombre, "(archivo)")
+    end
+    text.consulta = ""
+end)
+
 -- ── su menú ────────────────────────────────────────────────────────
 --  Lo que el botón derecho ofrece. Las dos filas de la casa las pone la
 --  escena; esto trae lo de los complementos, que es lo único que cambia de una
@@ -228,7 +335,7 @@ end
 local function vaciar()
     filas = {}
     pintar()
-    for k = 1, 5 do
+    for k = 1, 4 do
         fact["n." .. k] = 0
         fact["last." .. k] = 0
     end

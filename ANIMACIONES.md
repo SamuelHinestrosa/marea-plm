@@ -1006,6 +1006,87 @@ conserva el tamaño real:
 | separación | 13 px entre centros |
 | altura de los ojos | 2,5 px por debajo del centro del cuerpo |
 
+## El buscador: apps, archivos y carpetas
+
+![Sin consulta: «a mano», con las apps de verdad](evidencia/buscador-a-mano.png)
+
+La lámina del cajón de aplicaciones tiene una nota encima, del 31 de agosto:
+**«el cajón de iconos queda sustituido como dirección de diseño por el buscador
+universal de apps, archivos y carpetas»**. Así que esto no es una rejilla de
+iconos: es lo que la sustituyó, y la lámina de la secuencia lo cuenta en seis
+tiempos —reposa, se aparta, **busca**, encuentra, abre y se recoge—.
+
+Lo que lo hace suyo y no un lanzador cualquiera es el tercero.
+
+### Sus ojos se vuelven una lupa
+
+![Buscando, con resultados](evidencia/buscador.png)
+
+El aro es el ojo izquierdo abierto hasta 17,4 y vaciado por dentro con un disco
+del color de su cuerpo —el mismo truco que el diafragma de la cuenta atrás:
+aquí todo son distancias, y **un agujero es una forma más**—. El mango es el
+derecho, estirado a 4,4 × 11,6, girado 45° y corrido a la esquina del aro. Y los
+dos se van al centro, porque una lupa no tiene dos sitios.
+
+No hay ninguna cara nueva: es el paso 8 de **la misma cadena** que lleva el ojo
+al nivel, a la cuenta, a la cámara, al disco de grabar, a la admiración, al
+trazo del Remanso y a la rayita de dormir. La cara no se cambia por otra: se
+dobla hasta ser otra cosa.
+
+### Y el panel sale de ella, como todo lo demás
+
+640 de ancho —los 780 de la lámina por 46/56— y **de alto lo que pida su lista**:
+`follow bh = 176 + lista.height`, así que crece y se encoge mientras escribes en
+vez de dejar un hueco negro esperando. Dentro, lo de la lámina: «MAREA», el
+campo con su lupa y su «Esc», «Apps, archivos y carpetas», y el pie con
+«↑↓ elegir · Intro abrir».
+
+Tres cosas que no se ven en una captura:
+
+- **La selección es una sola marca que viaja.** No es una fila que se enciende y
+  otra que se apaga: es un muelle que se mueve a la fila elegida, así que con
+  las flechas se lee como mover algo.
+- **La lista entra escalonada**, con **un solo muelle**: `pase` va de 0 a 1 y
+  cada fila se sirve de él con su índice restado (`clamp(pase * 8 - índice, 0, 1)`).
+  Es lo mismo que hace el oleaje de la bandeja, y por lo mismo: una lista que
+  aparece entera de golpe es una tabla, no algo que llega.
+- **Al abrir algo, se pone contenta**: un guiño corto y un salto, 600 ms. Lo que
+  celebra es haberlo encontrado.
+
+### Lo que hay debajo
+
+Las aplicaciones son **las de verdad**: el servicio `apps` de pleamar lee los
+`.desktop`, con su icono y su orden, y `apps.launch` las abre. Los archivos y
+las carpetas los busca `fd` por debajo de tu casa, con tres reglas que salieron
+de verlo funcionar:
+
+- **Con menos de tres letras no se busca.** `fd` con una letra devuelve media
+  casa —miles de rutas que ni caben ni dicen nada— y lo único que consigue es
+  que la lista dé un salto por cada tecla.
+- **Lo que vuelve tarde se tira.** Se apunta la consulta con la que se lanzó y,
+  si al volver ya no es la de ahora, se descarta: sin eso, escribir deprisa deja
+  la lista de hace tres letras.
+- **«A mano» no es «las primeras del abecedario».** Sin datos de uso, una lista
+  corta de las de siempre ordena mejor que el orden alfabético, que empezaba en
+  «Avahi SSH Server Browser».
+
+### Tres cosas que esto destapó
+
+**Un recorte suelto se lleva lo que venga detrás.** El del buscador se comió el
+menú entero —escrito más abajo— y con él sus zonas: pulsar «Buscar…» no hacía
+nada. Ya está dicho en la guía y ha vuelto a pasar; ahora cada recorte va dentro
+de su grupo, que es donde acaba.
+
+**Pedir el teclado entero mueve el puntero.** Con `keyboard: exclusive`, el
+compositor reconfigura la superficie y manda un «el puntero se ha ido»: con el
+ratón quieto, el menú se cerraba solo 300 ms después de abrirlo, porque su zona
+de gracia dejaba de tener a nadie dentro. Al buscador se entra pulsando, así que
+`on_demand` basta y el puntero se queda donde está.
+
+**El `at` de una imagen es su esquina, no su centro** —al revés que una caja o
+una figura—. Centrado como si fuera un centro, el icono salía 8 px por debajo de
+su fila. Dicho ya en la referencia de pleamar, que no lo decía.
+
 ## Dormir
 
 ![Dormida: dos rayitas y su «z»](evidencia/dormida.png)
@@ -1288,6 +1369,8 @@ medidos. Lo que viene ahora es de otro capítulo:
   las marcas que orbitan, los dos vistos de «al día». Estrena `spin` y, sobre
   todo, pide pasar la cara a `layer`, que es el refactor que más ordenaría el
   fichero.
-- **Las apps y el buscador**: la rejilla con `wrap:`, el desplazamiento con
-  `view:`, `input` para buscar y `measure` para que las píldoras midan lo que
-  dice su texto. Es la parte del lenguaje que ninguna otra pieza toca.
+- **De la vista previa del buscador**: la lámina 02 enseña el documento elegido
+  con su contenido al lado. Eso pide leer el fichero, que es de la lógica, y
+  decidir qué se enseña de un vídeo o de una imagen.
+- **Abrir un archivo de verdad**: hoy una aplicación se lanza y un archivo solo
+  se apunta en el log. Falta `xdg-open`, que es una línea y una decisión.
