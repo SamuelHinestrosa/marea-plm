@@ -234,19 +234,21 @@ local function vaciar()
     end
 end
 
+--  Una tanda y para. En bucle era un pesado: lo que se quiere es verlo una
+--  vez y poder repetirlo cuando toque, no que te llueva encima mientras
+--  trabajas. Se repite con `pleamar --decir bolita "emit otra_tanda"`, que
+--  vacía lo que hubiera y vuelve a empezar.
 local function tandaEntera()
-    if fact.demo == false then return end
+    vaciar()
     for _, n in ipairs(tanda) do
         after(n.en, function() if fact.demo ~= false then llega(n) end end)
     end
-    after(22000 + tanda[#tanda].en, function()
-        if fact.demo == false then return end
-        vaciar()
-        after(1200, tandaEntera)
-    end)
 end
 
+on("otra_tanda", tandaEntera)
+
 log("demo · los avisos son inventados: pleamar cede el sitio a quien ya lo tenga")
+log("demo · otra tanda: pleamar --decir bolita \"emit otra_tanda\"")
 after(600, tandaEntera)
 
 -- ── el oleaje ──────────────────────────────────────────────────────

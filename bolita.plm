@@ -108,6 +108,7 @@ scene Marea {
     //  Los de verdad los sabe traer pleamar, pero pide su permiso y en esta
     //  máquina ese sitio es de Marea.
     fact demo = true
+    event otra_tanda ->                // «suéltame la tanda otra vez»
     event notice                       // llega uno: antes se dicen `cat`, `who` y `line`
     event landed
     event tray ->                      // pulsar la tarjeta: la lógica abre la bandeja
@@ -135,6 +136,75 @@ scene Marea {
     //  exactos y a ritmo constante no los da un muelle: los da un gesto, que es
     //  una línea de tiempo con su curva. `linear` es lo que hace que una mecha
     //  parezca una mecha y no algo que frena al final.
+    // ── dormir ───────────────────────────────────────────────────
+    //  «Adormecerse: bajan los párpados, cabecea suavemente y se acomoda.
+    //  1,24 s. Empieza al pulsar “Dormir” o tras 45 s inactiva.» Y dormida:
+    //  «ojos como rayitas, respiración leve y “z” discreta, ciclo de 3,6 s».
+    //
+    //  Dormir no es el Remanso: allí sigue despierta y atenta —por eso los ojos
+    //  bajan a dos trazos y no se cierran—, y aquí no está. Por eso el sueño
+    //  automático se suspende mientras dure el Remanso, que es lo que pide el
+    //  contrato.
+    fact dormida = false
+    event dormir ->
+    event despertar ->
+    prop sueno = 0 ~1240ms             // 0 despierta, 1 dormida
+    prop zeta = 0 ~3400ms              // la «z» que sube y se deshace
+    on dormir { dormida = true }
+    on despertar { dormida = false }
+    //  Dormirse cuesta 1,24 s y despertarse 380 ms: nadie se despierta despacio
+    //  cuando le llaman.
+    on change dormida while dormida { sueno: 1 ~1240ms; play cabecea }
+    on change dormida while not dormida { sueno: 0 ~380ms }
+    //  La «z», una cada 3,6 s: sube, se abre y se deshace. Solo dormida, así que
+    //  el reloj ni corre mientras no lo esté.
+    every 3.6s while dormida { zeta: 0 ~16ms; zeta: 1 ~3400ms after 40ms }
+
+    //  «Llega uno y está dormida: NO LA DESPIERTA. Una gota del color de quien
+    //  escribe se forma colgando del borde encima de su cabeza, se suelta y se
+    //  hunde en ella; sale una onda de ese color, la gota de su lado late y
+    //  ella abre solo el ojo derecho hacia esa gota, lo cierra y respira un
+    //  poco más hondo.» Goteo 420 ms + 90 colgando + caída 190 in_quad.
+    pose gotita = 0                    // 0 nada · 1 colgando · 2 dentro
+    event calo                         // ya está dentro
+    prop onda.d = 0 ~760ms             // la onda de su color
+    prop ojo.d = 0 ~280ms              // y el ojo derecho, solo él
+    gesture gotea asked {
+        420ms out_quad hold 90ms { gotita: 1 }
+        190ms in_quad            { gotita: 2 }
+        10ms emit calo           { gotita: 2 }
+    }
+    //  Y una respiración más honda, una sola: es `reflex`, así que gana a la
+    //  postura de dormir mientras dura y luego se la devuelve.
+    gesture hondo reflex {
+        900ms in_out_sine { body.y: -1.8 }
+        900ms in_out_sine { body.y: 1.2 }
+    }
+    on calo {
+        onda.d: 0 ~16ms
+        onda.d: 1 ~760ms after 30ms
+        ojo.d: 1 ~280ms
+        ojo.d: 0 ~280ms after 980ms
+        play hondo
+        emit direct
+    }
+
+    //  El cabeceo de acomodarse: baja la cabeza, se remueve y se queda. Los
+    //  1 240 ms del contrato, repartidos en tres tiempos.
+    gesture cabecea asked {
+        420ms in_out_sine { tilt: 0.05; body.y: 1.6 }
+        380ms out_quad    { tilt: -0.02; body.y: 0.8 }
+        440ms out_back    { tilt: 0.02; body.y: 1.2 }
+    }
+    //  Y la respiración de dormida, que es una POSTURA y no un gesto: se repite
+    //  sola mientras dure y se calla cuando deja de ser verdad, sin que nadie
+    //  la arranque ni la pare. Ciclo de 3,6 s, y más leve que la de despierta:
+    //  2 px de recorrido se quedan en 1,1.
+    posture duerme while dormida {
+        1800ms in_out_sine { body.y: 0.1 }
+        1800ms in_out_sine { body.y: 1.2 }
+    }
+
     // ── el Remanso ───────────────────────────────────────────────
     //  No molestar, pero despierta. «Remanso no significa apagada»: sigue aquí,
     //  atenta, y guarda los avisos mientras tú te concentras.
@@ -504,7 +574,7 @@ scene Marea {
     //  la hora: su medio ancho va en la cuenta.
     let menu.x = cx + (23 + 9 + 82) * menu
     let menu.w = 163
-    let menu.h = 8 + 46 + 6 + entradas.count * 23 + grupos * 16
+    let menu.h = 8 + 69 + 6 + entradas.count * 23 + grupos * 16
     //  Su primera fila a la altura de su cara, y el resto colgando.
     let menu.y0 = cy_real - 15
     let menu.cy = menu.y0 + menu.h / 2
@@ -758,14 +828,27 @@ scene Marea {
         let z.rw2 = z.rw + (9.5 - z.rw) * mirada
         let z.rh2 = z.rh + (9.5 - z.rh) * mirada
 
-        let ojo.y = y + 2.5
+        //  7. Dormida: dos rayitas. No es el trazo del Remanso —ahí sigue
+        //  mirando, aquí no hay nadie—: son más finas y caen un poco, como un
+        //  párpado que ya se ha rendido.
+        let s.w = z.w + (7.8 - z.w) * sueno
+        let s.h = z.h + (1.5 - z.h) * sueno
+        let s.rw = z.rw2 + (7.8 - z.rw2) * sueno
+        let s.rh = z.rh2 + (1.5 - z.rh2) * sueno
+        //  Y dormida abre SOLO el derecho hacia la gota que se ha hundido en
+        //  ella: 280 ms, abierto 700, y a seguir durmiendo. El izquierdo ni se
+        //  entera, que es lo que hace que no parezca que se ha despertado.
+        let s.rw2 = s.rw + (8.6 - s.rw) * ojo.d
+        let s.rh2 = s.rh + (8.6 - s.rh) * ojo.d
+
+        let ojo.y = y + 2.5 + sueno * 1.4
         let l.x = x - sep
         let r.x = x + sep
         //  Redondo cuando es redondo: la mitad del lado corto sale pill de pie,
         //  pill tumbado, gota, objetivo y disco sin decirlo cinco veces. El cuerpo
         //  de la cámara es el único que se aparta, porque tiene esquina propia.
-        let l.corner = min(z.w, z.h) / 2
-        let r.corner = min(z.rw2, z.rh2) / 2 + (4.9 - min(z.rw2, z.rh2) / 2) * cam
+        let l.corner = min(s.w, s.h) / 2
+        let r.corner = min(s.rw2, s.rh2) / 2 + (4.9 - min(s.rw2, s.rh2) / 2) * cam
         //  Y el puente entre los dos: campana, como la del menisco. Máximo justo
         //  cuando se tocan —a mitad del viaje del nivel, y al juntarse en la gota—
         //  y nada en los extremos.
@@ -781,8 +864,8 @@ scene Marea {
             //  lee como un nivel; y se van cuando la gota se abre.
             body {
                 color: mix(ink, #34373a, meter)
-                box { at: l.x, ojo.y - 2.8 * alarma; size: z.w, z.h; corner: l.corner; blend: ojo.fusion }
-                box { at: r.x, ojo.y + 6.2 * alarma; size: z.rw2, z.rh2; corner: r.corner; blend: ojo.fusion }
+                box { at: l.x, ojo.y - 2.8 * alarma; size: s.w, s.h; corner: l.corner; blend: ojo.fusion }
+                box { at: r.x, ojo.y + 6.2 * alarma; size: s.rw2, s.rh2; corner: r.corner; blend: ojo.fusion }
             }
 
             //  Lo lleno del nivel es **la misma pista**, pintada otra vez y
@@ -794,8 +877,8 @@ scene Marea {
                 body {
                     color: mix(mint, #6b7280, sonido.muted)
                     opacity: meter
-                    box { at: l.x, ojo.y - 2.8 * alarma; size: z.w, z.h; corner: l.corner; blend: ojo.fusion }
-                    box { at: r.x, ojo.y + 6.2 * alarma; size: z.rw2, z.rh2; corner: r.corner; blend: ojo.fusion }
+                    box { at: l.x, ojo.y - 2.8 * alarma; size: s.w, s.h; corner: l.corner; blend: ojo.fusion }
+                    box { at: r.x, ojo.y + 6.2 * alarma; size: s.rw2, s.rh2; corner: r.corner; blend: ojo.fusion }
                 }
             }
 
@@ -1280,6 +1363,32 @@ scene Marea {
     //  las demás: declarada después se quedaba con sus clics. Van cinco.
     zone box menu_conj { at: cx + 60, menu.cy; size: 300, menu.h + 90; corner: 24; active: menu > 0.01 }
 
+    // ── el aviso que llega dormida ───────────────────────────────
+    //  La gota se forma colgando del borde de arriba —del mismo sitio del que
+    //  ella cuelga cuando está hundida, porque es el mismo agua—, se suelta y
+    //  se hunde en ella. Y de donde ha caído sale una onda de su color.
+    let gd.t = clamp(gotita, 0, 1)
+    let gd.cae = clamp(gotita - 1, 0, 1)
+    let gd.y = 5 + gd.cae * (cy_real - 5)
+    let gd.r = 4.6 * gd.t
+    //  Una gota de verdad: la punta arriba mientras cuelga, redonda al caer.
+    path { at: cx, gd.y; color: tinte; opacity: gd.t * (1 - gd.cae * gd.cae)
+           move 0, -6 + gd.cae * 2.4; curve 4.2, 1.8 via 4.2, -2.4; curve 0, 5.8 via 4.2, 4.8
+           curve -4.2, 1.8 via -4.2, 4.8; curve 0, -6 + gd.cae * 2.4 via -4.2, -2.4; close }
+    //  Y la onda: un anillo de su color que sale de ella y se deshace.
+    arc { at: cx, cy_real; radius: 21 + onda.d * 26; span: 360deg; width: 2.4 * (1 - onda.d)
+          color: tinte; opacity: (1 - onda.d) * 70% * clamp(onda.d * 8, 0, 1) }
+
+    // ── la «z» de dormida ────────────────────────────────────────
+    //  Una sola, discreta: sube, se abre un poco y se deshace. Nada de tres
+    //  zetas en fila, que es lo que convierte a una mascota en una pegatina.
+    //  Y va a su lado, no encima: ahí arriba está el borde de la pantalla, que
+    //  es la misma razón por la que las gotas bajan por su hombro. Sobre su
+    //  cabeza la «z» salía medio cortada y no se veía.
+    text "z" { at: cx + 26 + zeta * 7, cy_real - 6 - zeta * 15; anchor: center
+               size: 10 + zeta * 7; weight: 600; color: #dfe6e2
+               opacity: sueno * clamp(zeta * 6, 0, 1) * (1 - zeta * 0.9) * 95% }
+
     // ── la gota de sudor ─────────────────────────────────────────
     //  «En ella una admiración en la cara, una gota de sudor y un salto corto.»
     //  Aparece con la admiración, resbala un poco y se va: es una reacción, no
@@ -1384,7 +1493,7 @@ scene Marea {
         let mx0 = menu.x - menu.w / 2 + 4
         //  Las dos de la casa. Van escritas y no en el modelo porque son de
         //  ella: un complemento no puede poner ni quitar Ajustes.
-        repeat m in 0..2 {
+        repeat m in 0..3 {
             prop casa.$m = 0 ~110ms
             box { at: menu.x, menu.y0 + 15.5 + m * 23; size: 155, 23; corner: 7
                   color: #23282b; opacity: casa.$m }
@@ -1393,6 +1502,7 @@ scene Marea {
         }
         let ry.casa = menu.y0 + 15.5
         let ry.pers = menu.y0 + 38.5
+        let ry.duerme = menu.y0 + 61.5
         //  El engranaje de Ajustes, el mismo de la cabecera del panel.
         arc { at: mx0 + 13, ry.casa; radius: 5; span: 300deg; width: 1.4; color: mix(#8b8f95, #f6f6f5, casa.0) }
         ellipse { at: mx0 + 13, ry.casa; radius: 1.9; color: mix(#8b8f95, #f6f6f5, casa.0) }
@@ -1403,12 +1513,21 @@ scene Marea {
                move 0, -5.5; curve 5.5, 0 via 1.2, -1.2; curve 0, 5.5 via 1.2, 1.2
                curve -5.5, 0 via -1.2, 1.2; curve 0, -5.5 via -1.2, -1.2; close }
         text "Personalizar" { at: mx0 + 26, ry.pers; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, casa.1) }
+        //  Y la tercera de la casa: dormir. En Marea esto son las «zZ» del
+        //  centro de control; aquí el centro es el de la lámina —tres tarjetas,
+        //  y ninguna es esta—, así que va con las suyas, que es donde están las
+        //  cosas que hace ELLA.
+        text "z" { at: mx0 + 10, ry.duerme - 3; anchor: center; size: 9; weight: 600
+                   color: mix(#8b8f95, #f6f6f5, casa.2) }
+        text "z" { at: mx0 + 16, ry.duerme + 3; anchor: center; size: 12; weight: 600
+                   color: mix(#8b8f95, #f6f6f5, casa.2) }
+        text "Dormir" { at: mx0 + 26, ry.duerme; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, casa.2) }
         //  La línea, y debajo lo de los complementos.
-        line { from: mx0 + 8, menu.y0 + 53; to: mx0 + 147, menu.y0 + 53; width: 1; color: #1f2226 }
+        line { from: mx0 + 8, menu.y0 + 76; to: mx0 + 147, menu.y0 + 76; width: 1; color: #1f2226 }
         column menu_col {
-            at: mx0, menu.y0 + 56
+            at: mx0, menu.y0 + 79
             gap: 0
-            for e in entradas { FilaMenu(e, marcada: elegida - 2, escoge: del_menu) }
+            for e in entradas { FilaMenu(e, marcada: elegida - 3, escoge: del_menu) }
         }
     }
 
@@ -1846,7 +1965,8 @@ scene Marea {
     //  Se dispara con lo que cambie el volumen, venga de donde venga. Y no
     //  ocurre hundida: la tecla del volumen no va dirigida a ella.
     follow nivel = sonido.volume
-    on change sonido.volume while out > 0.9 { meter: 1 }
+    //  Y no ocurre dormida: la tecla del volumen no va dirigida a ella.
+    on change sonido.volume while out > 0.9 and not dormida { meter: 1 }
     //  Aguanta 1,1 s tras el ÚLTIMO cambio, no tras cada uno: una ráfaga de
     //  teclazos es una lectura continua y no un parpadeo por escalón. Esto es
     //  lo que pleamar no sabía decir y ahora dice: `on still`.
@@ -1858,8 +1978,16 @@ scene Marea {
     //  En Remanso se guarda y ya: ni tarjeta, ni salto, ni apertura. Solo
     //  crece su perla bajo la línea de agua.
     on notice while remanso { seq = seq + 1; emit direct }
-    on notice while not remanso and fase == 0 and out > 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; marca = marca + 1; needed = true; wanted = true; play startle; entra: 1 ~220ms }
-    on notice while not remanso and fase == 0 and out <= 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; needed = true; wanted = true; play startle; entra: 1 ~220ms after 560ms }
+    //  Dormida: ni tarjeta, ni salto, ni apertura. Se forma la gota, cae, y
+    //  ella abre un ojo. Lo que sube la cuenta es el `direct` de después, al
+    //  hundirse: la gota **es** el aviso llegando, así que la cuenta sube
+    //  cuando entra y no cuando alguien lo manda.
+    on notice while dormida and not remanso { cual = cat; seq = seq + 1; play gotea }
+    //  Y uno urgente sí la despierta, y abre la bandeja. Es la única cosa que
+    //  tiene permiso para hacerlo.
+    on urge while dormida { dormida = false }
+    on notice while not remanso and not dormida and fase == 0 and out > 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; marca = marca + 1; needed = true; wanted = true; play startle; entra: 1 ~220ms }
+    on notice while not remanso and not dormida and fase == 0 and out <= 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; needed = true; wanted = true; play startle; entra: 1 ~220ms after 560ms }
     on change out > 0.9 while fase == 1 { marca = marca + 1 }
     //  Y el respingo **cuando ya se la ve**. Hundida, el gesto se lo daba
     //  debajo del agua —620 ms de viaje— y al asomar ya se había acabado: la
@@ -2063,7 +2191,9 @@ scene Marea {
     zone box cuerpo_zona { at: cx, cy_real; size: 2 * r, 2 * r + 30; corner: r; cursor: pointer }
     //  Cualquier cosa que la necesite la saca; y vuelve a hundirse tras 2,6 s de
     //  gracia, que es lo que el contrato llama gracia y aquí se dice tal cual.
-    on enter cuerpo_zona { needed = true; wanted = true }
+    //  Y despertarse es lo primero que pasa cuando alguien la busca: el resto
+    //  —salir, la hora, el panel— viene detrás y ya con ella despierta.
+    on enter cuerpo_zona { needed = true; wanted = true; dormida = false }
     //  180 ms de espera antes de salir: pasar por encima no es preguntar la
     //  hora. Y 300 de gracia al irse, porque el hueco entre ella y la nota es
     //  real y no puede perderse al cruzarlo. Se va si se abre el panel.
@@ -2087,6 +2217,10 @@ scene Marea {
     on change note while not note { wanted = false }
     on change open while not open { wanted = false }
     on still wanted for 2.6s while not wanted and not note and not open { needed = false }
+    //  Y se duerme sola a los 45 s de que nada la necesite. En Remanso no: el
+    //  sueño automático queda suspendido mientras dure, que es lo que dice el
+    //  contrato —está concentrada, no ausente—.
+    on still needed for 45s while not needed and not remanso and not open and not bandeja and not dormida { dormida = true }
     //  El clic abre; el roce no. Antes bastaban 450 ms de roce para que un panel
     //  entero tapara lo que estabas leyendo.
     on press cuerpo_zona { press: 1; toggle open }
@@ -2105,21 +2239,23 @@ scene Marea {
     //  Con el teclado: las flechas mueven la fila señalada y Enter la elige.
     //  Enter sin haber señalado nada coge la primera, que es Ajustes: lo que el
     //  botón derecho hacía antes sigue estando a una tecla.
-    on key Down while menuab { elegida = min(elegida + 1, 1 + entradas.count) }
+    on key Down while menuab { elegida = min(elegida + 1, 2 + entradas.count) }
     on key Up while menuab { elegida = max(elegida - 1, 0) }
     on key Return while menuab and elegida < 1 { emit ajustes; menuab = false }
     on key Return while menuab and elegida == 1 { emit personalizar; menuab = false; open = true; pagina = armario }
-    on key Return while menuab and elegida > 1 { emit del_menu(elegida - 2); menuab = false }
+    on key Return while menuab and elegida == 2 { emit dormir; menuab = false }
+    on key Return while menuab and elegida > 2 { emit del_menu(elegida - 3); menuab = false }
     on del_menu { menuab = false }
 
     //  Las zonas de la casa, fuera del dibujo y después del conjunto.
-    repeat m in 0..2 {
+    repeat m in 0..3 {
         zone box casa_zona.$m { at: menu.x, menu.y0 + 4 + 11.5 + m * 23; size: 155, 23
                                 corner: 7; cursor: pointer; active: menu > 0.9 }
         on enter casa_zona.$m { casa.$m: 1; elegida = -1 }
         on leave casa_zona.$m { casa.$m: 0 }
     }
     on press casa_zona.0 { emit ajustes; menuab = false }
+    on press casa_zona.2 { emit dormir; menuab = false }
     //  «Personalizar» abre su armario, que es donde vive esto.
     on press casa_zona.1 { emit personalizar; menuab = false; open = true; pagina = armario }
 

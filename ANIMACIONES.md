@@ -1006,6 +1006,62 @@ conserva el tamaño real:
 | separación | 13 px entre centros |
 | altura de los ojos | 2,5 px por debajo del centro del cuerpo |
 
+## Dormir
+
+![Dormida: dos rayitas y su «z»](evidencia/dormida.png)
+
+> «**Adormecerse**: bajan los párpados, cabecea suavemente y se acomoda. 1,24 s.
+> Empieza al pulsar «Dormir» o tras 45 s inactiva.»
+> «**Dormida**: ojos como rayitas, respiración leve y «z» discreta. Ciclo de
+> 3,6 s.»
+
+Dormir no es el Remanso, y por eso son dos cosas y no un interruptor con dos
+nombres: en Remanso **sigue despierta y atenta** —los ojos bajan a dos trazos y
+no se cierran—, y aquí no está. De ahí sale lo demás: el sueño automático queda
+suspendido mientras dure el Remanso, porque está concentrada, no ausente.
+
+| | |
+| --- | --- |
+| dormirse | **1 217 ms** medidos (contrato: 1,24 s) |
+| despertarse | 380 ms — nadie se despierta despacio cuando le llaman |
+| el cabeceo | 420 + 380 + 440 = los 1 240 ms del contrato, en tres tiempos |
+| la respiración | una **`posture`**: se repite sola mientras sea verdad y se calla cuando deja de serlo. Ciclo de 3,6 s y 1,1 px de recorrido, contra los 2 de despierta |
+| la «z» | una cada 3,6 s: sube, se abre y se deshace |
+
+Dos cosas que el sitio decidió por sí mismo. La **«z» va a su lado y no encima**:
+ahí arriba está el borde de la pantalla —la misma razón por la que las gotas
+bajan por su hombro—, y sobre su cabeza salía medio cortada. Y **«Dormir» vive
+en su menú**: en Marea son las `zZ` del centro de control, pero el centro de
+aquí es el de la lámina —tres tarjetas, y ninguna es esta—, así que va con
+Ajustes y Personalizar, que es donde están las cosas que hace ella.
+
+### Llega uno y está dormida
+
+![La gota cae, sale la onda y abre un ojo](evidencia/dormida-aviso.png)
+
+> «**No la despierta.** Una gota del color de quien escribe se forma colgando
+> del borde encima de su cabeza, se suelta y se hunde en ella; sale una onda de
+> ese color, la gota de su lado late y ella abre **solo el ojo derecho** hacia
+> esa gota, lo cierra y respira un poco más hondo. Uno crítico sí la despierta y
+> abre la bandeja. | Goteo 420 ms + 90 ms colgando + caída 190 ms InQuad. Onda
+> 760 ms. Ojo 280 ms, abierto 700 ms.»
+
+Ni tarjeta, ni salto, ni apertura. La gota se forma en el borde de arriba —del
+mismo sitio del que cuelga ella cuando está hundida, porque es la misma agua—,
+se suelta y se hunde; de donde ha caído sale un anillo de su color, y su gota
+del hombro late. Medido: **367 ms** en formarse, **317** entre soltarse y estar
+dentro (90 de colgar + 190 de caída), **684 ms** en total; el ojo abre en
+**283 ms** y se cierra **950** después.
+
+Y lo que la gota trae lo cuenta al **entrar**, no al mandarse: el `direct` que
+sube la cuenta va en el suceso de haberse hundido. La gota **es** el aviso
+llegando, así que la cuenta sube cuando entra.
+
+Lo demás que dormir se lleva por delante, que estaba escrito en otras filas del
+contrato y no se cumplía porque no había sueño: la hora no sale dormida, el
+nivel en la cara tampoco —la tecla del volumen no va dirigida a ella— y un
+urgente es lo único que tiene permiso para despertarla.
+
 ## El armario: un accesorio no es un dibujo pegado encima
 
 ![Su armario](evidencia/armario.png)
@@ -1221,8 +1277,17 @@ Dieciocho, todas arregladas en pleamar en vez de esquivadas aquí:
 
 ## Lo siguiente
 
-- **Dormir**, que es lo único grande que falta de la bolita: las `zZ`, el sueño
-  automático y la llegada de un aviso con ella dormida. Con eso se cierra
-  también el único hueco del Remanso —«el sueño automático queda suspendido
-  mientras dure»—, que hoy no se puede ni incumplir.
-- De la bandeja ya no queda nada: el sudor y la gota ámbar están puestos.
+Del contrato de la bolita ya no queda nada grande por hacer: el oleaje entero,
+el Remanso, dormir, el centro de control, su menú y el armario están puestos y
+medidos. Lo que viene ahora es de otro capítulo:
+
+- **Las notificaciones de verdad**, que hoy son una tanda inventada. pleamar
+  sabe traerlas; falta darle el permiso, y decidir qué pasa cuando el sitio ya
+  es de Marea.
+- **El pulso del sistema** (`Actualiza`, `Trabaja`): el anillo ámbar que gira,
+  las marcas que orbitan, los dos vistos de «al día». Estrena `spin` y, sobre
+  todo, pide pasar la cara a `layer`, que es el refactor que más ordenaría el
+  fichero.
+- **Las apps y el buscador**: la rejilla con `wrap:`, el desplazamiento con
+  `view:`, `input` para buscar y `measure` para que las píldoras midan lo que
+  dice su texto. Es la parte del lenguaje que ninguna otra pieza toca.
