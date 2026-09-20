@@ -1072,6 +1072,10 @@ scene Marea {
                         size: 173, 66
                         gap: 6
                         padding: 8
+                        //  Centrados a lo alto. Por defecto un reparto alinea a
+                        //  `start`, y con eso el interruptor se quedaba pegado
+                        //  arriba mientras el texto caía al medio.
+                        align: center
                         //  La de Concentración va resaltada cuando está puesta: el
                         //  fondo un punto más verde. Es el único borde del panel, y
                         //  lo pinta la tarjeta, no el reparto.
@@ -1081,10 +1085,13 @@ scene Marea {
                             size: 20, 22
                             //  Wi-Fi: tres arcos y el punto.
                             repeat a in 1..4 {
-                                arc { at: 11, 14; radius: 3 + a * 3.4; span: 110deg; width: 1.8; color: ink
+                                //  Un arco se dibuja por ENCIMA de su punto, así
+                                //  que el punto va abajo del todo: el icono ocupa
+                                //  de y−16 a y+2, y se centra 7 más abajo.
+                                arc { at: 10, 18; radius: 3 + a * 3.4; span: 110deg; width: 1.8; color: ink
                                       opacity: 40% + encendida.1 * 60%; show: k == 1 }
                             }
-                            ellipse { at: 11, 15; radius: 1.8; color: ink; opacity: 40% + encendida.1 * 60%; show: k == 1 }
+                            ellipse { at: 10, 19; radius: 1.8; color: ink; opacity: 40% + encendida.1 * 60%; show: k == 1 }
                             //  Bluetooth: la runa, de un trazo.
                             path { at: 6, 2; color: ink; stroke: 1.8; opacity: 40% + encendida.2 * 60%; show: k == 2
                                    move 0, 4; line 10, 14; line 5, 18; line 5, 0; line 10, 4; line 0, 14 }
@@ -1159,10 +1166,10 @@ scene Marea {
                         //  La fuerza, con los mismos arcos de la tarjeta: cuantos
                         //  más encendidos, mejor llega.
                         repeat a in 1..4 {
-                            arc { at: 20, 22; radius: 3 + a * 3.2; span: 110deg; width: 1.7; color: ink
+                            arc { at: 20, 26; radius: 3 + a * 3.2; span: 110deg; width: 1.7; color: ink
                                   opacity: 20% + 80% * if(r.senal > (a - 1) * 0.25, 1, 0) }
                         }
-                        ellipse { at: 20, 23; radius: 1.7; color: ink }
+                        ellipse { at: 20, 27; radius: 1.7; color: ink }
                         text r.nombre { at: 42, 19; anchor: left center; size: 12; width: 240; lines: 1; color: ink }
                         ellipse { at: 322, 19; radius: 4; color: mint; opacity: if(r.puesta, 100%, 0%) }
                         zone box tocarla { from: 0, 0; size: 340, 38; corner: 10; cursor: pointer }

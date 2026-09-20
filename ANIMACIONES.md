@@ -497,6 +497,23 @@ row tarjeta { size: 173, 66; gap: 6; padding: 8; fill: …; corner: 14
 }
 ```
 
+### Lo que estaba descentrado
+
+Dentro de cada tarjeta el interruptor se quedaba pegado arriba y el icono de
+Wi-Fi caía alto. Dos causas, las dos dichas mal por mí:
+
+- **Un reparto alinea a `start`.** Sin `align: center`, cada hijo se pega al
+  borde de su eje corto. El texto parecía centrado porque son dos líneas que
+  llenan el alto; el interruptor, que mide 23, no.
+- **Un `arc` se dibuja POR ENCIMA de su punto.** Es una tajada de círculo que
+  abre hacia arriba, así que su masa va de `y−16` a `y+2`: para centrarlo hay
+  que bajar el punto 7. Con el punto en el centro, el icono sale alto.
+
+Y una tercera que sí era de pleamar: con `size:` dicho, `align:` seguía
+centrando **respecto al hijo más alto** y no dentro de la caja pedida, así que
+una tarjeta de 66 con 32 de contenido lo dejaba todo arriba y el hueco abajo.
+Ahora, a lo ancho del eje, lo dicho en `size:` es la caja en la que se alinea.
+
 ### Las páginas, que salen de su tarjeta
 
 ![La página creciendo](evidencia/pagina-crece.png)
