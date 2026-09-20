@@ -677,8 +677,153 @@ punto, los dos al medio —un «!» descentrado no es un «!»—, con el salto 
 Marea. **Una vez por episodio**, desde el primero hasta que no queda ninguno: un
 aviso que salta cada vez es un aviso que se acaba tapando con una ventana.
 
-**Lo que falta de la bandeja:** la gota de sudor, la gota ámbar que sube y se
-queda arriba mientras dure, y el Remanso entero.
+**Lo que falta de la bandeja:** la gota de sudor y la gota ámbar que sube y se
+queda arriba mientras dure.
+
+## El Remanso
+
+> «La campana tachada del centro de control cierra la tarjeta y deja a Marea
+> despierta dentro de una membrana que comparte exactamente su diámetro
+> configurado. La luna queda en el cuadrante superior derecho y el agua cambia
+> suavemente de pendiente, sin mover el cuerpo ni las perlas.»
+
+No molestar, pero **despierta**: sigue aquí, atenta, y guarda lo que llega
+mientras tú te concentras. Todo lo que pasa dentro pasa **dentro de su
+silueta**: entrar en Remanso no la agranda ni un píxel.
+
+### Entrar
+
+![La entrada al Remanso](evidencia/remanso-entrando.png)
+
+> «Una onda recorre una vez la membrana, aparece la luna azul y los ojos bajan a
+> dos trazos relajados. Las categorías pendientes pasan a ser perlas bajo la
+> línea de agua. | 320 ms; después queda completamente quieta.»
+
+Aquí no hay campana tachada: hay una tarjeta de **Concentración**, que es lo que
+trae la lámina del centro de control, y su página es donde eliges cuánto dura.
+Al pulsar un plazo, **lo primero que pasa es que el panel se cierra**: quedarse
+abierto encima de ella sería lo contrario de lo que acabas de pedir.
+
+La membrana es un `arc` del **mismo radio que ella** con `span: 360deg * dibuja`,
+así que la ola que la dibuja es la propia cuenta creciendo: no hay dos formas,
+hay una que se va cerrando. Medido: `calma` de 0 a 99 % en **317 ms**, y la ola
+arranca 33 ms después y tarda otros **317** —el `after 30ms` está para que se
+vea empezar, no para que empiece antes que ella—.
+
+### La marea
+
+![La marea, tres momentos](evidencia/remanso-marea.png)
+
+> «El agua cambia suavemente de pendiente, sin mover el cuerpo ni las perlas. |
+> La marea completa una ida y vuelta en 7,6 s.»
+
+`wave marea = 1 at 0.827`: 2π/0,827 = 7,597 s. Medido entre dos pasos por cero
+subiendo: **7,60 s**. Es lo único que se mueve ahí dentro, y se mueve como el
+agua. Los tres fotogramas están tomados cada 1,9 s, que es un cuarto de viaje.
+
+El agua va recortada a ella (`clip inset 0 ellipse`), así que la línea **se corta
+sola** donde acaba su silueta: no hay que calcular dónde.
+
+### Lo que se guarda
+
+![Las perlas bajo el agua](evidencia/remanso.png)
+
+> «El aviso se guarda sin tarjeta, salto ni apertura. Su categoría aparece o
+> aumenta bajo la línea de agua; el contador se actualiza en la cápsula. | Sin
+> trayectoria exterior ni bucle.»
+
+Tres avisos —dos de mensajes, uno de trabajo— y lo que se ve son dos perlas, la
+azul más gorda. Medido: `n.1 = 2`, `n.2 = 1`; la perla aparece en **317 ms**,
+engorda 0,6 px por aviso hasta tres y late una vez cuando cae otro, con el mismo
+empujón que usa la gota del hombro: es la misma noticia contada en otro sitio.
+
+Y en el hombro no queda ninguna gota: `follow hay.$k = … * (1 - calma)`. Ahí
+abajo son perlas.
+
+### Una urgencia permitida
+
+![La perla ámbar y el ojo que mira](evidencia/remanso-urgencia.png)
+
+> «Una perla ámbar aparece sobre la membrana y solo el ojo cercano se vuelve
+> redondo para mirarla. La bandeja no se abre y el foco no cambia. | 1,1 s; una
+> vez por episodio urgente.»
+
+Medido: `mirada` 0 → 1,03 → 0 en **1 100 ms** exactos. La segunda urgencia del
+mismo episodio no hace nada, igual que la cara alarmada: lo que molesta de un
+aviso urgente no es el primero, es el cuarto.
+
+Lo que se guarda va **debajo** del agua y lo que pasa, **encima**: la perla ámbar
+vive sobre la membrana, a las tres en punto y lejos de la luna —juntas se leían
+como una sola cosa rara en el borde—.
+
+### Pasar el cursor
+
+![La cápsula](evidencia/remanso-capsula.png)
+
+> «Sale una cápsula compacta con estado, avisos guardados, "Terminar" y "Ver
+> reglas". Ocupa el lugar de la hora y se repliega al abandonar el conjunto. |
+> Apertura 160 ms; cierre 140 ms.»
+
+Ocupa el lugar de la hora **y nace como la hora**: su caja va dentro del cuerpo
+de ella, sale de su centro con ancho cero y se desliza a la derecha con un cuello
+que nadie dibuja. Comparten silueta, sombra y filo.
+
+Medido: **150 ms** del 1 % al 99 % al abrir y **150 ms** del 99 % al 1 % al
+cerrar, con 300 ms de gracia antes de empezar a cerrarse. Un `follow` no sabe de
+qué lado viene, así que la ida y la vuelta son dos reglas sobre lo mismo.
+
+Y dice lo que hay: «No molestar · 45 min» con los minutos que quedan de verdad,
+«3 avisos guardados» con la cuenta viva, y la tarjeta de Concentración del panel
+lee ese mismo estado —«Puesto · 45 min»— en vez de guardar el suyo.
+
+### Volver
+
+![Volver, con el resumen saliendo de ella](evidencia/remanso-volver.png)
+
+> «La membrana y la luna se disuelven y aparece un único resumen. Las gotas
+> normales permanecen ocultas mientras el resumen está visible para no reproducir
+> de golpe toda la cola. | Despertar 500 ms; resumen 4,2 s.»
+
+Entrar dura 320 ms y despertar 500: **no es el mismo viaje, así que no es el
+mismo muelle**. Medido: `calma` a cero **507 ms** tras el clic en «Terminar»; el
+resumen lleno a los **500**, quieto 4,2 s y recogido en 300 más.
+
+El resumen también sale de ella, con su cuello: se ve en los fotogramas 3 y 4 de
+la tira. Lo último que hace el Remanso es devolverle lo que guardó, y se lo
+devuelve saliendo de ella.
+
+Y se acaba solo: un minuto menos cada minuto (`every 60s while remanso and
+queda > 0`) y al llegar a cero sale ella. Un «no molestar» que hay que acordarse
+de quitar se queda puesto toda la tarde, y entonces ya no es un remanso sino un
+tapón. Medido con `--decir "fact queda 0"`: el resumen arranca **en el mismo
+frame**.
+
+### Lo que no está
+
+- **La campana tachada**: aquí la puerta es la tarjeta de Concentración, que es
+  lo que hay en la lámina del centro de control. Es la misma acción en otro sitio.
+- **El sueño automático suspendido mientras dure**: no hay sueño todavía, así que
+  no hay nada que suspender.
+- **Las `zZ` de Dormir**, por lo mismo.
+- **«Ver reglas»** manda su suceso y la lógica lo apunta: lo que abriría es una
+  pantalla que no existe en este prototipo.
+
+### Lo que esto destapó en pleamar
+
+**Con movimiento reducido, lo que iba solo seguía dando vueltas.** El contrato
+dice que la marea «se detiene con movimiento reducido», y en pleamar
+`--movimiento-reducido` posaba los muelles y congelaba los gestos, pero `blink`,
+`wave` y `spin` seguían en bucle: justo lo único que no debe seguir girando. Ya
+no: el parpadeo se queda con el ojo abierto, la onda en la mitad de su viaje y el
+giro donde estaba. Medido: la marea marca **0,0000 en los 32 fotogramas** de
+cinco segundos —y son 32 y no 300 porque, sin nada moviéndose, **duerme**—.
+
+**Y la cuarta vez con las zonas.** La zona de gracia de la cápsula, declarada al
+final, se quedó con el clic de «Terminar»; y la de la hora, apagada en Remanso,
+hacía dos cosas a la vez: no dejaba pulsar debajo de ella y daba por cierto el
+«estás fuera» que apaga la cápsula 300 ms después de abrirla. Ya no es un
+despiste: **es una forma de esta escena**, y por eso está escrita en el sitio
+donde pasa.
 
 ## Medidas de la lámina
 
@@ -737,8 +882,18 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
    cero, así que la ráfaga es una lectura continua, y lo que dispara ocurre una
    vez al acabar. Medido: 1 102 ms tras el último cambio, y sin gastar un frame
    esperando.
+14. **Lo que iba solo seguía dando vueltas con movimiento reducido.**
+   `--movimiento-reducido` posaba los muelles y congelaba los gestos, pero
+   `blink`, `wave` y `spin` seguían en bucle —lo único que de verdad no debe
+   seguir girando—. Ahora el parpadeo se queda abierto, la onda en la mitad de
+   su viaje y el giro donde estaba. Medido: la marea marca 0,0000 en los 32
+   fotogramas de cinco segundos, y son 32 porque sin nada moviéndose duerme.
 
 ## Lo siguiente
 
-- Del oleaje: la ráfaga apilada, la llegada con ella dormida, la vista previa en
-  abanico, y la bandeja («Abre Oleaje», resolver un grupo, el cierre).
+- **Dormir**, que es lo único grande que falta de la bolita: las `zZ`, el sueño
+  automático y la llegada de un aviso con ella dormida. Con eso se cierra
+  también el único hueco del Remanso —«el sueño automático queda suspendido
+  mientras dure»—, que hoy no se puede ni incumplir.
+- De la bandeja: la gota de sudor del urgente y la gota ámbar que sube y se
+  queda arriba mientras dure.

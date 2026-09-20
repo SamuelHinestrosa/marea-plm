@@ -116,6 +116,39 @@ scene Marea {
     //  exactos y a ritmo constante no los da un muelle: los da un gesto, que es
     //  una línea de tiempo con su curva. `linear` es lo que hace que una mecha
     //  parezca una mecha y no algo que frena al final.
+    // ── el Remanso ───────────────────────────────────────────────
+    //  No molestar, pero despierta. «Remanso no significa apagada»: sigue aquí,
+    //  atenta, y guarda los avisos mientras tú te concentras.
+    //
+    //  La membrana comparte **exactamente** su diámetro: entrar no agranda su
+    //  silueta. Debajo de la línea de agua se guardan las perlas, una por
+    //  categoría, y la marea cambia de pendiente despacio —ida y vuelta en
+    //  7,6 s— sin mover ni el cuerpo ni las perlas.
+    fact remanso = false
+    fact queda = 0                     // los minutos que le quedan
+    fact mirado = false                // si ya ha mirado esta urgencia
+    event entrar_remanso
+    event salir_remanso
+    event ver_reglas ->
+    prop calma = 0 ~320ms              // 0 despierta, 1 en Remanso
+    prop mirada = 0 ~260ms             // la urgencia que se mira, sin abrir nada
+    prop dibuja = 0 ~320ms             // la ola que dibuja la burbuja, una vez
+    prop resumen = 0 ~500ms            // al volver, un único resumen
+    //  La marea: una ida y vuelta en 7,6 s. Nada de bucles nerviosos; esto es
+    //  lo único que se mueve, y se mueve como el agua.
+    pose marea = 0
+    wave marea = 1 at 0.827
+    //  Entrar dura 320 ms y despertar 500: no es el mismo viaje, así que no es
+    //  el mismo muelle. Y la ola que dibujó la membrana la deshace al salir,
+    //  con el mismo tiempo que tarda ella en despertarse.
+    on entrar_remanso { remanso = true; mirado = false; calma: 1 ~320ms; dibuja: 0 ~16ms; dibuja: 1 ~320ms after 30ms }
+    on salir_remanso { remanso = false; queda = 0; calma: 0 ~500ms; dibuja: 0 ~500ms; resumen: 1 ~500ms; resumen: 0 ~300ms after 4200ms }
+    //  Y se acaba solo: un minuto menos cada minuto, y al llegar a cero sale
+    //  ella. Un «no molestar» que hay que acordarse de quitar se queda puesto
+    //  toda la tarde, y entonces ya no es un remanso sino un tapón.
+    every 60s while remanso and queda > 0 { queda = queda - 1 }
+    on change queda while remanso and queda < 1 { emit salir_remanso }
+
     //  «Ha llegado algo urgente»: lo dice la lógica. La cara se alarma con una
     //  admiración y un salto corto; los números son los del gesto `cupo` de
     //  Marea, por 46/56.
@@ -140,8 +173,15 @@ scene Marea {
     //  una admiración y un salto corto. **Una vez por episodio**, desde el
     //  primero hasta que no queda ninguno: un aviso que salta cada vez es un
     //  aviso que se acaba tapando con una ventana.
-    on urge while face == eye { face = alerta; play alarmarse; emit abrir_bandeja }
+    on urge while not remanso and face == eye { face = alerta; play alarmarse; emit abrir_bandeja }
+    //  En Remanso una urgencia permitida **no abre la bandeja ni roba el foco**:
+    //  aparece una perla ámbar sobre la membrana y solo el ojo de al lado se
+    //  vuelve redondo para mirarla. 1,1 s, y a lo suyo otra vez.
+    //  Una vez por episodio, igual que la cara alarmada: lo que molesta de un
+    //  aviso urgente no es el primero, es el cuarto.
+    on urge while remanso and not mirado { mirado = true; mirada: 1; mirada: 0 ~260ms after 840ms }
     on still hay_urgente for 1.6s while not hay_urgente and face == alerta { face = eye }
+    on still hay_urgente for 1.6s while not hay_urgente { mirado = false }
     //  De qué es cada fila. Lo pondría la lógica; aquí se nace con algo.
     prop tray = 0 ~240ms               // 0 dentro de ella, 1 tarjeta entera
     prop carril = 0 ~240ms             // las gotas: 0 en su hombro, 1 en el carril
@@ -207,6 +247,12 @@ scene Marea {
     repeat k in 1..5 {
         fact n.$k = 0
         fact last.$k = 0
+        //  La gota late cuando cae algo suyo, y en Remanso late su perla: es el
+        //  mismo golpe, porque es la misma noticia contada en otro sitio.
+        prop late.$k = 0 ~lively
+        //  Y la perla, que aparece cuando hay algo de su categoría guardado.
+        prop perla.$k = 0 ~320ms
+        follow perla.$k = if(n.$k > 0, 1, 0)
     }
     //  Si queda alguno urgente. Mientras lo haya, la cara sigue alarmada.
     prop hay_urgente = 0 ~16ms
@@ -248,12 +294,27 @@ scene Marea {
     }
     //  Y la primera la enciende la red, no un hecho que alguien tenga que poner.
     follow encendida.1 = if(red.online, 1, 0)
-    repeat k in 2..7 {
-    }
+    //  Y la tercera la enciende el Remanso: la tarjeta no guarda su propio
+    //  interruptor, enseña el que ya hay. Dos verdades del mismo estado es
+    //  como se acaba con una tarjeta encendida y la bolita despierta.
+    follow encendida.3 = if(remanso, 1, 0)
     prop nota = 0 ~190ms
-    follow nota = if(note and not open and face == eye and out > 0.9 and fase == 0 and pendientes < 1, 1, 0)
-    follow abanico = if(note and not open and not bandeja and face == eye and out > 0.9 and fase == 0 and pendientes > 0, 1, 0)
+    follow nota = if(note and not open and not remanso and face == eye and out > 0.9 and fase == 0 and pendientes < 1, 1, 0)
+    follow abanico = if(note and not open and not bandeja and not remanso and face == eye and out > 0.9 and fase == 0 and pendientes > 0, 1, 0)
+    //  Y en Remanso, la cápsula: ocupa el mismo sitio que la hora.
+    prop capsula = 0 ~160ms
+    //  Abre en 160 y se repliega en 140, que es lo que pide el contrato. Un
+    //  `follow` no sabe de qué lado viene, así que quien lo dice son dos
+    //  reglas sobre lo mismo: la ida y la vuelta no son el mismo viaje.
+    let cap.quiere = note and remanso and out > 0.9
+    on change cap.quiere while cap.quiere { capsula: 1 ~160ms }
+    on change cap.quiere while not cap.quiere { capsula: 0 ~140ms }
     let nota.x = cx + (23 + 14 + 52) * nota
+    //  La cápsula del Remanso y el resumen ocupan el mismo sitio que la nota, y
+    //  por eso nacen igual: del centro de ella, deslizándose a la derecha hasta
+    //  quedar a 11 px. Su medio ancho va en la cuenta, como en la nota.
+    let cap.x = cx + (23 + 11 + 104) * capsula
+    let res.x = cx + (23 + 11 + 98) * resumen
 
     prop card = 0 ~290ms
     prop content = 0 ~200ms
@@ -384,6 +445,9 @@ scene Marea {
     let sube = if(hidden, (1 - out) * 40, 0)
     //  Y al abrir la bandeja sube 5 px, que es lo que dice el contrato.
     let cy_real = cy + body.y - sube - away * 84 - 5 * tray
+    //  La cápsula, 12 px más abajo que ella: mide 92 de alto y centrada en su
+    //  centro se salía por el borde de arriba.
+    let cap.y = cy_real + 12
 
     //  El cuello: mínimo en reposo y máximo a mitad de la separación, que es una
     //  campana. Al final no queda nada y el hilo se rompe solo.
@@ -491,6 +555,23 @@ scene Marea {
             corner: 13
             blend: 18 * 4 * nota * (1 - nota)
         }
+        //  La cápsula del Remanso, igual: es lo que dice cuando le preguntas
+        //  pasando por encima, así que sale de donde sale la hora y del mismo
+        //  modo. Una cápsula que aparece al lado sería otra cosa, puesta ahí.
+        box capsula_caja {
+            at: cap.x, cap.y
+            size: 208 * clamp(capsula * 1.6, 0, 1), 92 * clamp(capsula * 2.4, 0, 1)
+            corner: 16
+            blend: 18 * 4 * capsula * (1 - capsula)
+        }
+        //  Y el resumen al volver: lo último que hace el Remanso es devolverle
+        //  lo que guardó, y se lo devuelve saliendo de ella.
+        box resumen_caja {
+            at: res.x, cy_real
+            size: 196 * clamp(resumen * 1.6, 0, 1), 40 * clamp(resumen * 2.4, 0, 1)
+            corner: 20
+            blend: 18 * 4 * resumen * (1 - resumen)
+        }
     }
 
     //  Lo que lleva escrito. La hora la trae el sistema; aquí no hay lógica.
@@ -567,14 +648,25 @@ scene Marea {
         let a.rw = r.w + (4.1 - r.w) * alarma
         let a.rh = r.h + (4.1 - r.h) * alarma
 
+        //  6. En Remanso los ojos bajan a dos trazos relajados. No se cierran:
+        //  sigue aquí, atenta. Cerrarlos sería dormir, que es otra cosa.
+        let z.w = a.w + (7.4 - a.w) * calma
+        let z.h = a.h + (2.5 - a.h) * calma
+        let z.rw = a.rw + (7.4 - a.rw) * calma
+        let z.rh = a.rh + (2.5 - a.rh) * calma
+        //  Y el de al lado de la perla se abre redondo para mirarla. Solo ese:
+        //  el otro sigue en su trazo, porque no ha pasado nada más.
+        let z.rw2 = z.rw + (9.5 - z.rw) * mirada
+        let z.rh2 = z.rh + (9.5 - z.rh) * mirada
+
         let ojo.y = y + 2.5
         let l.x = x - sep
         let r.x = x + sep
         //  Redondo cuando es redondo: la mitad del lado corto sale pill de pie,
         //  pill tumbado, gota, objetivo y disco sin decirlo cinco veces. El cuerpo
         //  de la cámara es el único que se aparta, porque tiene esquina propia.
-        let l.corner = min(a.w, a.h) / 2
-        let r.corner = min(r.w, r.h) / 2 + (4.9 - min(r.w, r.h) / 2) * cam
+        let l.corner = min(z.w, z.h) / 2
+        let r.corner = min(z.rw2, z.rh2) / 2 + (4.9 - min(z.rw2, z.rh2) / 2) * cam
         //  Y el puente entre los dos: campana, como la del menisco. Máximo justo
         //  cuando se tocan —a mitad del viaje del nivel, y al juntarse en la gota—
         //  y nada en los extremos.
@@ -590,8 +682,8 @@ scene Marea {
             //  lee como un nivel; y se van cuando la gota se abre.
             body {
                 color: mix(ink, #34373a, meter)
-                box { at: l.x, ojo.y - 2.8 * alarma; size: a.w, a.h; corner: l.corner; blend: ojo.fusion }
-                box { at: r.x, ojo.y + 6.2 * alarma; size: a.rw, a.rh; corner: r.corner; blend: ojo.fusion }
+                box { at: l.x, ojo.y - 2.8 * alarma; size: z.w, z.h; corner: l.corner; blend: ojo.fusion }
+                box { at: r.x, ojo.y + 6.2 * alarma; size: z.rw2, z.rh2; corner: r.corner; blend: ojo.fusion }
             }
 
             //  Lo lleno del nivel es **la misma pista**, pintada otra vez y
@@ -603,8 +695,8 @@ scene Marea {
                 body {
                     color: mix(mint, #6b7280, sonido.muted)
                     opacity: meter
-                    box { at: l.x, ojo.y - 2.8 * alarma; size: a.w, a.h; corner: l.corner; blend: ojo.fusion }
-                    box { at: r.x, ojo.y + 6.2 * alarma; size: a.rw, a.rh; corner: r.corner; blend: ojo.fusion }
+                    box { at: l.x, ojo.y - 2.8 * alarma; size: z.w, z.h; corner: l.corner; blend: ojo.fusion }
+                    box { at: r.x, ojo.y + 6.2 * alarma; size: z.rw2, z.rh2; corner: r.corner; blend: ojo.fusion }
                 }
             }
 
@@ -696,6 +788,103 @@ scene Marea {
     //  Marea, por 46/56, y algo menos ahora que asoma más.
     Cara(cx, cy_real, gaze.x * (1 - atenta) + 4 * atenta, gaze.y * (1 - atenta), (1 - out) * 4.5 * if(hidden, 1, 0))
 
+    // ── la cápsula del Remanso ───────────────────────────────────
+    //  El conjunto —ella y la cápsula—, para la gracia al salir. Y va DEBAJO de
+    //  lo que lleva dentro, como la del panel: la pulsación es de la zona de
+    //  más arriba, y declarada al final se quedaba con el clic de «Terminar».
+    //  Es la cuarta vez que pasa esto; ya no es un despiste, es una forma de la
+    //  escena, y por eso está escrito aquí y no solo allí.
+    zone box cap_conj { at: cx + 70, cy_real + 8; size: 260, 136; corner: 30; active: capsula > 0.01 }
+    on away cap_conj for 300ms { note = false }
+
+    //  Al pasar el cursor, lo que hace falta saber: en qué está, cuánto le
+    //  queda, cuántos ha guardado, y cómo salir. Nada más: si hiciera falta
+    //  abrir algo para enterarse, no serviría de nada.
+    let cap.abre = clamp(capsula * 2.2 - 1.2, 0, 1)
+    group {
+        opacity: cap.abre
+        move: (1 - cap.abre) * -8, 0
+        arc { at: cap.x - 76, cap.y - 22; radius: 7.5; span: 210deg; width: 5; rotate: 145deg; color: #8fa2e8 }
+        text "No molestar · {queda, 0} min" { at: cap.x - 60, cap.y - 26; anchor: left center; size: 12; weight: 500; color: ink }
+        text "{pendientes, 0} avisos guardados" { at: cap.x - 60, cap.y - 9; anchor: left center; size: 10.5; color: #8b8f95 }
+        prop term.luz = 0 ~140ms
+        prop regl.luz = 0 ~140ms
+        box { at: cap.x - 52, cap.y + 22; size: 96, 30; corner: 10; color: mix(#2a1b1b, #3a2424, term.luz) }
+        box { at: cap.x - 84, cap.y + 22; size: 11, 11; corner: 3; color: #e0655a }
+        text "Terminar" { at: cap.x - 44, cap.y + 22; anchor: center; size: 11.5; weight: 500; color: ink }
+        box { at: cap.x + 52, cap.y + 22; size: 96, 30; corner: 10; color: mix(#1b1b1c, #232425, regl.luz) }
+        text "Ver reglas" { at: cap.x + 52, cap.y + 22; anchor: center; size: 11.5; color: #8b8f95 }
+        zone box terminar { at: cap.x - 52, cap.y + 22; size: 96, 30; corner: 10; cursor: pointer; active: capsula > 0.8 }
+        zone box reglas { at: cap.x + 52, cap.y + 22; size: 96, 30; corner: 10; cursor: pointer; active: capsula > 0.8 }
+        on enter terminar { term.luz: 1 }
+        on leave terminar { term.luz: 0 }
+        on enter reglas { regl.luz: 1 }
+        on leave reglas { regl.luz: 0 }
+        on press terminar { emit salir_remanso }
+        on press reglas { emit ver_reglas }
+    }
+    //  Al volver, un único resumen. Las gotas normales siguen escondidas
+    //  mientras está: soltar de golpe toda la cola sería lo contrario de lo que
+    //  el Remanso vino a hacer.
+    let res.abre = clamp(resumen * 2 - 1, 0, 1)
+    group {
+        opacity: res.abre
+        move: (1 - res.abre) * -10, 0
+        ellipse { at: res.x - 78, cy_real; radius: 8; color: azul }
+        text "{pendientes, 0} novedades importantes" { at: res.x - 62, cy_real; anchor: left center; size: 11.5; color: ink }
+        path { at: res.x + 86, cy_real - 5; color: #8b8f95; stroke: 1.6; move 0, 0; line 5, 5; line 0, 10 }
+    }
+
+    // ── la membrana del Remanso ──────────────────────────────────
+    //  Todo esto vive DENTRO de su silueta: entrar en Remanso no la agranda.
+    //  El agua se dibuja recortada a la bolita, así que la línea se corta
+    //  donde acaba ella y no hace falta calcular dónde.
+    let agua.y = cy_real + 7
+    let agua.tilt = marea * 0.10
+    group {
+        clip inset 0 ellipse { at: cx, cy_real; radius: r }
+        opacity: calma
+        //  Lo que hay bajo la línea de agua: un poco más claro que ella, como
+        //  el agua vista desde fuera.
+        box { at: cx, agua.y + 22; size: 70, 44; color: #1d2b2c; rotate: agua.tilt }
+        //  Y la línea, que es lo único que se mueve: la marea cambia de
+        //  pendiente despacio, sin mover el cuerpo ni las perlas.
+        box { at: cx, agua.y; size: 70, 1.4; color: #7fd6c4; rotate: agua.tilt; opacity: 75% }
+        //  Las perlas: una por categoría, guardadas bajo el agua. Aparecen al
+        //  guardarse la primera, engordan un poco con lo que se va guardando
+        //  —hasta tres, y ahí se queda: una perla que crece sin freno es una
+        //  cuenta, y la cuenta ya está en la cápsula— y laten cuando cae otra.
+        //  Eso es todo lo que pasa aquí dentro, y pasa despacio.
+        repeat k in 1..5 {
+            let px = cx - 13.5 + (k - 1) * 9
+            let perla.r = (2.8 + 0.6 * min(n.$k, 3)) * (1 + late.$k * 0.5)
+            ellipse { at: px, agua.y + 9; radius: perla.r * perla.$k
+                      color: mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5)
+                      opacity: perla.$k * 85% }
+        }
+    }
+    //  La perla ámbar de una urgencia permitida: sobre la membrana, no debajo
+    //  del agua. Lo que se guarda va abajo; lo que pasa, arriba.
+    //  A las tres en punto de su membrana, lejos de la luna: juntas se leían
+    //  como una sola cosa rara en el borde.
+    ellipse { at: cx + 20, cy_real - 11.5; radius: 4.2; color: #e2b25a; opacity: mirada }
+
+    //  La membrana, del mismo diámetro que ella. La dibuja una ola que la
+    //  recorre una vez al entrar: el arco crece de nada a entera.
+    arc { at: cx, cy_real; radius: r; span: 360deg * dibuja; width: 1.3; color: #7fd6c4; opacity: calma * 85% }
+
+    //  La luna, en el cuadrante superior derecho y fuera de ella. Es un camino
+    //  de dos curvas —el filo de fuera y el de dentro—, que es como se dibuja
+    //  un cuarto creciente cuando no puedes restar una forma de otra.
+    let luna.x = cx + 22
+    let luna.y = cy_real - 31
+    //  Un creciente es un arco gordo, así que eso es: 210° de 5,5 de grueso,
+    //  girados para que abra hacia abajo y a la izquierda. Con dos curvas
+    //  salía un gancho; esto es lo que la forma es de verdad.
+    arc { at: luna.x, luna.y; radius: 7.5; span: 210deg; width: 5.5; rotate: 145deg; color: #8fa2e8; opacity: calma }
+
+
+
     // ── las gotas ────────────────────────────────────────────────
     //  Hasta cuatro, una por categoría y **la más reciente primero**, bajando
     //  por su lado derecho desde el hombro. Nada sobresale por encima de su
@@ -707,9 +896,9 @@ scene Marea {
     repeat k in 1..5 {
         prop sitio.$k = 0 ~calm
         prop hay.$k = 0 ~240ms
-        prop late.$k = 0 ~lively
         follow sitio.$k = if(n.1 > 0 and last.1 > last.$k, 1, 0) + if(n.2 > 0 and last.2 > last.$k, 1, 0) + if(n.3 > 0 and last.3 > last.$k, 1, 0) + if(n.4 > 0 and last.4 > last.$k, 1, 0)
-        follow hay.$k = if(n.$k > 0 and not open, 1, 0)
+        //  En Remanso las gotas del hombro se recogen: ahí abajo son perlas.
+        follow hay.$k = if(n.$k > 0 and not open, 1, 0) * (1 - calma) * (1 - resumen)
         //  Del hombro al abanico **por el arco**: lo que se anima es el ángulo,
         //  así que las gotas bajan rodeándola y no atajando por dentro de ella.
         //  Todo el abanico gira 76° y se aleja 10: el sitio de cada una dentro
@@ -1161,8 +1350,13 @@ scene Marea {
                         //  Lo que se lee, con el sitio que quede. Sin anchos.
                         column { grow: 1; gap: 2
                             text titulo.$k { size: 13; lines: 1; color: ink }
-                            text sub.$k { size: 11.5; lines: 1; color: #8b8f95; show: k != 1 }
+                            text sub.$k { size: 11.5; lines: 1; color: #8b8f95; show: k == 2 }
                             text red.name { size: 11.5; lines: 1; color: #8b8f95; show: k == 1 }
+                            //  La de Concentración cuenta lo que le queda, no lo
+                            //  que duraría: puesta, lo que hace falta saber es
+                            //  cuándo vuelve.
+                            text "Puesto · {queda, 0} min" { size: 11.5; lines: 1; color: mint; show: k == 3 and remanso }
+                            text sub.3 { size: 11.5; lines: 1; color: #8b8f95; show: k == 3 and not remanso }
                         }
                         //  El interruptor, o la flecha de las que abren una página.
                         //  La que abre una página solo lleva flecha, así que ocupa
@@ -1264,13 +1458,19 @@ scene Marea {
                 text "Mientras dure, los avisos se guardan y no se enseñan." {
                     at: card.x - 170, card.y - 86; anchor: left center; size: 12; width: 340; lines: 2; color: #8b8f95 }
                 repeat m in 0..3 {
-                    let mx = card.x - 156 + m * 114
+                    let mx = card.x - 116 + m * 116
                     prop mluz.$m = 0 ~140ms
-                    box { at: mx, card.y - 20; size: 104, 44; corner: 12; color: mix(#202021, #262728, mluz.$m) }
+                    box { at: mx, card.y - 20; size: 108, 44; corner: 12; color: mix(#202021, #262728, mluz.$m) }
                     text "{25 + m * 20} min" { at: mx, card.y - 20; anchor: center; size: 12.5; color: ink }
-                    zone box mzona.$m { at: mx, card.y - 20; size: 104, 44; corner: 12; cursor: pointer; active: pagina == concentracion and pag > 0.9 }
+                    zone box mzona.$m { at: mx, card.y - 20; size: 108, 44; corner: 12; cursor: pointer; active: pagina == concentracion and pag > 0.9 }
                     on enter mzona.$m { mluz.$m: 1 }
                     on leave mzona.$m { mluz.$m: 0 }
+                    //  Y aquí se entra en el Remanso: eliges cuánto, y lo
+                    //  primero que hace es cerrarse. Quedarse abierto el panel
+                    //  encima de ella sería lo contrario de lo que acabas de
+                    //  pedir. La página se recoge antes para que al volver a
+                    //  abrirlo estén las tres tarjetas y no el interior de una.
+                    on press mzona.$m { queda = 25 + m * 20; pagina = ninguna; open = false; emit entrar_remanso }
                 }
             }
         }
@@ -1338,15 +1538,18 @@ scene Marea {
     // ── la vida de un aviso ──────────────────────────────────────
     //  Un aviso la saca si está hundida, y entonces la tarjeta espera a que
     //  haya salido: separarse y presentar a la vez enterraba lo uno en lo otro.
-    on notice while fase == 0 and out > 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; marca = marca + 1; needed = true; wanted = true; play startle; entra: 1 ~220ms }
-    on notice while fase == 0 and out <= 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; needed = true; wanted = true; play startle; entra: 1 ~220ms after 560ms }
+    //  En Remanso se guarda y ya: ni tarjeta, ni salto, ni apertura. Solo
+    //  crece su perla bajo la línea de agua.
+    on notice while remanso { seq = seq + 1; emit direct }
+    on notice while not remanso and fase == 0 and out > 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; marca = marca + 1; needed = true; wanted = true; play startle; entra: 1 ~220ms }
+    on notice while not remanso and fase == 0 and out <= 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; needed = true; wanted = true; play startle; entra: 1 ~220ms after 560ms }
     on change out > 0.9 while fase == 1 { marca = marca + 1 }
     //  Otro mientras aún se está leyendo: se apila, y la lectura vuelve a
     //  empezar. Ni un bote más: el gesto ya está puesto, y una mascota que pega
     //  un bote por cada mensaje de un grupo se acaba apagando.
-    on notice while fase == 1 { seq = seq + 1; cuantos = cuantos + 1; marca = marca + 1 }
+    on notice while not remanso and fase == 1 { seq = seq + 1; cuantos = cuantos + 1; marca = marca + 1 }
     //  Con la ráfaga ya volando, el que llega va derecho a su gota.
-    on notice while fase == 2 { seq = seq + 1; emit direct }
+    on notice while not remanso and fase == 2 { seq = seq + 1; emit direct }
 
     //  3,2 s para leerla, que el puntero encima detiene: al irse, vuelve a
     //  contar. Es `on still` otra vez: «cuando lleve ese rato sin que nada
@@ -1519,7 +1722,10 @@ scene Marea {
 
     // ── lo que responde al ratón ─────────────────────────────────
     //  Debajo de ella: la pulsación es de la zona de más arriba.
-    zone box nota_conj { from: cx - 30, cy_real - 40; size: 200, 80; active: note }
+    //  En Remanso la hora no sale —sale la cápsula—, así que su zona de gracia
+    //  tampoco: declarada después, se quedaba con el clic de «Terminar», que le
+    //  cae justo encima. La cápsula ya tiene la suya.
+    zone box nota_conj { from: cx - 30, cy_real - 40; size: 200, 80; active: note and not remanso }
     zone box cuerpo_zona { at: cx, cy_real; size: 2 * r, 2 * r + 30; corner: r; cursor: pointer }
     //  Cualquier cosa que la necesite la saca; y vuelve a hundirse tras 2,6 s de
     //  gracia, que es lo que el contrato llama gracia y aquí se dice tal cual.
@@ -1529,7 +1735,9 @@ scene Marea {
     //  real y no puede perderse al cruzarlo. Se va si se abre el panel.
     zone box nota_zona { at: nota.x, cy_real; size: 104, 56; corner: 13; cursor: pointer; active: nota > 0.8 }
     on hover cuerpo_zona for 180ms while not open { note = true }
-    on away nota_conj for 300ms while abanico < 0.01 { note = false }
+    //  Y esto no manda en Remanso: con la zona apagada, «estar fuera» es verdad
+    //  siempre, así que apagaba la cápsula 300 ms después de abrirla.
+    on away nota_conj for 300ms while abanico < 0.01 and not remanso { note = false }
     //  Con el abanico fuera, la gracia se cuenta sobre el conjunto entero.
     on away abanico_conj for 300ms { note = false }
     on change open while open { note = false }
