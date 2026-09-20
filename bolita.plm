@@ -852,8 +852,12 @@ scene Marea {
         //  y la lógica se lo pide al sistema. Aquí no se inventa el valor —lo
         //  sigue leyendo el servicio—, así que subir el volumen con la tecla
         //  mueve esta misma pista.
+        //  Todo lo de abajo, medido sobre la lámina y escrito desde el centro
+        //  de la tarjeta: la cabecera acaba en −150 y el contenido empieza en
+        //  −134. Antes la columna de la derecha empezaba en −165 y se le subía
+        //  encima a la cruz.
         let niv.x = card.x - 105
-        let niv.y = card.y - 30
+        let niv.y = card.y - 15
         box { at: niv.x, niv.y; size: 172, 238; corner: 16; color: #1b1b1c }
         repeat k in 0..2 {
             let sx = niv.x - 38 + k * 76
@@ -921,7 +925,7 @@ scene Marea {
         text sub.2 = "Auriculares"
         text sub.3 = "25 min"
         column tarjetas {
-            at: card.x + 6, card.y - 165
+            at: card.x + 6, card.y - 129
             gap: 8
             repeat k in 1..4 {
                 group {
@@ -976,8 +980,8 @@ scene Marea {
 
 
         // ── la línea y lo que suena ──────────────────────────────
-        line { from: x0, card.y + 106; to: card.x + 178, card.y + 106; width: 1; color: ink; opacity: 12% }
-        let by = card.y + 150
+        line { from: x0, card.y + 121; to: card.x + 178, card.y + 121; width: 1; color: ink; opacity: 12% }
+        let by = card.y + 161
         group {
             show: medios.playing
             //  La portada, que aquí es un degradado: no hay carátula todavía.

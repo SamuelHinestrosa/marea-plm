@@ -393,8 +393,13 @@ que la gota.
 
 A la izquierda la lámina
 (`design/concepts/2026-08-31-centro-y-apps/centro-de-control.png`), a la derecha
-lo que sale. La bolita mide 70 en la lámina y 46 aquí, así que todo va por 46/70:
-el panel es de 390 × 410.
+lo que sale. El panel mide 593 de ancho en la lámina y 390 aquí, así que las
+alturas salen de medir la lámina y multiplicar por 390/593, no de mirarlas a
+ojo: la cabecera acaba en −150 desde el centro de la tarjeta, el contenido
+empieza en −134, el filete va en +121 y la música en +161.
+
+Eso lo aprendí a la tercera: la columna de la derecha la había puesto en −165 y
+se le subía encima a la cruz de cerrar.
 
 | | |
 | --- | --- |
