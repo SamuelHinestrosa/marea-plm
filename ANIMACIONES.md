@@ -898,9 +898,45 @@ conserva el tamaño real:
 | separación | 13 px entre centros |
 | altura de los ojos | 2,5 px por debajo del centro del cuerpo |
 
+## El halo, que no es una sombra
+
+![Antes y ahora, con el panel abierto](evidencia/halo-vs-sombra.png)
+
+Alrededor de ella había un círculo negro más grande que ella, y al abrir el
+centro de control, una mancha oscura por encima del panel hasta el borde de la
+pantalla. Era su sombra: negra, difusa 16, desplazada 7.
+
+Marea ya pasó por aquí y lo dejó escrito en su tema:
+
+> «El halo, que ya no es una sombra sino un GLOW. En la lámina es una sombra
+> oscura, medida: oscurece el fondo un 22 % a dos píxeles del filo. Funciona
+> sobre su marfil y **no funciona sobre un escritorio con ventanas**, que es
+> donde vive esta barra: una sombra negra sobre una ventana negra no tiene nada
+> que oscurecer. Así que se le da la vuelta. Color claro y desplazamiento CERO,
+> con lo que el halo abraza el contorno en vez de caer hacia un lado.»
+
+![El halo](evidencia/halo.png)
+
+Aquí es lo mismo: `shadow: 0, 0, 13, 45%` de color claro. Sin desplazamiento, el
+halo la rodea entera en vez de caer hacia abajo, y lo que la separa del
+escritorio es luz y no suciedad.
+
+Y cuando de ella sale un panel, vuelve a ser sombra: un halo claro de 390 × 410
+es una mancha. El color es una expresión, así que el mismo cuerpo va de halo a
+sombra según lo que lleve fuera:
+
+```plm
+shadow: 0, 0, 13, 45%, mix(ink, #05070a, clamp(max(card, tray) * 2, 0, 1))
+```
+
+Lo que sigue siendo de ella —la nota de la hora, el menú, la cápsula del
+Remanso, el resumen— se queda con el halo: son ella hablando, no un panel. Las
+tarjetas que no salen de ella —la vista previa, el aviso que llega— conservan su
+sombra oscura, que es lo que Marea le pone a una tarjeta.
+
 ## Lo que le faltó al lenguaje, y ya no
 
-Quince, todas arregladas en pleamar en vez de esquivadas aquí:
+Dieciséis, todas arregladas en pleamar en vez de esquivadas aquí:
 
 1. **No había forma de comprobar un tiempo.** Sondear desde fuera cuesta 16 ms
    por lectura, que es un frame entero. Ahora está `--registrar`.
@@ -954,6 +990,13 @@ Quince, todas arregladas en pleamar en vez de esquivadas aquí:
    lo usaba desaparecía del todo: o menú, o poder cerrar el prototipo. Ahora lo
    decide el render, que es quien mira las zonas: si el clic no cayó encima de
    ninguna, cierra. Encima de ella sale su menú; dos dedos más allá, se cierra.
+
+16. **Una sombra solo podía ser negra.** Y una sombra negra sobre un escritorio
+   de ventanas oscuras no tiene nada que oscurecer: se ve como un cerco sucio
+   alrededor de lo que quería separar del fondo. Ahora `shadow` lleva color, y
+   es una expresión: el mismo cuerpo pasa de halo claro a sombra oscura según lo
+   que le salga fuera. El color va en los tres huecos que `color1` ya tenía
+   libres, así que no cuesta ni un byte más por elemento.
 
 ## Lo siguiente
 

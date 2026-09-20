@@ -541,7 +541,21 @@ scene Marea {
     body {
         color: coal
         rim: 6%
-        shadow: 0, 7, 16, 34%
+        //  Y esto no es una sombra: es un HALO.
+        //
+        //  En la lámina es una sombra oscura, medida, que oscurece el fondo un
+        //  22 % a dos píxeles del filo. Funciona sobre el marfil de la lámina y
+        //  no funciona aquí: sobre un escritorio de ventanas oscuras, una
+        //  sombra negra no tiene nada que oscurecer y lo único que se ve es un
+        //  cerco sucio alrededor de ella. Marea le dio la vuelta en su día por
+        //  esto mismo —«el halo, que ya no es una sombra sino un glow»— y aquí
+        //  se hace igual: color claro y desplazamiento CERO, con lo que abraza
+        //  el contorno en vez de caer hacia un lado.
+        //
+        //  Y cuando de ella sale un panel, vuelve a ser sombra: un halo claro
+        //  de 390 × 410 es una mancha. El color es una expresión, así que el
+        //  mismo cuerpo pasa de halo a sombra según lo que lleve fuera.
+        shadow: 0, 0, 13, 45%, mix(ink, #05070a, clamp(max(card, tray) * 2, 0, 1))
         box agua { from: cx - 70, -70; size: 140, 70 * if(hidden, 1, 0) }
         //  El bulto que el agua hace alrededor de ella: es la misma lámina, que
         //  se estira. Fundido con ella y con la bolita, así que los tres son una
@@ -1959,7 +1973,10 @@ scene Marea {
         body {
             color: coal
             rim: 6%
-            shadow: 0, 7, 16, 34%
+            //  El mismo halo que en la otra superficie: es ella, y ella se
+            //  separa del escritorio con luz, no oscureciéndolo. Y al salirle
+            //  el panel del tiempo, vuelve a ser sombra.
+            shadow: 0, 0, 13, 45%, mix(ink, #05070a, clamp(near * 2, 0, 1))
             box { at: p.x, p.y; size: p.w, 42 * clamp(near * 3, 0, 1); corner: 13 }
             ellipse ella { at: rx, ry; radius: 23; scale: sx + press * 0.04, sy - press * 0.05; blend: 16 * 4 * near * (1 - near) }
         }
