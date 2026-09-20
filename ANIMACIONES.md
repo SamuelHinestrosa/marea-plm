@@ -27,13 +27,45 @@ pleamar --escena bolita.plm --segundos 38 --sin-hud --registrar lid,body.y,tilt 
 
 | Lo que pide el contrato | Cómo está | Medido |
 | --- | --- | --- |
-| Hundida, asoma algo menos de la mitad | el centro queda 3 px por encima del borde | asoma 20 de 46 |
+| Hundida, asoma algo menos de la mitad | el centro queda 3 px por encima del borde, y los ojos bajan 5,75 dentro de la cara para que se vean enteros | asoma 20 de 46 |
 | El viaje dura 620 ms | `prop out = 0 ~620ms` | 619 ms al salir, 613 al volver |
 | Vuelve a hundirse tras 2,6 s de gracia | `on away cuerpo_zona for 2.6s { needed = false }` | el disparador es el propio contrato, escrito tal cual |
 | La unión no es una traslación sino **tensión superficial** | el agua del borde y la bolita son **una sola silueta**, fundidas con `blend` | ver `evidencia/menisco-a-mitad.png` |
 | Cuello **cóncavo**, ancho al tocarse, afinándose hasta un hilo | sale de fundir las dos formas: nadie dibuja el cuello | ver `evidencia/menisco-secuencia.png` |
 | Rompe al separarse más que su propio tamaño | la fusión se apaga sola: `30 * 4 * out * (1 - out)` | rompe cerca del final |
 | El fillet es mínimo en reposo y máximo a mitad | esa campana, exactamente | sí |
+
+### Ella es la gota
+
+![Salir del agua](evidencia/salir-del-agua.png)
+
+Hundida, colgando con el cuello, a punto de romper, recién soltada, el rebote, y
+en reposo.
+
+Al mirarlo en pantalla faltaban dos cosas que los números no dicen. **No se le
+veían los ojos**: hundida, su centro cae casi sobre la superficie, así que unos
+ojos centrados en él salen con la coronilla cortada por el borde y quedan en dos
+rayitas. Se bajan dentro de la cara —los 7 de 56 que baja Marea, aquí 5,75— y se
+ven enteros sin enseñar más de ella, que es de lo que va estar metida en el
+borde.
+
+Y **no parecía agua, parecía una cortina con un agujero**. El menisco estaba
+bien, pero todo lo demás era rígido. Ahora:
+
+| | |
+| --- | --- |
+| Ella se **estira** mientras cuelga | la superficie tira de ella y la afila: +11 % a mitad del viaje, y +17,6 % cuando la está volviendo a tragar |
+| Al soltarse **se sacude** | −7,3 % achatada · +5,2 % afilada · −1,2 % · redonda. Tres botes en 400 ms, con un muelle propio poco frenado (`spring chapoteo = 420, 13`) |
+| La superficie **da el tirón** | el bulto que hacía alrededor de ella se va de golpe y rebota: `impulse rebote -150` |
+| Queda **una gota** colgando | y el agua se la traga en 520 ms |
+| Y sale un **rizo** a cada lado | que recorre la lámina achicándose, 500 ms |
+
+Lo que de verdad se ve es lo primero: son 46 px meneándose, no 12 de borde. El
+rizo y la gota están, pero el borde de la pantalla deja doce píxeles de sitio y
+ahí no cabe mucho más.
+
+**Esta pieza no necesitó tocar el lenguaje.** Un muelle declarado, dos empujones
+y cuatro formas más en el mismo `body`.
 
 **Lo que esto ahorra.** En QtQuick el menisco es `prototype/Meniscus.qml`: 162
 líneas que calculan dos curvas Bézier, con sus puntos de control, el ángulo de

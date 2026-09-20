@@ -227,6 +227,54 @@ scene Marea {
     //  campana. Al final no queda nada y el hilo se rompe solo.
     let cuello = 30 * 4 * out * (1 - out) * if(hidden, 1, 0)
 
+    //  Y el agua no es una lámina quieta. Mientras la sujeta se estira hacia
+    //  ella, y cuando el hilo se rompe la superficie se va hacia arriba de
+    //  golpe y rebota un par de veces antes de quedarse plana. Eso es lo que la
+    //  hace leerse como agua y no como una cortina con un agujero.
+    //  Un muelle propio, poco frenado: el agua no se queda quieta a la primera.
+    //  420 y 13 son un cuarto de segundo de periodo y dos botes que se ven.
+    spring chapoteo = 420, 13
+    prop rebote = 0 ~chapoteo
+    //  Una campana, como el cuello: plana pegada al borde, lo más estirada a
+    //  mitad del viaje, plana otra vez cuando ya la ha soltado.
+    let tension = 4 * out * (1 - out)
+    let cuelga = max((16 * tension + rebote) * if(hidden, 1, 0), 0.3)
+    //  El hilo se rompe cerca del final —ahí el hueco ya puede con el cuello—,
+    //  y es entonces cuando la superficie da el tirón.
+    //  Y el rizo que se va: del sitio por donde salió ella salen dos bultos que
+    //  recorren la lámina achicándose. El tirón solo se siente donde estaba; esto
+    //  es lo que cuenta que la superficie entera es agua.
+    prop onda = 1 ~900ms
+    let onda.x = 10 + 48 * onda
+    //  Sube en el primer palmo y se va apagando: un rizo se ve cuando ya se ha
+    //  separado del sitio donde nació, no encima de él.
+    let onda.alto = 12 * (1 - onda) * clamp(onda * 6, 0, 1) * if(hidden, 1, 0)
+    //  Y la gota que se queda: al romperse el hilo, un poco de ella no se va
+    //  con ella. Cuelga un momento del borde y el agua se la traga.
+    prop gota = 0 ~520ms
+    //  Y ELLA es la gota. Colgando del borde se estira —la superficie tira de
+    //  ella y la afila—, y al soltarse se sacude hasta volver a ser redonda,
+    //  como hace una gota de verdad cuando se desprende. Esto es lo que de
+    //  verdad se ve: son 46 px meneándose, no 12 de borde.
+    prop menea = 0 ~chapoteo
+    let estira = tension * 0.11 * if(hidden, 1, 0)
+    let gotea = estira + menea * 0.012
+    let gota.r = 5.5 * gota * if(hidden, 1, 0)
+    on change out > 0.84 while out > 0.84 and hidden {
+        impulse rebote -150
+        impulse menea -340
+        onda: 0 ~16ms
+        onda: 1 ~900ms after 30ms
+        gota: 1 ~16ms
+        gota: 0 ~520ms after 60ms
+    }
+    //  Y al revés: cuando vuelve, el agua la agarra antes de tragársela. Tira de
+    //  ella hacia arriba —se afila— y la superficie se hunde a su alrededor.
+    on change out < 0.84 while out < 0.84 and hidden {
+        impulse menea 190
+        impulse rebote 40
+    }
+
     // ── el cuerpo ────────────────────────────────────────────────
     //  El agua del borde y la bolita son una sola silueta: el cuello no se
     //  dibuja, sale de fundirlas. Por eso se afina y rompe sin que nadie lo
@@ -236,11 +284,20 @@ scene Marea {
         rim: 6%
         shadow: 0, 7, 16, 34%
         box agua { from: cx - 70, -70; size: 140, 70 * if(hidden, 1, 0) }
+        //  El bulto que el agua hace alrededor de ella: es la misma lámina, que
+        //  se estira. Fundido con ella y con la bolita, así que los tres son una
+        //  silueta y el cuello sale de las distancias, no de dibujar un cuello.
+        //  El fundido se va con el bulto: si no, un bulto de medio píxel seguía
+        //  abultando la lámina y quedaba un lunar en el borde con ella ya suelta.
+        ellipse tirante { at: cx, 0; radius: 30; scale: 1, cuelga / 30; blend: 16 * clamp(cuelga / 6, 0, 1) }
+        ellipse rizo.i { at: cx - onda.x, 0; radius: 9; scale: 1, onda.alto / 9; blend: 8 * clamp(onda.alto / 3, 0, 1) }
+        ellipse rizo.d { at: cx + onda.x, 0; radius: 9; scale: 1, onda.alto / 9; blend: 8 * clamp(onda.alto / 3, 0, 1) }
+        ellipse gota_atras { at: cx, gota.r * 0.7; radius: gota.r; blend: 7 * clamp(gota.r / 3, 0, 1) }
         ellipse cuerpo {
             at: cx, cy_real
             radius: r
             rotate: tilt
-            scale: sx + press * 0.04, sy - press * 0.05
+            scale: (sx + press * 0.04) * (1 - gotea), (sy - press * 0.05) * (1 + gotea)
             blend: cuello
         }
         //  La nota de la hora, que sale de DETRÁS de ella: nace en su centro con
@@ -278,7 +335,7 @@ scene Marea {
     //  Es un componente porque ella puede estar en dos sitios: arriba, y metida
     //  en la esquina mientras graba. La misma cara, los mismos muelles; lo único
     //  que cambia es dónde está y hacia dónde puede mirar.
-    component Cara(x: number, y: number, gx: number, gy: number) {
+    component Cara(x: number, y: number, gx: number, gy: number, baja: number = 0) {
         //  Cuando manda otra cosa, el párpado deja de contar: una cámara no
         //  parpadea y un número tampoco.
         let manda = clamp(meter + num + cam + dot, 0, 1)
@@ -336,7 +393,7 @@ scene Marea {
 
         group {
             clip inset 1 ellipse { at: x, y; radius: 23 }
-            move: gx, gy + look.y
+            move: gx, gy + look.y + baja
 
             //  Los ojos, que aquí son todo: pista del nivel, gota de la cuenta,
             //  objetivo y cuerpo de la cámara, y sitio del disco rojo. Se
@@ -443,7 +500,12 @@ scene Marea {
         }
     }
 
-    Cara(cx, cy_real, gaze.x * (1 - atenta) + 4 * atenta, gaze.y * (1 - atenta))
+    //  Hundida en el borde, su centro cae casi sobre la superficie del agua, así
+    //  que unos ojos centrados en él salen con la coronilla cortada por el borde
+    //  de la pantalla: se veían dos rayitas. Bajarlos dentro de la cara los
+    //  enseña enteros sin tener que enseñar más de ella, que es justo de lo que
+    //  va estar metida en el borde. Son los 7 de 56 de Marea, por 46/56.
+    Cara(cx, cy_real, gaze.x * (1 - atenta) + 4 * atenta, gaze.y * (1 - atenta), (1 - out) * 5.75 * if(hidden, 1, 0))
 
     // ── las gotas ────────────────────────────────────────────────
     //  Hasta cuatro, una por categoría y **la más reciente primero**, bajando
