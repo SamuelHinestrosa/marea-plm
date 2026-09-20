@@ -66,8 +66,23 @@ tarjeta se salía por abajo de la superficie, y el bloque de lo que suena se
 montaba encima de los deslizadores. La segunda era maqueta mía; la primera es que
 **una superficie no crece con lo que lleva dentro, ni siquiera para una sombra**:
 la de la tarjeta necesita 62 px por debajo (18 de desplazamiento y 44 de
-difusión), y sin ellos se corta en seco contra el borde. Está anotado en pleamar
-como S1.
+difusión), y sin ellos se corta en seco contra el borde.
+
+Que la superficie se declare a mano no es cosa de pleamar: en Marea también se
+declara, y su techo subió a mano tres veces —520, 640, 880— con una nota en
+`core/Theme.qml` diciendo que el síntoma no señalaba allí en absoluto. Lo que sí
+era de pleamar es que no dijera nada. Ahora lo dice:
+
+```
+render · a shadow is cut: it needs 30 px below more than this 760 x 520 surface has.
+         The shape fits; its shadow does not
+```
+
+Una vez, cuando la escena se queda quieta —no al primer píxel, que en una tarjeta
+que se abre sería el número equivocado— y solo si la forma flota despegada de ese
+borde: una barra pegada arriba tiene la sombra cortada por arriba porque quiere.
+Es la segunda vez que construir Marea con pleamar acaba en pleamar y no en la
+maqueta.
 
 **Esta pieza no necesitó tocar el lenguaje.** Con `on change` y `while`, los
 retrasos de las transiciones y los muelles dichos en tiempo, la coreografía salió
