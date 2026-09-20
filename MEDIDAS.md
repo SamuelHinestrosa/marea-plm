@@ -142,6 +142,30 @@ cada frame que sale a la pantalla, pleamar gasta **tres veces menos**.
 
 Y en memoria no hay discusión: **cuatro veces menos**, con la misma barra.
 
+## 20 de septiembre de 2026 · abrir y cerrar
+
+Abrir la tarjeta de cada una, medir, cerrarla y volver a medir. A Marea se le pide
+por su propia puerta (`quickshell ipc call marea open`), sin tocarle el ratón a
+nadie; a marea-plm, con `pleamar --decir`.
+
+| | cerrada | abierta | cerrada otra vez |
+| --- | --- | --- | --- |
+| Marea (Quickshell) | 6,17 % | 12,28 % | 10,40 %, y a los 30 s todavía 9,50 % |
+| marea-plm | 4,39 % | 4,89 % | 4,50 % |
+
+**Lo que dice.** Abrir la tarjeta de Marea **dobla** su CPU, y al cerrarla **no
+vuelve**: se queda a mitad de camino y ahí sigue medio minuto después. Lo que se
+instanció al abrirla se queda instanciado, con sus enlaces vivos.
+
+En marea-plm abrir cuesta medio punto y cerrar lo devuelve entero, porque no se
+instancia nada: la tarjeta ya estaba declarada, y lo que cambia es un número que
+el render anima.
+
+**Aviso de honradez**: la tarjeta de Marea lleva dentro mucho más de lo que lleva
+la de marea-plm (paneles, chat, agentes). Los 12,28 % no son «lo mismo dibujado
+más caro». Lo que sí es comparable es **la forma**: en QML abrir algo crea objetos
+que se quedan; aquí abrir es mover una propiedad.
+
 ## Una advertencia sobre estas medidas
 
 Marea recién arrancada gasta 5,75 % de CPU y 386 MB; la misma Marea llevando
