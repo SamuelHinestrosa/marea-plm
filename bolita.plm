@@ -220,7 +220,11 @@ scene Marea {
     }
 
     //  Hundida asoma algo menos de la mitad; separada cuelga a su propia altura.
-    let sube = if(hidden, (1 - out) * 49, 0)
+    //  Cuánto se mete. El contrato dice «algo menos de la mitad», y con eso el
+    //  borde de arriba del ojo caía 1,25 px POR ENCIMA del borde de la pantalla:
+    //  se le veía el ojo cortado por abajo. Asoma 29 de 46, que son casi dos
+    //  tercios, y se le ve la cara. Es una desviación del contrato a propósito.
+    let sube = if(hidden, (1 - out) * 40, 0)
     let cy_real = cy + body.y - sube - away * 84
 
     //  El cuello: mínimo en reposo y máximo a mitad de la separación, que es una
@@ -503,9 +507,9 @@ scene Marea {
     //  Hundida en el borde, su centro cae casi sobre la superficie del agua, así
     //  que unos ojos centrados en él salen con la coronilla cortada por el borde
     //  de la pantalla: se veían dos rayitas. Bajarlos dentro de la cara los
-    //  enseña enteros sin tener que enseñar más de ella, que es justo de lo que
-    //  va estar metida en el borde. Son los 7 de 56 de Marea, por 46/56.
-    Cara(cx, cy_real, gaze.x * (1 - atenta) + 4 * atenta, gaze.y * (1 - atenta), (1 - out) * 5.75 * if(hidden, 1, 0))
+    //  enseña enteros sin tener que enseñar más de ella. Son los 7 de 56 de
+    //  Marea, por 46/56, y algo menos ahora que asoma más.
+    Cara(cx, cy_real, gaze.x * (1 - atenta) + 4 * atenta, gaze.y * (1 - atenta), (1 - out) * 4.5 * if(hidden, 1, 0))
 
     // ── las gotas ────────────────────────────────────────────────
     //  Hasta cuatro, una por categoría y **la más reciente primero**, bajando

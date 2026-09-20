@@ -27,7 +27,7 @@ pleamar --escena bolita.plm --segundos 38 --sin-hud --registrar lid,body.y,tilt 
 
 | Lo que pide el contrato | Cómo está | Medido |
 | --- | --- | --- |
-| Hundida, asoma algo menos de la mitad | el centro queda 3 px por encima del borde, y los ojos bajan 5,75 dentro de la cara para que se vean enteros | asoma 20 de 46 |
+| Hundida, asoma algo menos de la mitad | **aquí no**: con «algo menos de la mitad» el borde de arriba del ojo caía 1,25 px por encima del borde de la pantalla y se le veía el ojo cortado. Asoma casi dos tercios, y los ojos bajan 4,5 dentro de la cara | asoma 29 de 46 |
 | El viaje dura 620 ms | `prop out = 0 ~620ms` | 619 ms al salir, 613 al volver |
 | Vuelve a hundirse tras 2,6 s de gracia | `on away cuerpo_zona for 2.6s { needed = false }` | el disparador es el propio contrato, escrito tal cual |
 | La unión no es una traslación sino **tensión superficial** | el agua del borde y la bolita son **una sola silueta**, fundidas con `blend` | ver `evidencia/menisco-a-mitad.png` |
@@ -66,6 +66,12 @@ ahí no cabe mucho más.
 
 **Esta pieza no necesitó tocar el lenguaje.** Un muelle declarado, dos empujones
 y cuatro formas más en el mismo `body`.
+
+**Y asoma más de lo que dice el contrato.** «Algo menos de la mitad» deja su
+centro 3 px por encima del borde, y con los ojos 2,5 por debajo del centro el
+borde de arriba del ojo cae **por encima del de la pantalla**: se le ve el ojo
+cortado por abajo, que es lo primero que se nota al mirarla. Asoma 29 de 46 y se
+le ve la cara. Es una desviación a propósito, y está escrita en la escena.
 
 **Lo que esto ahorra.** En QtQuick el menisco es `prototype/Meniscus.qml`: 162
 líneas que calculan dos curvas Bézier, con sus puntos de control, el ángulo de
