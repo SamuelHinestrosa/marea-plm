@@ -89,6 +89,46 @@ retrasos de las transiciones y los muelles dichos en tiempo, la coreografía sal
 tal cual está escrita en el contrato. La tarjeta, en `evidencia/centro-de-control.png`,
 al lado de su lámina (`design/concepts/2026-08-31-centro-y-apps`).
 
+## El nivel en la cara
+
+> «Los dos ojos se tumban y se juntan en una sola barra centrada, del mismo
+> grosor que tienen ellos de ancho: es el mismo pill girado 90°. Esa barra es la
+> pista de una barra de volumen normal, que se llena de menta de izquierda a
+> derecha; el porcentaje aparece en la frente. 180 ms de entrada, se mantiene
+> 1,1 s tras el último cambio y devuelve la cara. Se dispara con el deslizador
+> del panel **y con la tecla de volumen del teclado**. En gris cuando está
+> silenciado.»
+
+![La cara convirtiéndose en barra](evidencia/nivel-secuencia.png)
+
+De izquierda a derecha, la misma cara con `meter` a 0, ¼, ½, ¾ y 1.
+
+| Lo que dice el contrato | Lo medido |
+| --- | --- |
+| El mismo pill girado 90° | El ojo mide 5 × 13; tumbado, 13 × 5. No nace ninguna forma nueva |
+| Una sola barra centrada | Los centros van de ±6,5 a ±2,5. El vuelo total es **18 de pie y 18 tumbados**: los ojos solo se ensanchan y se deslizan, nada pega un salto |
+| Sin junta visible | Solapan 8, y las dos puntas redondas suman 5: la unión queda dentro |
+| 180 ms de entrada | Muelle `~180ms`. Medido: 0 → 1 en 190 ms, con un 3 % de pasada que no se ve |
+| Se mantiene 1,1 s tras el **último** cambio | Medido con tres cambios seguidos del volumen real: vuelve 1 102 ms después del tercero, no del primero |
+| Se llena de menta de izquierda a derecha | Sí, y es **la misma pista pintada otra vez y recortada por la izquierda**: la menta tiene la forma exacta de la barra, con sus puntas, sin una geometría más |
+| El porcentaje en la frente | `number(volume * 100, 0, " %")`, que sube 3 px mientras aparece |
+| En gris cuando está silenciado | `mix(mint, #6b7280, muted)` |
+| El deslizador y la tecla se ven igual | Ni una línea de lógica: `service audio { volume: number; muted: bool }`. Comprobado moviendo el volumen del sistema con `wpctl`, que es lo mismo que hace la tecla |
+
+![Silenciado](evidencia/nivel-silenciado.png)
+
+**Lo que aquí gana pleamar, y en QML no cabía.** Los ojos no se solapan: **se
+funden**. Antes de tocarse les sale un puente entre medias, igual que a la bolita
+con el borde, porque son un `body` y no dos cajas. Es una campana como la del
+menisco —se tocan justo a la mitad del viaje, ahí está lo gordo, y a los extremos
+no queda nada—, así que de pie son dos ojos limpios y tumbados una barra sin
+cintura. En QML, dos `Rectangle` que se acercan se solapan y ya: para esto haría
+falta dibujar una tercera forma que nadie mira.
+
+**Lo que cuesta.** El episodio entero —subir, aguantar 1,1 s y volver— son 92
+frames, y **683 ms de esos 1,1 s el render está dormido**: en cuanto el muelle se
+posa deja de pintar, y la regla que espera no sondea nada, se apunta una cita.
+
 ## Medidas de la lámina
 
 De `design/concepts/2026-09-12-reposo-vivo/referencia-real-limpia.png`, que
@@ -116,10 +156,20 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
 4. **Lo ambiental pisaba a los gestos.** La respiración lleva su propio
    parpadeo, y el de reposo caía encima: dos parpadeos en segundo y medio. Ahora
    un gesto manda, y el reloj de lo ambiental se congela mientras dura.
+5. **Una sombra que no cabía se cortaba sin decir nada.** Ahora el render lo
+   dice, una vez, cuando la cuenta deja de crecer.
+6. **No se podía decir «cuando esto lleve un rato sin cambiar».** El contrato lo
+   pide en tres sitios —el nivel aguanta 1,1 s tras el último cambio, la nota de
+   la hora 300 ms de gracia, el aviso 700— y en pleamar solo existía `on change`,
+   su reverso. Con él, una ráfaga de teclazos salía como un parpadeo por
+   escalón. Ahora está **`on still x for 1.1s`**: cada cambio pone el reloj a
+   cero, así que la ráfaga es una lectura continua, y lo que dispara ocurre una
+   vez al acabar. Medido: 1 102 ms tras el último cambio, y sin gastar un frame
+   esperando.
 
 ## Lo siguiente
 
-- Las transformaciones de la cara: ojos que se tumban en una barra de volumen,
-  que se vuelven número al contar y cámara al encuadrar.
+- Las transformaciones de la cara que quedan: los ojos que se vuelven número al
+  contar y cámara al encuadrar, y el ojo izquierdo convertido en disco rojo.
 - La nota de la hora, que nace por detrás de ella.
 - Los avisos como oleaje: la tarjeta que aterriza como gota y vuelve a serlo.

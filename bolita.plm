@@ -15,6 +15,9 @@
 import "comun/paleta.plm"
 
 scene Marea {
+    permissions { services: "audio" }
+    service audio as sonido { volume: number; muted: bool }
+
     surface {
         //  La superficie tiene que dar de sí para la tarjeta **y su sombra**: 18 px
         //  de desplazamiento más 44 de difusión, por abajo y por los lados. Si no,
@@ -58,6 +61,12 @@ scene Marea {
     fact open = false
     prop card = 0 ~290ms
     prop content = 0 ~200ms
+
+    //  El nivel en la cara. El volumen lo trae el sistema: ni una línea de
+    //  lógica, y por eso el deslizador del panel y la tecla del teclado se ven
+    //  exactamente igual desde aquí —que es justo lo que pide el contrato—.
+    prop meter = 0 ~180ms             // 0 cara, 1 barra
+    prop nivel = 0 ~quick             // lo que marca la barra
 
     // ── reposo vivo ──────────────────────────────────────────────
     //  Parpadeo breve, cada 5,2 s. Y la mirada, que sigue al ratón de cerca.
@@ -108,21 +117,68 @@ scene Marea {
 
     // ── la cara ──────────────────────────────────────────────────
     //  Recortada al cuerpo: lo que se salga de la bolita no existe. Es lo que
-    //  dejará que los ojos se conviertan en otra cosa sin salirse de ella.
+    //  deja que los ojos se conviertan en otra cosa sin salirse de ella.
+    //
+    //  Tumbarse es el mismo pill girado 90°: el ojo mide 5 de ancho por 13 de
+    //  alto, y la barra mide 13 por 5. No nace una forma nueva; la cara que ya
+    //  conoces se recoloca, que es de lo que va todo esto.
+    let ojo.w = 5 + 8 * meter                       // 5 de pie, 13 tumbado
+    let ojo.h = eyes * lid * (1 - meter) + 5 * meter
+    //  Los centros se juntan de 6,5 a 2,5: el vuelo total sigue siendo 18 de
+    //  pie y tumbados, así que los ojos solo se ensanchan y se deslizan. Nada
+    //  pega un salto. Y solapados 8, con las puntas redondas de 2,5 cada una,
+    //  la junta no existe: es una barra, no dos pastillas pegadas.
+    let ojo.sep = 6.5 - 4 * meter
+    let ojo.y = cy_real + 2.5
+    //  Y como son un cuerpo y no dos cajas, al acercarse se funden de verdad:
+    //  se les forma un puente entre medias ANTES de tocarse, igual que a la
+    //  bolita con el borde. Dos rectángulos redondeados se solapan; esto fluye.
+    //
+    //  Es una campana, como el cuello del menisco: se tocan justo a la mitad
+    //  del viaje —el hueco mide 8 de pie y −8 tumbados—, así que ahí es donde
+    //  tiene que estar lo gordo. A los extremos no queda nada: de pie son dos
+    //  ojos limpios, y tumbados dos pastillas solapadas 8 son una barra sin
+    //  cintura. Esto es lo que QML no puede hacer sin dibujar una tercera forma.
+    let ojo.fusion = 6 * 4 * meter * (1 - meter)
+
     group {
         clip inset 1 ellipse { at: cx, cy_real; radius: r }
         move: gaze.x, gaze.y + look.y
-        box {
-            at: cx - 6.5, cy_real + 2.5
-            size: 5, eyes * lid
-            corner: 2.5
-            color: ink
+
+        //  Los ojos. Tumbados son la pista vacía de la barra, y por eso se
+        //  oscurecen: una pista blanca con menta encima no se lee como un nivel.
+        body {
+            color: mix(ink, #34373a, meter)
+            box { at: cx - ojo.sep, ojo.y; size: ojo.w, ojo.h; corner: 2.5; blend: ojo.fusion }
+            box { at: cx + ojo.sep, ojo.y; size: ojo.w, ojo.h; corner: 2.5; blend: ojo.fusion }
         }
-        box {
-            at: cx + 6.5, cy_real + 2.5
-            size: 5, eyes * lid
-            corner: 2.5
+
+        //  Lo lleno es **la misma pista**, pintada otra vez y recortada por la
+        //  izquierda. Así la menta tiene la forma exacta de la barra —con sus
+        //  puntas redondas— sin dibujar ni una geometría más. En gris cuando
+        //  está silenciado: el nivel sigue siendo verdad, pero no suena.
+        //  En su propio grupo: un recorte llega hasta el final del grupo donde
+        //  vive, y sin este la frente quedaba recortada a la barra —el
+        //  porcentaje no salía, y nada avisaba de ello—.
+        group {
+            clip inset 0 box { from: cx - 9, ojo.y - 4; size: 18 * nivel, 8 }
+            body {
+                color: mix(mint, #6b7280, sonido.muted)
+                opacity: meter
+                box { at: cx - ojo.sep, ojo.y; size: ojo.w, ojo.h; corner: 2.5; blend: ojo.fusion }
+                box { at: cx + ojo.sep, ojo.y; size: ojo.w, ojo.h; corner: 2.5; blend: ojo.fusion }
+            }
+        }
+
+        //  El porcentaje, en la frente. Sube los tres últimos píxeles mientras
+        //  aparece: entra con la barra en vez de encenderse encima de ella.
+        text number(sonido.volume * 100, 0, " %") {
+            at: cx, cy_real - 9 + (1 - meter) * 3
+            anchor: center
+            size: 9
+            weight: 600
             color: ink
+            opacity: meter
         }
     }
 
@@ -220,6 +276,16 @@ scene Marea {
         content: 0 ~50ms
         card: 0 ~210ms after 50ms
     }
+
+    // ── el nivel ─────────────────────────────────────────────────
+    //  Se dispara con lo que cambie el volumen, venga de donde venga. Y no
+    //  ocurre hundida: la tecla del volumen no va dirigida a ella.
+    follow nivel = sonido.volume
+    on change sonido.volume while out > 0.9 { meter: 1 }
+    //  Aguanta 1,1 s tras el ÚLTIMO cambio, no tras cada uno: una ráfaga de
+    //  teclazos es una lectura continua y no un parpadeo por escalón. Esto es
+    //  lo que pleamar no sabía decir y ahora dice: `on still`.
+    on still sonido.volume for 1.1s { meter: 0 }
 
     // ── lo que responde al ratón ─────────────────────────────────
     zone box cuerpo_zona { at: cx, cy_real; size: 2 * r, 2 * r + 30; corner: r; cursor: pointer }
