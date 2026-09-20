@@ -387,34 +387,64 @@ marca el paso. El frame más largo en vuelo pasó de **300–780 ms a 17**.
 Para una alternativa a Quickshell cuyo argumento es la fluidez, esto valía más
 que la gota.
 
-## El centro de control, con lo que lleva de verdad
+## El centro de control
 
-![El centro de control](evidencia/centro-de-control.png)
+![La lámina y lo hecho](evidencia/centro-vs-lamina.png)
 
-Ya no es una maqueta mía: es lo que hay en `prototype/ControlCenter.qml`.
+A la izquierda la lámina
+(`design/concepts/2026-08-31-centro-y-apps/centro-de-control.png`), a la derecha
+lo que sale. La bolita mide 70 en la lámina y 46 aquí, así que todo va por 46/70:
+el panel es de 390 × 410.
 
 | | |
 | --- | --- |
-| **Los niveles** | Salida y micrófono, uno al lado del otro. El cuerpo de la tarjeta abre el detalle de sonido; las pistas y los iconos se quedan con su propia pulsación, así que arrastrar un nivel o silenciar no abre nada |
-| **Las seis de la casa** | Wi-Fi, Bluetooth, Faro, Sistema, Conversación y Sesión, con su icono, su título y un subtítulo que contesta la pregunta sin abrir nada. Las tres primeras se encienden y se apagan; las otras tres abren una página, y eso es una flecha |
-| **La órbita** | Lo que está en segundo plano, como un puñado de cosas girando alrededor de lo que haces y no como iconos apretados en una esquina. El punto de estado va aparte: teñir el icono sería pisarle su identidad a quien lo pone |
-| **Lo que suena** | Solo mientras suena algo. Sin música lo dice, y no deja el hueco |
+| **Los dos niveles** | Brillo y volumen, con el icono **debajo** de la pista, el rótulo y el tanto por ciento en menta. Pista fina, relleno de menta y tirador crema |
+| **Tres tarjetas** | Wi-Fi, Bluetooth y Concentración. Las dos primeras con interruptor; la tercera abre una página, y eso es una flecha. Concentración puesta lleva filo de menta: es el único borde del panel |
+| **El engranaje y la cruz** | Arriba a la derecha, como en la lámina |
+| **La línea y lo que suena** | Un filete separa lo de arriba de la música |
 
-**Y dos de ellas no necesitan lógica.** El Wi-Fi enciende su interruptor y
-escribe su subtítulo desde `service network`, y lo que suena sale de
-`service media`. Un plugin no puede meterse entre el volumen y el wifi —eso es
-la casa y tiene su orden—: lo suyo iría en la franja de abajo.
+**Antes puse otra cosa.** Había copiado el `ControlCenter.qml` de ahora —seis
+tarjetas, salida y micrófono, una franja de órbita— que ya no es esta lámina. No
+se parecía en nada.
+
+### Y ahora funciona
+
+El interior no era interactivo, y la causa era concreta: **una regla no puede
+mandarle nada a un servicio**. El render sabe reaccionar al ratón, pero pedirle
+algo al sistema es de la lógica. Este prototipo no tenía ninguna; ahora hay un
+`bolita.luau` de cuarenta líneas, que es todo lo que hace falta:
+
+```lua
+on("mover_volumen", function(v) sys.call("audio.volume", v) end)
+on("mover_brillo", function(v) sys.call("brightness.level", v) end)
+on("tocar_pausa", function() sys.call("media.toggle") end)
+```
+
+Medido arrastrando con el ratón de mentira: el volumen del sistema va de 0,79 a
+0,27 siguiendo al dedo, y la pista lo sigue leyendo **del servicio**, así que
+subirlo con la tecla del teclado mueve esta misma pista sin que nadie lo cuente
+dos veces.
+
+**Lo que no se puede accionar, y por qué.** El brillo dice 0 % y sale apagado:
+esta máquina es un sobremesa y no tiene retroiluminación, así que el servicio
+contesta `present = false` y la escena lo enseña en vez de mentir. Y los
+interruptores de Wi-Fi y Bluetooth están dibujados pero no hacen nada: pleamar
+sabe **leer** la red y no cambiarla, y de bluetooth no sabe nada todavía. Está
+apuntado como su limitación B15. Un interruptor que se mueve sin hacer nada es
+mentira, así que no se mueve.
 
 ### Lo que esto destapó en pleamar
 
-**`show:` no hacía nada.** Estaba ofrecido en formas, `body`, `text`, `image`,
-`input`, `group` y maquetación, `--comprobar` decía que bien, y solo funcionaba
-en la copia de un componente. Los dos rótulos de los niveles salían uno encima
-del otro, y las seis tarjetas llevaban interruptor **y** flecha a la vez. Ahora
-funciona donde está ofrecido, y apaga también la zona.
+**No había servicio de brillo.** Es la primera pista que busca cualquiera en un
+centro de control. Ahora `brightness.present` y `brightness.level`.
 
-**Y el servicio `audio` no tenía micrófono.** Solo daba la salida, y un panel de
-sonido enseña siempre los dos. Ahora `audio.input` y `audio.input_muted`.
+**`show:` no hacía nada** fuera de la copia de un componente, y estaba ofrecido
+en todo. Ahora funciona donde está ofrecido, y apaga también la zona.
+
+**Y una zona declarada al final se come los clics de todo lo que hay debajo.** Me
+ha pasado tres veces: con el panel de la esquina, con las filas del oleaje y con
+este panel entero. La pulsación es de la zona de más arriba, y «más arriba» es la
+última declarada. Las zonas de gracia van debajo.
 
 ## La bandeja: el oleaje
 
