@@ -1,0 +1,215 @@
+// Marea, con pleamar: la bolita que cuelga del borde, y la tarjeta que le sale
+// del cuerpo cuando la llamas.
+//
+// Todo lo que se mueve aquí lo mueve el render, solo, a 60 Hz: respirar, mirar,
+// parpadear, crecer al acercarte, abrirse, entrar por partes. La lógica no pinta
+// nada; de hecho la tarjeta entera no tiene lógica ninguna, porque la hora, el
+// volumen y la ventana de delante se piden por su nombre y llegan solos.
+
+import "comun/paleta.plm"
+
+scene Marea {
+    surface {
+        size: 560, 360
+        anchor: top
+        margin: 0
+        screens: "HDMI-A-1"
+    }
+
+    //  Lo que puede tocar del sistema. Escuchar no es mandar: con esto se sabe
+    //  el volumen, pero no se puede cambiar.
+    permissions { services: "clock", "audio", "window", "workspaces", "workspaces.focus" }
+
+    // ── lo que el sistema cuenta, sin una línea de lógica ────────
+    service clock as now { time: text = "--:--"; date: text; minute: number }
+    service audio { volume: number; muted: bool }
+    service window as win { title: text }
+
+    // ── la frontera con la lógica ────────────────────────────────
+    fact pending = 0                  // cuántos avisos esperan
+    fact awake = false                // se despierta al cargar, y entra cayendo
+    fact open = false                 // la tarjeta
+
+    //  Los escritorios: cuál está activo y cuáles tienen ventanas.
+    fact ws.active = 1
+    repeat i in 1..10 {
+        fact ws.$i.there = false
+        fact ws.$i.busy = false
+    }
+    event go ->                       // `emit go(3)`: llévame al 3
+
+    // ── lo que se mueve ──────────────────────────────────────────
+    prop orb.y    = -74 ~calm
+    prop orb.r    = 32 ~lively
+    prop breath   = 0
+    prop lid      = 1
+    prop gaze.x   = 0 ~gentle
+    prop gaze.y   = 0 ~gentle
+    prop hot      = 0 ~quick
+    prop halo     = 0 ~calm
+    prop drop     = 0 ~lively
+    prop card     = 0 ~calm           // la tarjeta, de 0 a 1
+    prop f1       = 0 ~lively         // y lo de dentro, uno detrás de otro
+    prop f2       = 0 ~lively
+    prop f3       = 0 ~lively
+    prop pill     = 0 ~calm           // la píldora del escritorio activo, viajando
+    prop hora.y   = 0 ~lively         // la hora, cuando cambia el minuto
+    repeat i in 1..10 { prop luz.$i = 0 ~quick }   // el realce de cada escritorio
+
+    let cx = 250
+    let cy = orb.y
+
+    wave breath = 1 at 0.9
+    let bulto = breath * (1 + hot) * 0.9
+    blink lid every 2.6s..7s for 150ms
+    look gaze.x, gaze.y at cx, cy + 14 reach 7, 4 within 300
+
+    follow orb.y = if(awake, -6 + hot * 26 + card * 10, -74)
+    follow orb.r = 32 + hot * 3
+    //  La píldora no salta de un escritorio a otro: viaja, con su muelle. Esto es
+    //  una línea aquí y un `NumberAnimation` con su `Behavior` en QtQuick.
+    follow pill = ws.active
+    //  Y mientras viaja se estira, como se estira todo lo que va deprisa. La
+    //  velocidad del muelle solo la conoce el render: la lógica ni se entera.
+    let estira = clamp(abs(vel(pill)) * 0.025, 0, 0.34)
+    follow halo = if(pending > 0, 1, 0)
+    follow drop = if(pending > 0 and card < 0.5, 1, 0)
+
+    //  La tarjeta: dónde está y cuánto mide. Crece desde la bolita.
+    let card.w = 372 * card
+    let card.h = 196 * card
+    let card.y = cy + 44 + card * 116
+
+    // ── el aura: late solo cuando algo espera ────────────────────
+    ellipse {
+        at: cx, cy + bulto
+        radius: orb.r + 16 + breath * 4
+        color: mint
+        opacity: halo * (18% + breath * 10%) * (1 - card)
+    }
+
+    // ── el cuerpo y la tarjeta, en una sola silueta ──────────────
+    //  Esto es lo que QtQuick no hace sin trucos: la bolita, el cuello y la
+    //  tarjeta son tres formas que se **funden** por distancia, así que al
+    //  abrirse no hay dos cosas pegadas, hay una que se estira.
+    body {
+        color: coal
+        rim: 7%
+        light: 4%, -20, 120
+        shadow: 0, 12, 30, 42%
+        ellipse cuerpo { at: cx, cy + bulto; radius: orb.r; scale: 1 + hot * 0.04, 1 - hot * 0.02 }
+        ellipse cuello { at: cx, cy + 30 + card * 26; radius: 22 * card; blend: 26 }
+        box tarjeta { at: cx, card.y; size: card.w, card.h; corner: 26; blend: 26 }
+    }
+
+    // ── la cara ──────────────────────────────────────────────────
+    let ojos.y = cy + 14 + bulto
+    group {
+        move: gaze.x, gaze.y
+        body {
+            color: #2a2f2e
+            border: 1.6, ink
+            box { at: cx - 11, ojos.y; size: 17, 13.5; corner: 4.5 }
+            box { at: cx + 11, ojos.y; size: 17, 13.5; corner: 4.5 }
+        }
+        box { at: cx - 11, ojos.y; size: 7, 9 * lid; corner: 3; color: ink }
+        box { at: cx + 11, ojos.y; size: 7, 9 * lid; corner: 3; color: ink }
+    }
+
+    // ── la gota: cuántos avisos esperan ──────────────────────────
+    group {
+        move: 0, drop * 6
+        opacity: drop
+        body {
+            color: rose
+            rim: 10%
+            shadow: 0, 4, 10, 30%
+            ellipse { at: cx + 30, cy + 18 + bulto; radius: 10.5 + breath * 0.6 }
+        }
+        text pending_label { at: cx + 30, cy + 18 + bulto; anchor: center; size: 10; weight: 700; color: #21151a }
+    }
+    text pending_label = ""
+
+    // ── lo que lleva dentro la tarjeta ───────────────────────────
+    //  Cada cosa entra subiendo y con su retraso: la hora, el volumen, el pie.
+    //  Recortado a la tarjeta, para que nada asome mientras se abre.
+    clip inset 2 box { at: cx, card.y; size: card.w, card.h; corner: 26 }
+
+    group {
+        opacity: f1
+        move: 0, (1 - f1) * 14
+        //  Al cambiar el minuto, el número entra desde arriba: un empujón al muelle
+        //  y ya vuelve él solo, con su rebote.
+        text now.time { at: cx - 158, card.y - 56 + hora.y; anchor: left center; size: 40; weight: 300; color: ink }
+        text now.date { at: cx - 156, card.y - 22; anchor: left center; size: 12.5; color: ink; opacity: 45% }
+    }
+
+    group {
+        opacity: f2
+        move: 0, (1 - f2) * 14
+        //  El volumen, con su barrita.
+        box { at: cx + 96, card.y - 56; size: 110, 5; corner: 3; color: ink; opacity: 14% }
+        box { from: cx + 41, card.y - 58.5; size: 110 * audio.volume, 5; corner: 3; color: mint; opacity: if(audio.muted, 25%, 100%) }
+        text number(audio.volume * 100, 0, " %") { at: cx + 152, card.y - 76; anchor: right center; size: 11; color: ink; opacity: 40% }
+    }
+
+    group {
+        opacity: f3
+        move: 0, (1 - f3) * 14
+        box { at: cx, card.y + 2; size: 340, 1; color: ink; opacity: 10% }
+
+        //  Los escritorios, con la píldora que viaja al activo.
+        let ws.x = cx - 150
+        let ws.paso = 30
+        box {
+            at: ws.x + pill * ws.paso - ws.paso, card.y + 30
+            size: 26 * (1 + estira), 26 * (1 - estira * 0.55)
+            corner: 9
+            color: mint
+            opacity: 22%
+        }
+        repeat i in 1..10 {
+            group {
+                size: 26, 26
+                zone box salto.$i { at: ws.x + i * ws.paso - ws.paso, card.y + 30; size: 26, 26; corner: 9; cursor: pointer }
+                //  El realce al pasar por encima, cada uno con su muelle.
+                box { at: ws.x + i * ws.paso - ws.paso, card.y + 30; size: 26, 26; corner: 9; color: ink; opacity: luz.$i * 12% }
+                text "{i}" {
+                    at: ws.x + i * ws.paso - ws.paso, card.y + 30
+                    anchor: center
+                    size: 12
+                    weight: 500
+                    color: ink
+                    opacity: if(ws.$i.there, if(ws.active == i, 100%, 55%), 18%)
+                }
+                //  Un punto debajo si tiene ventanas y no estás en él.
+                ellipse { at: ws.x + i * ws.paso - ws.paso, card.y + 44; radius: 1.8 * ws.$i.busy * (1 - if(ws.active == i, 1, 0)); color: mint }
+            }
+            on press salto.$i { emit go(i) }
+            on enter salto.$i { luz.$i: 1 }
+            on leave salto.$i { luz.$i: 0 }
+        }
+
+        text win.title { at: cx - 158, card.y + 66; anchor: left center; size: 12; width: 300; lines: 1; color: ink; opacity: 60% }
+    }
+
+    // ── por dónde entra el ratón ─────────────────────────────────
+    zone box cerca { at: cx, cy + 20; size: 160, 96; corner: 48; cursor: pointer }
+    zone box dentro { at: cx, card.y; size: card.w, card.h; corner: 26; active: open }
+
+    on enter cerca { hot: 1 }
+    on leave cerca { hot: 0 }
+    on press cerca { toggle open }
+
+    //  Abrirse y cerrarse: la tarjeta va primero y lo de dentro la sigue, cada
+    //  uno un poco después.
+    //  El minuto ha cambiado: que se note.
+    on change now.minute { impulse hora.y -520 }
+
+    on change open {
+        card: open ~calm
+        f1: open ~lively after 70ms
+        f2: open ~lively after 120ms
+        f3: open ~lively after 170ms
+    }
+}
