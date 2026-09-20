@@ -265,6 +265,53 @@ de gracia para todo lo que la necesita —puntero, nota, tarjeta—, escrito con
 `on still`: 2,6 s desde que lo último deja de necesitarla. Medido: la nota se
 recoge a los 3 300 ms y ella empieza a hundirse a los 5 900.
 
+## El oleaje de avisos: llega uno
+
+> «Una tarjeta pequeña entra en horizontal a su lado —quién, la primera línea y
+> «ahora»— y ella la mira. Se queda lo que hace falta para leerla, y luego se
+> estrecha hasta ser una gota del color de su categoría y vuela a su sitio, por
+> una curva. Al llegar, un trago pequeño. Entrada 220 ms. Lectura 3,2 s, que el
+> puntero encima detiene. Vuelo 220 ms.»
+>
+> «Hasta cuatro gotas, una por categoría y la más reciente primero, bajando por su
+> lado derecho desde el hombro, cada una con su número dentro —«9+» a partir de
+> diez—. La gota donde cae algo late una vez. Nada en bucle.»
+
+![Un aviso, de tarjeta a gota](evidencia/aviso-que-llega.png)
+
+| Lo que dice el contrato | Lo medido |
+| --- | --- |
+| Respingo de 8 px, ojos muy abiertos, aterrizaje elástico | El gesto `alert` de Marea, fotograma a fotograma, por 46/56 |
+| Entrada 220 ms | `entra ~220ms`; si está hundida, espera a que haya salido |
+| Ella la mira | La mirada deja al ratón y se va a la tarjeta mientras se lee (`atenta`) |
+| Lectura 3,2 s, que el puntero detiene | `on still marca for 3.2s while … not sobre`: salir de encima vuelve a contar. Medido: 3 200 ms desde que ella está fuera |
+| Se estrecha hasta ser una gota de su color | Una sola forma: ancho, alto, esquina y color van con `mine` |
+| Vuela por una curva, 220 ms | De lado a ritmo constante y hacia arriba deprisa: `1 − (1 − mine)²` |
+| Al llegar, un trago | Gesto `gulp`, y la gota late una vez con un `impulse` |
+| La más reciente primero | El sitio de cada gota es cuántas hay más recientes, y viaja a él **por el arco**: se anima el ángulo, no la x y la y, así que se corren hombro abajo sin atajar por dentro de ella |
+| Número dentro, «9+» desde diez | Sí |
+
+**El orden es el de llegada, no el de aterrizaje.** El que se está leyendo
+aterriza 3,2 s después que los que llegan mientras tanto, pero llegó antes: cada
+aviso guarda su turno. Comprobado con tres seguidos: mensajes, calendario,
+sistema → sitios 2, 1 y 0.
+
+**Lo que falta de esta parte:** la ráfaga apilada («tres a la vista y +N más»),
+la llegada con ella dormida, la vista previa en abanico y la bandeja entera.
+
+### Lo que esto destapó en pleamar
+
+Haciendo volar la gota, **el render se quedaba parado 300 ms a mitad de vuelo**:
+la gota se congelaba y aparecía en su sitio. No era de esta escena. Con el
+depurador: parado en `vkAcquireNextImage`, esperando a que el compositor
+devolviera una imagen. Dos cosas eran de pleamar —una superficie *cerrada* podía
+marcar el ritmo con vsync, y al despertar se presentaban tres frames en 2 ms— y
+la tercera es de Hyprland con NVIDIA. Ahora se presenta por buzón y el render se
+marca el paso. El frame más largo en vuelo pasó de **300–780 ms a 17**.
+
+Para una alternativa a Quickshell cuyo argumento es la fluidez, esto valía más
+que la gota.
+
 ## Medidas de la lámina
 
 De `design/concepts/2026-09-12-reposo-vivo/referencia-real-limpia.png`, que
@@ -305,7 +352,11 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
    y con nada moviéndose, «el siguiente» era la próxima cita: **un segundo más
    tarde**. La cuenta pasaba al disco rojo un segundo después de su último
    número. Ahora, tras un efecto, hay un frame más garantizado: 17 ms.
-9. **Una superficie no podía esperar a lo que lleva dentro.** `open:` solo
+9. **No había seno ni coseno**, así que nada podía ir por un arco. Ahora
+   `sin(deg)` y `cos(deg)`.
+10. **El render se paraba 300 ms en mitad de una animación** (arriba, en «Lo que
+    esto destapó»).
+11. **Una superficie no podía esperar a lo que lleva dentro.** `open:` solo
    aceptaba un hecho; ahora una cuenta: `open: tuck > 0.01`.
 10. **Un `clip` suelto recortaba también la otra ventana**, y no se veía nada sin
     que nada lo dijera. Costó una hora encontrarlo. Ahora los recortes abiertos
@@ -321,4 +372,5 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
 
 ## Lo siguiente
 
-- Los avisos como oleaje: la tarjeta que aterriza como gota y vuelve a serlo.
+- Del oleaje: la ráfaga apilada, la llegada con ella dormida, la vista previa en
+  abanico, y la bandeja («Abre Oleaje», resolver un grupo, el cierre).

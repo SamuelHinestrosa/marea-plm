@@ -63,11 +63,45 @@ scene Marea {
     //  abrir manda la geometría y el contenido la sigue; al cerrar se funde
     //  primero el contenido y **luego** se recoge la geometría.
     fact open = false
+    // ── los avisos ───────────────────────────────────────────────
+    //  «Todo llega, tú decides»: llegar no abre nada. Entra una tarjeta pequeña
+    //  a su lado, ella se sobresalta y la mira, se queda lo que hace falta para
+    //  leerla y luego se estrecha hasta ser una gota del color de su categoría,
+    //  que vuela por una curva a su hombro. Al llegar, un trago.
+    event notice                       // llega uno: antes se dicen `cat`, `who` y `line`
+    event landed
+    event tray ->                      // pulsar la tarjeta: la lógica abre la bandeja
+    fact cat = 1                       // 1 mensajes · 2 trabajo · 3 calendario · 4 sistema
+    fact cual = 1                      // la del que se está leyendo: `cat` puede cambiar mientras
+    fact miseq = 0                     // y su turno de llegada: aterriza tarde, pero llegó antes
+    event direct                       // uno que llega con otro en pantalla
+    text who = ""
+    text line = ""
+    fact fase = 0                      // 0 nada · 1 leyéndose · 2 volando
+    fact sobre = false                 // el puntero encima: detiene la lectura
+    fact marca = 0                     // cada vez que la lectura vuelve a empezar
+    fact seq = 0                       // para saber cuál es el más reciente
+    prop entra = 0 ~220ms              // la tarjeta, entrando
+    prop mine = 0 ~220ms               // 0 tarjeta, 1 gota en su sitio
+    prop atenta = 0 ~gentle            // mirando la tarjeta
+    follow atenta = if(fase == 1, 1, 0)
+
+    let azul = #6fb1e6
+    let lila = #a68be4
+    let verde = #8fd1ae
+    let ambar = #e3a35c
+    //  Cuántos hay de cada una, y cuándo llegó el último: se declaran antes
+    //  que las gotas porque cada gota mira a las otras tres.
+    repeat k in 1..5 {
+        fact n.$k = 0
+        fact last.$k = 0
+    }
+
     //  La nota de la hora.
     fact note = false
     event calendar ->                  // un clic en ella: la lógica abre el calendario
     prop nota = 0 ~190ms
-    follow nota = if(note and not open and face == eye and out > 0.9, 1, 0)
+    follow nota = if(note and not open and face == eye and out > 0.9 and fase == 0, 1, 0)
     let nota.x = cx + (23 + 14 + 52) * nota
 
     prop card = 0 ~290ms
@@ -118,6 +152,24 @@ scene Marea {
         380ms out_back           { tilt: 0.012 }
     }
     every 12s..24s { play breathe }
+
+    //  El respingo: salta 8 px sin anticipar, con los ojos muy abiertos,
+    //  aterriza elástico y rebota corto. Los números de Marea, por 46/56.
+    gesture startle reflex {
+        75ms out_cubic            { eyes: 16.4; sx: 0.90; sy: 1.13; body.y: -2.5 }
+        105ms out_quad hold 90ms  { eyes: 16.4; sx: 0.98; sy: 1.04; body.y: -6.6 }
+        145ms in_quad             { eyes: 14.8; sx: 0.96; sy: 1.06 }
+        100ms out_quad            { eyes: 14.8; sx: 1.10; sy: 0.82; body.y: 3.3 }
+        130ms out_quad            { eyes: 14; sx: 0.98; sy: 1.04; body.y: -2.5; tilt: 0.07 }
+        120ms                     { eyes: 14; sx: 1.02; sy: 0.96; body.y: 0.8; tilt: 0.05 }
+        160ms hold 100ms          { eyes: 14; tilt: 0.05 }
+        200ms
+    }
+    //  El trago, cuando la gota llega a su hombro.
+    gesture gulp reflex {
+        90ms out_quad   { sx: 1.06; sy: 0.94; body.y: 1 }
+        180ms out_back
+    }
 
     follow out = if(hidden and not needed, 0, 1)
 
@@ -391,7 +443,59 @@ scene Marea {
         }
     }
 
-    Cara(cx, cy_real, gaze.x, gaze.y)
+    Cara(cx, cy_real, gaze.x * (1 - atenta) + 4 * atenta, gaze.y * (1 - atenta))
+
+    // ── las gotas ────────────────────────────────────────────────
+    //  Hasta cuatro, una por categoría y **la más reciente primero**, bajando
+    //  por su lado derecho desde el hombro. Nada sobresale por encima de su
+    //  cabeza: ahí arriba está el borde de la pantalla. El sitio de cada una
+    //  es cuántas hay más recientes que ella, y viaja a él con un muelle POR
+    //  EL ARCO —el ángulo es lo que se anima, no la x y la y—, así que cuando
+    //  llega una nueva las demás se corren hombro abajo sin atajar por dentro
+    //  de ella.
+    repeat k in 1..5 {
+        prop sitio.$k = 0 ~calm
+        prop hay.$k = 0 ~240ms
+        prop late.$k = 0 ~lively
+        follow sitio.$k = if(n.1 > 0 and last.1 > last.$k, 1, 0) + if(n.2 > 0 and last.2 > last.$k, 1, 0) + if(n.3 > 0 and last.3 > last.$k, 1, 0) + if(n.4 > 0 and last.4 > last.$k, 1, 0)
+        follow hay.$k = if(n.$k > 0 and not open, 1, 0)
+        let ang.$k = -24 + 26 * sitio.$k
+        let gx.$k = cx + 31.7 * cos(ang.$k)
+        let gy.$k = cy_real + 31.7 * sin(ang.$k)
+        group {
+            pivot: gx.$k, gy.$k
+            scale: hay.$k * (1 + late.$k), hay.$k * (1 + late.$k)
+            opacity: hay.$k
+            ellipse { at: gx.$k, gy.$k; radius: 7; color: mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5) }
+            text number(n.$k, 0) { at: gx.$k, gy.$k + 0.5; anchor: center; size: 8.5; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 1, 0) }
+            text "9+" { at: gx.$k, gy.$k + 0.5; anchor: center; size: 7.5; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 0, 1) }
+        }
+        //  La gota donde cae algo late una vez, y su número con ella. Nada en bucle.
+        on landed while cual == k { n.$k = n.$k + 1; last.$k = max(last.$k, miseq); impulse late.$k 5 }
+        on direct while cat == k { n.$k = n.$k + 1; last.$k = seq; impulse late.$k 5 }
+    }
+
+    // ── el aviso que llega ───────────────────────────────────────
+    //  Del centro de la tarjeta al hombro por dos curvas distintas: de lado a
+    //  ritmo constante, y hacia arriba deprisa. El camino se dobla.
+    let av.w = 250 + (8.3 - 250) * mine
+    let av.h = 44 + (8.3 - 44) * mine
+    let av.x0 = cx + 23 + 14 + 125
+    let av.x = av.x0 + (cx + 31.7 * cos(-24) - av.x0) * mine + (1 - entra) * 30
+    let av.y = cy_real + (31.7 * sin(-24)) * (1 - (1 - mine) * (1 - mine))
+    body {
+        color: mix(#0c0f12, mix(mix(mix(azul, lila, cual > 1.5), verde, cual > 2.5), ambar, cual > 3.5), mine)
+        opacity: entra
+        shadow: 0, 6, 14, 30%
+        box { at: av.x, av.y; size: av.w, av.h; corner: min(av.h / 2, 14 + (av.h / 2 - 14) * mine) }
+    }
+    group {
+        opacity: entra * (1 - clamp(mine * 5, 0, 1))
+        box { at: av.x - 125 + 5, av.y; size: 3, 28; corner: 1.5; color: mix(mix(mix(azul, lila, cual > 1.5), verde, cual > 2.5), ambar, cual > 3.5) }
+        text who { at: av.x - 110, av.y - 8; anchor: left center; size: 11.5; weight: 600; color: #f6f6f5 }
+        text line { at: av.x - 110, av.y + 8; anchor: left center; size: 10.5; width: 190; lines: 1; color: #a9adb3 }
+        text "ahora" { at: av.x + 113, av.y - 8; anchor: right center; size: 9.5; color: #8b8f95 }
+    }
 
     // ── la tarjeta ───────────────────────────────────────────────
     //  Crece desde la bolita: nace en su sitio y se estira hasta su tamaño.
@@ -497,6 +601,33 @@ scene Marea {
     //  teclazos es una lectura continua y no un parpadeo por escalón. Esto es
     //  lo que pleamar no sabía decir y ahora dice: `on still`.
     on still sonido.volume for 1.1s { meter: 0 }
+
+    // ── la vida de un aviso ──────────────────────────────────────
+    //  Un aviso la saca si está hundida, y entonces la tarjeta espera a que
+    //  haya salido: separarse y presentar a la vez enterraba lo uno en lo otro.
+    on notice while fase == 0 and out > 0.9 { cual = cat; fase = 1; seq = seq + 1; miseq = seq; marca = marca + 1; needed = true; wanted = true; play startle; entra: 1 ~220ms }
+    on notice while fase == 0 and out <= 0.9 { cual = cat; fase = 1; seq = seq + 1; miseq = seq; needed = true; wanted = true; play startle; entra: 1 ~220ms after 560ms }
+    on change out > 0.9 while fase == 1 { marca = marca + 1 }
+    //  Con uno ya en pantalla, el que llega va derecho a su gota. (La ráfaga
+    //  apilada —tres a la vista y «+N más»— está por hacer.)
+    on notice while fase != 0 { seq = seq + 1; emit direct }
+
+    //  3,2 s para leerla, que el puntero encima detiene: al irse, vuelve a
+    //  contar. Es `on still` otra vez: «cuando lleve ese rato sin que nada
+    //  vuelva a empezar la lectura».
+    zone box aviso_zona { at: av.x0, cy_real; size: 250, 44; corner: 14; cursor: pointer; active: fase == 1 }
+    on enter aviso_zona { sobre = true }
+    on leave aviso_zona { sobre = false; marca = marca + 1 }
+    on press aviso_zona { emit tray }
+    on still marca for 3.2s while fase == 1 and not sobre { fase = 2; mine: 1 ~220ms }
+    on change mine > 0.97 while fase == 2 and mine > 0.97 { emit landed }
+    on landed {
+        fase = 0
+        wanted = false
+        entra: 0 ~16ms
+        mine: 0 ~16ms after 40ms
+        play gulp
+    }
 
     // ── la cuenta atrás ──────────────────────────────────────────
     //  Ocurre DENTRO de la bolita y ANTES de arrancar el grabador, así que no
