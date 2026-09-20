@@ -16,15 +16,18 @@ import "comun/paleta.plm"
 
 scene Marea {
     surface {
-        size: 160, 120
+        size: 760, 470
         anchor: top
-        margin: 24
+        margin: 0
         screens: "HDMI-A-1"
     }
 
     // ── dónde vive ───────────────────────────────────────────────
-    let cx = 80
-    let cy = 46
+    //  En reposo vive arriba y centrada; al abrirse se aparta a la izquierda para
+    //  presentar la tarjeta, que es como está en la lámina del centro de control.
+    let cx = 120 + (1 - card) * 240
+    //  Abierta, baja a la altura de la cabecera de la tarjeta, como en la lámina.
+    let cy = 46 + card * 46
     let r = 23                        // la mitad de los 46 px de la lámina
 
     // ── lo que la mueve ──────────────────────────────────────────
@@ -45,6 +48,13 @@ scene Marea {
     fact hidden = true                // «meterse en el borde», encendido
     fact needed = false               // algo la reclama: un aviso, el puntero…
     prop out = 0 ~620ms               // 0 hundida, 1 separada del todo
+
+    //  La tarjeta. Dos cosas que viajan por separado, y ahí está el truco: al
+    //  abrir manda la geometría y el contenido la sigue; al cerrar se funde
+    //  primero el contenido y **luego** se recoge la geometría.
+    fact open = false
+    prop card = 0 ~290ms
+    prop content = 0 ~200ms
 
     // ── reposo vivo ──────────────────────────────────────────────
     //  Parpadeo breve, cada 5,2 s. Y la mirada, que sigue al ratón de cerca.
@@ -113,12 +123,112 @@ scene Marea {
         }
     }
 
+    // ── la tarjeta ───────────────────────────────────────────────
+    //  Crece desde la bolita: nace en su sitio y se estira hasta su tamaño.
+    let card.w = 560 * card
+    let card.h = 404 * card
+    let card.x = cx + 40 + card.w / 2
+    let card.y = cy_real + card.h / 2 - 8
+
+    body {
+        color: #16181a
+        rim: 5%
+        shadow: 0, 18, 44, 46%
+        box tarjeta { at: card.x, card.y; size: card.w, card.h; corner: 22 * card }
+    }
+
+    //  Lo de dentro, recortado a la tarjeta mientras se abre.
+    clip inset 2 box { at: card.x, card.y; size: card.w, card.h; corner: 22 * card }
+    group {
+        opacity: content
+        move: 0, (1 - content) * 10
+
+        let x0 = card.x - 248
+        let y0 = card.y - 172
+        text "MAREA" { at: x0, y0; anchor: left center; size: 9.5; weight: 600; color: ink; opacity: 35% }
+        text "Centro de control" { at: x0, y0 + 24; anchor: left center; size: 19; weight: 500; color: ink }
+
+        //  Los dos deslizadores de la lámina: brillo y volumen.
+        box { at: card.x - 176, card.y + 18; size: 192, 232; corner: 16; color: #1d2022 }
+        repeat k in 0..2 {
+            let sx = card.x - 224 + k * 96
+            box { at: sx, card.y - 4; size: 26, 150; corner: 13; color: #2a2e30 }
+            box { from: sx - 13, card.y + 24 - k * 26; size: 26, 47 + k * 26; corner: 13; color: mint }
+            ellipse { at: sx, card.y + 22 - k * 26; radius: 11; color: #eef3f0 }
+            text "{if(k == 0, 68, 35)} %" { at: sx, card.y + 106; anchor: center; size: 11; color: ink; opacity: 60% }
+        }
+
+        //  Y la columna de filas, como en la lámina: icono, título, lo que pasa
+        //  debajo, y el interruptor a la derecha.
+        text ajuste.1 = "Wi-Fi"
+        text ajuste.2 = "Bluetooth"
+        text ajuste.3 = "Concentración"
+        text detalle.1 = "Casa"
+        text detalle.2 = "Auriculares"
+        text detalle.3 = "25 min"
+        column filas { at: card.x + 24, card.y - 108; gap: 10
+            repeat k in 1..4 {
+                group {
+                    size: 232, 58
+                    prop luz = 0 ~140ms
+                    zone box fila.$k { from: 0, 0; size: 232, 58; corner: 14; cursor: pointer }
+                    box { from: 0, 0; size: 232, 58; corner: 14; color: mix(#1d2022, #272c2e, luz) }
+                    ellipse { at: 28, 29; radius: 9; color: mint; opacity: 55% + luz * 25% }
+                    text ajuste.$k { at: 50, 22; anchor: left center; size: 12.5; color: ink }
+                    text detalle.$k { at: 50, 38; anchor: left center; size: 10.5; color: ink; opacity: 42% }
+                    box { at: 202, 29; size: 34, 18; corner: 9; color: mix(#2f3436, mint, if(k < 3, 1, 0)) }
+                    ellipse { at: 202 + if(k < 3, 7, -7), 29; radius: 7; color: #eef3f0 }
+                    on enter fila.$k { luz: 1 }
+                    on leave fila.$k { luz: 0 }
+                }
+            }
+        }
+
+        //  Abajo, lo que suena.
+        box { at: card.x, card.y + 152; size: 512, 76; corner: 16; color: #1d2022 }
+        body {
+            gradient: radial card.x - 218, card.y + 152 radius 46, #7e9c8b, #2f4a3e
+            box { at: card.x - 218, card.y + 152; size: 56, 56; corner: 12 }
+        }
+        text "Sin prisa" { at: card.x - 178, card.y + 144; anchor: left center; size: 12.5; color: ink }
+        text "Sesión de tarde" { at: card.x - 178, card.y + 162; anchor: left center; size: 10.5; color: ink; opacity: 42% }
+        //  Anterior, pausa y siguiente. Los triángulos son caminos: tres puntos.
+        let by = card.y + 152
+        let bx1 = card.x + 120
+        let bx3 = card.x + 212
+        path { at: bx1 - 7, by - 7; color: ink; move 12, 0; line 12, 14; line 0, 7; close }
+        box { at: bx1 - 9, by; size: 3, 14; corner: 1.5; color: ink }
+        ellipse { at: card.x + 166, by; radius: 17; color: ink; opacity: 92% }
+        box { at: card.x + 162, by; size: 3.5, 13; corner: 1.75; color: #16181a }
+        box { at: card.x + 170, by; size: 3.5, 13; corner: 1.75; color: #16181a }
+        path { at: bx3 - 5, by - 7; color: ink; move 0, 0; line 12, 7; line 0, 14; close }
+        box { at: bx3 + 9, by; size: 3, 14; corner: 1.5; color: ink }
+    }
+
+    // ── abrir y cerrar ───────────────────────────────────────────
+    //  Al abrir manda la geometría y el contenido entra detrás. Al cerrar, al
+    //  revés: 50 ms de fundido y luego 210 de recogida, que es lo que hace que
+    //  parezca que se la traga y no que se apaga.
+    on change open while open {
+        card: 1 ~290ms
+        content: 1 ~200ms after 90ms
+    }
+    on change open while not open {
+        content: 0 ~50ms
+        card: 0 ~210ms after 50ms
+    }
+
     // ── lo que responde al ratón ─────────────────────────────────
     zone box cuerpo_zona { at: cx, cy_real; size: 2 * r, 2 * r + 30; corner: r; cursor: pointer }
     //  Cualquier cosa que la necesite la saca; y vuelve a hundirse tras 2,6 s de
     //  gracia, que es lo que el contrato llama gracia y aquí se dice tal cual.
     on enter cuerpo_zona { needed = true }
     on away cuerpo_zona for 2.6s { needed = false }
-    on press cuerpo_zona { press: 1 }
+    //  Se cierra al salir del conjunto, con 320 ms de gracia para un desvío.
+    zone box conjunto { at: cx + card * 300, cy_real + card.h / 2 - 8; size: 200 + card.w + 80, 2 * r + 30 + card.h; corner: 30; active: open }
+    on away conjunto for 320ms { open = false }
+    //  El clic abre; el roce no. Antes bastaban 450 ms de roce para que un panel
+    //  entero tapara lo que estabas leyendo.
+    on press cuerpo_zona { press: 1; toggle open }
     on release cuerpo_zona { press: 0 }
 }

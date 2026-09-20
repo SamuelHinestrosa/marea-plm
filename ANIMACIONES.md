@@ -41,6 +41,31 @@ enganche a la bolita y el corte con la superficie, más los comentarios que
 explican por qué cada tiro va hacia dentro y no hacia fuera. Aquí son dos formas
 en el mismo `body` y un número que sube y baja. El cuello no se dibuja: aparece.
 
+## Abrir y cerrar
+
+| Lo que pide el contrato | Cómo está | Medido |
+| --- | --- | --- |
+| 290 ms al abrir | `card: 1 ~290ms` | 283 ms |
+| El contenido entra detrás | `content: 1 ~200ms after 90ms` | empieza 102 ms después, dura 198 |
+| Al cerrar, **primero el contenido**: 50 ms | `content: 0 ~50ms` | se va en 50 ms, tres frames |
+| **Y luego** la geometría: 210 ms | `card: 0 ~210ms after 50ms` | arranca cuando el contenido ya no está, y tarda 210 |
+| Se aparta para presentar la tarjeta | `let cx = 120 + (1 - card) * 240` | viaja con la propia apertura |
+| El clic abre; el roce **no** | `on press cuerpo_zona { toggle open }` | acercarse no abre nada |
+| Se cierra al salir, con 320 ms de gracia | `on away conjunto for 320ms { open = false }` | el conjunto incluye bolita, puente y tarjeta |
+
+El orden inverso entre abrir y cerrar se escribe con dos reglas y se lee como el
+contrato:
+
+```
+on change open while open      { card: 1 ~290ms;  content: 1 ~200ms after 90ms }
+on change open while not open  { content: 0 ~50ms; card: 0 ~210ms after 50ms }
+```
+
+**Esta pieza no necesitó tocar el lenguaje.** Con `on change` y `while`, los
+retrasos de las transiciones y los muelles dichos en tiempo, la coreografía salió
+tal cual está escrita en el contrato. La tarjeta, en `evidencia/centro-de-control.png`,
+al lado de su lámina (`design/concepts/2026-08-31-centro-y-apps`).
+
 ## Medidas de la lámina
 
 De `design/concepts/2026-09-12-reposo-vivo/referencia-real-limpia.png`, que
@@ -71,6 +96,7 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
 
 ## Lo siguiente
 
-- Abrir y cerrar: apartarse, 290 ms de apertura, 50 de fundido y 210 de cierre.
-- Las transformaciones de la cara: ojos que se tumban en una barra de volumen.
+- Las transformaciones de la cara: ojos que se tumban en una barra de volumen,
+  que se vuelven número al contar y cámara al encuadrar.
 - La nota de la hora, que nace por detrás de ella.
+- Los avisos como oleaje: la tarjeta que aterriza como gota y vuelve a serlo.
