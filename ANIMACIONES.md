@@ -555,6 +555,55 @@ nueva pide su clave, y eso es una conversación, no un clic. Y el `mac` de cada
 auricular viaja en su registro aunque la escena no lo declare: es donde la
 lógica guarda lo que la escena no necesita saber.
 
+### Y el cierre, en tres tiempos
+
+![Se la bebe y vuelve](evidencia/cierre.png)
+
+> «Se aparta para presentar la tarjeta; al cerrar funde primero el contenido y
+> luego recoge la geometría hasta la bolita. | 290 ms al abrir; 50 ms de fundido
+> + 210 ms de cierre.»
+
+Los tiempos del contrato estaban, pero las tres cosas pasaban **encima de la
+otra**: la tarjeta se encogía mientras ella ya se había ido, así que no se bebía
+nada; se quedaba una caja sola apagándose en una esquina. Ahora van en orden, y
+ese es todo el truco:
+
+| | |
+| --- | --- |
+| se apaga lo que se lee | 50 ms |
+| se la bebe: la tarjeta se estrecha hacia ella —el cuello se pincha solo, que ya estaba— | tragada a los **234 ms** |
+| da el trago cuando ya casi no queda | `on change card < 0.2` |
+| y **entonces** vuelve a su sitio | arranca a los 200, cruza su sitio a los **417**, se pasa **19 px** y se asienta a los **733** |
+
+Tres detalles que hacen que eso sea un líquido y no una caja:
+
+**La esquina engorda al irse.** `corner: max(22 * card, min(w, h) / 2 * (1 - card))`:
+la de la lámina manda en cuanto hay tarjeta, y cuanto menos queda de ella más
+gorda es su esquina en proporción, así que lo último que entra no es una cajita
+con picos —es una gota—. Abriendo pasa al revés: sale como un bulto de ella y se
+va cuadrando al llegar a su tamaño.
+
+**Vuelve con su propio muelle.** Su sitio ya no es «lo abierta que está la
+tarjeta»: es un `prop` aparte (`sitio`) con un muelle menos frenado
+—`spring vuelta = 165, 16`—, así que llega pasándose un pelo y se asienta, en
+vez de aparecer otra vez ahí. Y el camino se comba: la altura va por el
+cuadrado, así que sale y entra **por arriba** en lugar de cruzar en diagonal.
+Una cosa con peso no viaja en línea recta.
+
+**Y se inclina hacia donde va, sin que nadie se lo diga.** Sale de la
+**velocidad de su propio muelle**: `follow lean = clamp(vel(sitio) * -2.6, -8, 8)`.
+Se inclina al arrancar, se endereza al llegar, y lo hace igual de ida que de
+vuelta porque es la misma cuenta. Máximo medido: 7,4°.
+
+Al llegar, el agua del borde se entera: se hunde un poco a su alrededor y rebota
+—3,8 px de meneo—, como cuando algo se posa en una superficie que no es rígida.
+
+**Y volver a hundirse también se ve.** Salir del agua tenía dos botes, una onda
+que recorre la lámina y una gota que se queda; meterse no tenía nada, se iba en
+silencio. Ahora, cuando acaba de entrar, la superficie **se cierra sobre ella**:
+se hunde donde estaba y de ahí sale el mismo rizo, 760 ms. Irse también es algo
+que pasa.
+
 ### Lo que esto destapó en pleamar
 
 **No había servicio de brillo.** Es la primera pista que busca cualquiera en un

@@ -57,9 +57,17 @@ scene Marea {
     // ── dónde vive ───────────────────────────────────────────────
     //  En reposo vive arriba y centrada; al abrirse se aparta a la izquierda para
     //  presentar la tarjeta, que es como está en la lámina del centro de control.
-    let cx = 120 + (1 - max(card, tray)) * 240
+    //  Dónde está ELLA. Ya no es «lo abierta que está la tarjeta»: al cerrar,
+    //  la tarjeta se recoge primero y ella vuelve después, que es lo que hace
+    //  que se vea el viaje en vez de que las dos cosas pasen encima de la otra.
+    prop sitio = 0 ~290ms
+    let fuera = max(sitio, tray)
+    let cx = 120 + (1 - fuera) * 240
     //  Abierta, baja a la altura de la cabecera de la tarjeta, como en la lámina.
-    let cy = 46 + max(card, tray) * 46
+    //  Y el camino se comba: la altura va por el cuadrado, así que sale y entra
+    //  por arriba en vez de cruzar en línea recta. Una cosa con peso no viaja
+    //  en diagonal.
+    let cy = 46 + fuera * fuera * 46
     let r = 23                        // la mitad de los 46 px de la lámina
 
     // ── lo que la mueve ──────────────────────────────────────────
@@ -485,6 +493,12 @@ scene Marea {
     let menu.y0 = cy_real - 15
     let menu.cy = menu.y0 + menu.h / 2
 
+    //  Y se inclina hacia donde va. No lo lleva nadie de la mano: sale de la
+    //  VELOCIDAD de su propio muelle, así que se inclina al arrancar, se
+    //  endereza al llegar, y lo hace igual de ida que de vuelta.
+    prop lean = 0 ~quick
+    follow lean = clamp(vel(sitio) * -2.6, -8, 8)
+
     //  El cuello: mínimo en reposo y máximo a mitad de la separación, que es una
     //  campana. Al final no queda nada y el hilo se rompe solo.
     let cuello = 30 * 4 * out * (1 - out) * if(hidden, 1, 0)
@@ -495,6 +509,10 @@ scene Marea {
     //  hace leerse como agua y no como una cortina con un agujero.
     //  Un muelle propio, poco frenado: el agua no se queda quieta a la primera.
     //  420 y 13 son un cuarto de segundo de periodo y dos botes que se ven.
+    //  La vuelta a su sitio: un muelle menos frenado que el de la tarjeta, que
+    //  llega pasándose un pelo y se asienta. Es lo que la hace «volver» en vez
+    //  de «aparecer otra vez ahí».
+    spring vuelta = 165, 16
     spring chapoteo = 420, 13
     prop rebote = 0 ~chapoteo
     //  Una campana, como el cuello: plana pegada al borde, lo más estirada a
@@ -536,6 +554,17 @@ scene Marea {
         impulse menea 190
         impulse rebote 40
     }
+    //  Y cuando acaba de entrar, la superficie **se cierra sobre ella**: se
+    //  hunde un momento donde estaba y de ahí sale el mismo rizo que sale al
+    //  romperse el hilo, recorriendo la lámina. Antes volver era lo único que
+    //  pasaba sin que el agua se enterara: salía con dos botes, una onda y una
+    //  gota, y se metía en silencio. Irse también se ve.
+    on change out < 0.06 while out < 0.06 and hidden {
+        impulse rebote -110
+        impulse menea -90
+        onda: 0 ~16ms
+        onda: 1 ~760ms after 30ms
+    }
 
     // ── el cuerpo ────────────────────────────────────────────────
     //  El agua del borde y la bolita son una sola silueta: el cuello no se
@@ -568,7 +597,7 @@ scene Marea {
         ellipse cuerpo {
             at: cx, cy_real
             radius: r
-            rotate: tilt
+            rotate: tilt + lean
             scale: (sx + press * 0.04) * (1 - gotea), (sy - press * 0.05) * (1 + gotea)
             blend: cuello
         }
@@ -592,7 +621,7 @@ scene Marea {
         box tarjeta {
             at: card.x, card.y
             size: card.w, card.h
-            corner: 22 * card
+            corner: card.corner
             blend: 30 * 4 * card * (1 - card) + 24 * card
         }
         box nota_caja {
@@ -1297,11 +1326,15 @@ scene Marea {
     //  Pegada a ella, no al lado: se solapan 17 px y con eso el fundido hace un
     //  cuello. Es lo mismo que la bandeja, y por la misma razón: la tarjeta no
     //  aparece al lado, sale de ella.
+    //  La esquina de la tarjeta: la de la lámina en cuanto hay tarjeta, y cada
+    //  vez más gorda en proporción según se va, para que lo último que entra en
+    //  ella sea una gota y no una cajita con picos.
+    let card.corner = max(22 * card, min(card.w, card.h) / 2 * (1 - card))
     let card.x = cx + 6 + card.w / 2
     let card.y = cy_real + card.h / 2 - 8
 
 
-    clip inset 2 box { at: card.x, card.y; size: card.w, card.h; corner: 22 * card }
+    clip inset 2 box { at: card.x, card.y; size: card.w, card.h; corner: card.corner }
     group {
         opacity: content
         move: 0, (1 - content) * 10
@@ -1641,12 +1674,33 @@ scene Marea {
     //  revés: 50 ms de fundido y luego 210 de recogida, que es lo que hace que
     //  parezca que se la traga y no que se apaga.
     on change open while open {
+        sitio: 1 ~290ms
         card: 1 ~290ms
         content: 1 ~200ms after 90ms
     }
+    //  Cerrar son tres tiempos, y ese es todo el truco: **no pasan a la vez**.
+    //  Se apaga lo que se lee (50 ms), se la bebe —la tarjeta se estrecha hacia
+    //  ella y el cuello se pincha solo, que ya estaba—, da el trago cuando
+    //  acaba de entrar, y ENTONCES vuelve a su sitio, combando el camino y
+    //  inclinada hacia donde va. Al llegar, el agua del borde se entera: se
+    //  hunde un poco a su alrededor y rebota, como cuando algo se posa.
+    //
+    //  Antes las tres cosas ocurrían encima de la otra en 210 ms: la tarjeta se
+    //  encogía mientras ella ya se había ido, así que no se bebía nada, se
+    //  quedaba una caja sola apagándose en una esquina.
     on change open while not open {
         content: 0 ~50ms
-        card: 0 ~210ms after 50ms
+        card: 0 ~210ms after 30ms
+        sitio: 0 ~vuelta after 200ms
+    }
+
+    //  Y ni el trago ni el chapoteo van con reloj: van con lo que está pasando.
+    //  Cuando de la tarjeta ya no queda casi nada, es que se la ha tragado; y
+    //  cuando ella ya casi ha llegado, el agua del borde se entera.
+    on change card < 0.2 while not open and card < 0.2 { play gulp }
+    on change sitio < 0.08 while not open and sitio < 0.08 {
+        impulse menea -120
+        impulse rebote -70
     }
 
     // ── el nivel ─────────────────────────────────────────────────
