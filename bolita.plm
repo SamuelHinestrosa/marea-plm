@@ -83,8 +83,10 @@ scene Marea {
     fact sobre = false                 // el puntero encima: detiene la lectura
     fact marca = 0                     // cada vez que la lectura vuelve a empezar
     fact seq = 0                       // para saber cuál es el más reciente
+    fact cuantos = 1                   // cuántas trae la ráfaga
     prop entra = 0 ~220ms              // la tarjeta, entrando
-    prop mine = 0 ~220ms               // 0 tarjeta, 1 gota en su sitio
+    //  Una por tarjeta del montón: vuelan juntas pero no a la vez.
+    repeat j in 0..3 { prop vuela.$j = 0 ~280ms }
     prop atenta = 0 ~gentle            // mirando la tarjeta
     follow atenta = if(fase == 1, 1, 0)
 
@@ -556,31 +558,60 @@ scene Marea {
             text "9+" { at: gx.$k, gy.$k + 0.5; anchor: center; size: 7.5; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 0, 1) }
         }
         //  La gota donde cae algo late una vez, y su número con ella. Nada en bucle.
-        on landed while cual == k { n.$k = n.$k + 1; last.$k = max(last.$k, miseq); impulse late.$k 5 }
+        on landed while cual == k { n.$k = n.$k + cuantos; last.$k = max(last.$k, miseq); impulse late.$k 5 }
         on direct while cat == k { n.$k = n.$k + 1; last.$k = seq; impulse late.$k 5 }
     }
 
     // ── el aviso que llega ───────────────────────────────────────
     //  Del centro de la tarjeta al hombro por dos curvas distintas: de lado a
     //  ritmo constante, y hacia arriba deprisa. El camino se dobla.
-    let av.w = 250 + (8.3 - 250) * mine
-    let av.h = 44 + (8.3 - 44) * mine
+    //
+    //  Y si llegan varias, se apilan: tres a la vista y «+N más». Vuelan
+    //  juntas, cada una un poco después de la anterior, y el boing es UNO,
+    //  lleguen las que lleguen. Una mascota que pega un bote por cada mensaje
+    //  de un grupo es una mascota que se acaba apagando.
+    let tinte = mix(mix(mix(azul, lila, cual > 1.5), verde, cual > 2.5), ambar, cual > 3.5)
     let av.x0 = cx + 23 + 14 + 125
-    let av.x = av.x0 + (cx + 31.7 * cos(-24) - av.x0) * mine + (1 - entra) * 30
-    let av.y = cy_real + (31.7 * sin(-24)) * (1 - (1 - mine) * (1 - mine))
-    body {
-        color: mix(#0c0f12, mix(mix(mix(azul, lila, cual > 1.5), verde, cual > 2.5), ambar, cual > 3.5), mine)
-        opacity: entra
-        shadow: 0, 6, 14, 30%
-        box { at: av.x, av.y; size: av.w, av.h; corner: min(av.h / 2, 14 + (av.h / 2 - 14) * mine) }
+    let av.dx = cx + 31.7 * cos(-24) - av.x0
+    let av.dy = 31.7 * sin(-24)
+
+    repeat j in 0..3 {
+        //  `atras` es cuántas tiene encima: 0 es la de delante.
+        let atras = 2 - j
+        let vuelo = vuela.$j
+        let aw = (250 - atras * 22) + (8.3 - 250 + atras * 22) * vuelo
+        let ah = 44 + (8.3 - 44) * vuelo
+        let ax = av.x0 + av.dx * vuelo + (1 - entra) * 30
+        let ay = cy_real + av.dy * (1 - (1 - vuelo) * (1 - vuelo)) + atras * 8 * (1 - vuelo)
+        body {
+            //  Las de detrás no llevan su color hasta que vuelan: mientras
+            //  esperan son papel apilado, y el color es de la que se lee.
+            color: mix(mix(#0c0f12, #171b1f, atras > 0), tinte, vuelo)
+            opacity: entra
+            shadow: 0, 6, 14, 30%
+            show: cuantos > atras
+            box { at: ax, ay; size: aw, ah; corner: min(ah / 2, 14 + (ah / 2 - 14) * vuelo) }
+        }
+        group {
+            show: atras == 0
+            opacity: entra * (1 - clamp(vuelo * 5, 0, 1))
+            box { at: ax - 120, ay; size: 3, 28; corner: 1.5; color: tinte }
+            text who { at: ax - 110, ay - 8; anchor: left center; size: 11.5; weight: 600; color: #f6f6f5 }
+            text line { at: ax - 110, ay + 8; anchor: left center; size: 10.5; width: 190; lines: 1; color: #a9adb3 }
+            text "ahora" { at: ax + 113, ay - 8; anchor: right center; size: 9.5; color: #8b8f95 }
+        }
     }
-    group {
-        opacity: entra * (1 - clamp(mine * 5, 0, 1))
-        box { at: av.x - 125 + 5, av.y; size: 3, 28; corner: 1.5; color: mix(mix(mix(azul, lila, cual > 1.5), verde, cual > 2.5), ambar, cual > 3.5) }
-        text who { at: av.x - 110, av.y - 8; anchor: left center; size: 11.5; weight: 600; color: #f6f6f5 }
-        text line { at: av.x - 110, av.y + 8; anchor: left center; size: 10.5; width: 190; lines: 1; color: #a9adb3 }
-        text "ahora" { at: av.x + 113, av.y - 8; anchor: right center; size: 9.5; color: #8b8f95 }
+    //  Y las que no caben, dichas y no dibujadas: «+N más» debajo del montón.
+    text "+{cuantos - 3, 0} más" {
+        at: av.x0 + 113, cy_real + 40
+        anchor: right center
+        size: 9.5
+        weight: 600
+        color: #8b8f95
+        opacity: entra * (1 - clamp(vuela.2 * 5, 0, 1))
+        show: cuantos > 3
     }
+
 
     // ── la tarjeta ───────────────────────────────────────────────
     //  Crece desde la bolita: nace en su sitio y se estira hasta su tamaño.
@@ -785,27 +816,42 @@ scene Marea {
     // ── la vida de un aviso ──────────────────────────────────────
     //  Un aviso la saca si está hundida, y entonces la tarjeta espera a que
     //  haya salido: separarse y presentar a la vez enterraba lo uno en lo otro.
-    on notice while fase == 0 and out > 0.9 { cual = cat; fase = 1; seq = seq + 1; miseq = seq; marca = marca + 1; needed = true; wanted = true; play startle; entra: 1 ~220ms }
-    on notice while fase == 0 and out <= 0.9 { cual = cat; fase = 1; seq = seq + 1; miseq = seq; needed = true; wanted = true; play startle; entra: 1 ~220ms after 560ms }
+    on notice while fase == 0 and out > 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; marca = marca + 1; needed = true; wanted = true; play startle; entra: 1 ~220ms }
+    on notice while fase == 0 and out <= 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; needed = true; wanted = true; play startle; entra: 1 ~220ms after 560ms }
     on change out > 0.9 while fase == 1 { marca = marca + 1 }
-    //  Con uno ya en pantalla, el que llega va derecho a su gota. (La ráfaga
-    //  apilada —tres a la vista y «+N más»— está por hacer.)
-    on notice while fase != 0 { seq = seq + 1; emit direct }
+    //  Otro mientras aún se está leyendo: se apila, y la lectura vuelve a
+    //  empezar. Ni un bote más: el gesto ya está puesto, y una mascota que pega
+    //  un bote por cada mensaje de un grupo se acaba apagando.
+    on notice while fase == 1 { seq = seq + 1; cuantos = cuantos + 1; marca = marca + 1 }
+    //  Con la ráfaga ya volando, el que llega va derecho a su gota.
+    on notice while fase == 2 { seq = seq + 1; emit direct }
 
     //  3,2 s para leerla, que el puntero encima detiene: al irse, vuelve a
     //  contar. Es `on still` otra vez: «cuando lleve ese rato sin que nada
     //  vuelva a empezar la lectura».
-    zone box aviso_zona { at: av.x0, cy_real; size: 250, 44; corner: 14; cursor: pointer; active: fase == 1 }
+    zone box aviso_zona { at: av.x0, cy_real + 7; size: 250, 58; corner: 14; cursor: pointer; active: fase == 1 }
     on enter aviso_zona { sobre = true }
     on leave aviso_zona { sobre = false; marca = marca + 1 }
     on press aviso_zona { emit tray }
-    on still marca for 3.2s while fase == 1 and not sobre { fase = 2; mine: 1 ~220ms }
-    on change mine > 0.97 while fase == 2 and mine > 0.97 { emit landed }
+    //  3,2 s para leer una; 4,2 si son varias, que es lo que dice el contrato.
+    //  Son dos reglas porque el `for` de una regla es un tiempo escrito y no una
+    //  cuenta; aquí no estorba, y dicho dos veces se lee bien.
+    on still marca for 3.2s while fase == 1 and not sobre and cuantos < 2 { fase = 2 }
+    on still marca for 4.2s while fase == 1 and not sobre and cuantos > 1 { fase = 2 }
+    //  Y vuelan juntas, cada una un poco después de la anterior.
+    on change fase while fase == 2 {
+        vuela.2: 1 ~280ms
+        vuela.1: 1 ~280ms after 45ms
+        vuela.0: 1 ~280ms after 90ms
+    }
+    on change vuela.0 > 0.97 while fase == 2 and vuela.0 > 0.97 { emit landed }
     on landed {
         fase = 0
         wanted = false
         entra: 0 ~16ms
-        mine: 0 ~16ms after 40ms
+        vuela.0: 0 ~16ms after 40ms
+        vuela.1: 0 ~16ms after 40ms
+        vuela.2: 0 ~16ms after 40ms
         play gulp
     }
 

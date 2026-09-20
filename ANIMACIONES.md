@@ -351,8 +351,28 @@ aterriza 3,2 s después que los que llegan mientras tanto, pero llegó antes: ca
 aviso guarda su turno. Comprobado con tres seguidos: mensajes, calendario,
 sistema → sitios 2, 1 y 0.
 
-**Lo que falta de esta parte:** la ráfaga apilada («tres a la vista y +N más»),
-la llegada con ella dormida, la vista previa en abanico y la bandeja entera.
+### Y si llegan varias
+
+![Una y una ráfaga](evidencia/rafaga.png)
+
+> «Las tarjetas se apilan —tres a la vista y «+N más»— y vuelan juntas, cada una
+> un poco después de la anterior. Un solo boing con los ojos curvados, lleguen
+> las que lleguen. Lectura 4,2 s; vuelo 280 ms.»
+
+| Lo que dice el contrato | Lo medido |
+| --- | --- |
+| Tres a la vista y «+N más» | Sí; las de detrás asoman 8 px y son 22 más estrechas cada una |
+| Vuelan juntas, cada una un poco después | 45 ms entre una y la siguiente |
+| **Un solo boing**, lleguen las que lleguen | El gesto solo lo pide la primera. Una mascota que pega un bote por cada mensaje de un grupo es una mascota que se acaba apagando |
+| Lectura 4,2 s | Y 3,2 si viene sola. Son dos reglas, porque el `for` de una regla es un tiempo escrito y no una cuenta |
+| Vuelo 280 ms | Sí |
+| La que llega vuelve a empezar la lectura | Sí: `marca` se mueve y `on still` cuenta de nuevo |
+
+Y las de detrás no llevan su color hasta que vuelan: mientras esperan son papel
+apilado, y el color es de la que se está leyendo.
+
+**Lo que falta de esta parte:** la llegada con ella dormida, la vista previa en
+abanico y la bandeja entera.
 
 ### Lo que esto destapó en pleamar
 
