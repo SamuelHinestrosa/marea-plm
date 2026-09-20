@@ -898,45 +898,43 @@ conserva el tamaño real:
 | separación | 13 px entre centros |
 | altura de los ojos | 2,5 px por debajo del centro del cuerpo |
 
-## El halo, que no es una sombra
+## El cerco negro, el halo que no hizo falta, y el filo
 
 ![Antes y ahora, con el panel abierto](evidencia/halo-vs-sombra.png)
 
 Alrededor de ella había un círculo negro más grande que ella, y al abrir el
 centro de control, una mancha oscura por encima del panel hasta el borde de la
-pantalla. Era su sombra: negra, difusa 16, desplazada 7.
+pantalla. Era su sombra: negra, difusa 16, desplazada 7. **Una sombra negra
+sobre un escritorio de ventanas oscuras no tiene nada que oscurecer**, y lo
+único que hace es ensuciar lo que hay detrás.
 
-Marea ya pasó por aquí y lo dejó escrito en su tema:
+Marea ya pasó por aquí y en su tema le da la vuelta: quita la sombra y pone un
+halo claro, sin desplazamiento, que abraza el contorno. Aquí se probó y **no
+era la respuesta**: de blanco al 45 % era una sombra blanca —el mismo problema
+con otro color— y de menta al 22 %, un resplandor verde que se veía sobre
+cualquier fondo que no fuera negro. Un halo pinta fuera de la silueta, y lo que
+pinta fuera se ve.
 
-> «El halo, que ya no es una sombra sino un GLOW. En la lámina es una sombra
-> oscura, medida: oscurece el fondo un 22 % a dos píxeles del filo. Funciona
-> sobre su marfil y **no funciona sobre un escritorio con ventanas**, que es
-> donde vive esta barra: una sombra negra sobre una ventana negra no tiene nada
-> que oscurecer. Así que se le da la vuelta. Color claro y desplazamiento CERO,
-> con lo que el halo abraza el contorno en vez de caer hacia un lado.»
+![Sobre negro: el filo de 6 %, el halo, y el filo de 14 %](evidencia/halo.png)
 
-![El halo](evidencia/halo.png)
+Lo que sí hacía falta es lo que el halo venía a tapar: **sobre un fondo oscuro
+de verdad ella desaparece**. Su cuerpo es `#151616` y sobre negro no hay
+diferencia que ver (primer fotograma). Pero para eso no hace falta pintar nada
+fuera: su `rim` es luz por **dentro** de la silueta, y subido del 6 % al 14 %
+(tercero) la dibuja entera sin tocar un píxel del escritorio. El del medio es
+el halo, para comparar.
 
-Aquí es lo mismo, y con su color: menta al **22 %**, que es el número de la
-lámina —«oscurece el fondo un 22 % a dos píxeles del filo»— puesto del derecho.
-Sin desplazamiento, el halo la rodea entera en vez de caer hacia un lado, y lo
-que la separa del escritorio es luz y no suciedad. Con blanco y al 45 % dejaba
-de ser un halo y era una sombra blanca, que es el mismo problema con otro color.
-
-Y cuando de ella sale un panel, vuelve a ser sombra: un halo claro de 390 × 410
-es una mancha. **Todo lo de una sombra es una cuenta**, así que el mismo cuerpo
-va de una cosa a la otra sin tener que elegir —el halo la abraza sin
-desplazarse; la sombra del panel cae un poco y se extiende—:
+Así que la bolita no lleva ni sombra ni halo. Lo que sí lleva sombra es un
+panel, que es una tarjeta de 390 × 410 flotando sobre las ventanas y tiene que
+decir que está encima. Y como **todo lo de una sombra es una cuenta**, aparece
+con la tarjeta y se va con ella:
 
 ```plm
 let panel = clamp(max(card, tray) * 2, 0, 1)
-shadow: 0, 2 * panel, 8 + 4 * panel, 22% + 10% * panel, mix(mint, #05070a, panel)
+shadow: 0, 2 * panel, 12 * panel, 32% * panel, #05070a
 ```
 
-Lo que sigue siendo de ella —la nota de la hora, el menú, la cápsula del
-Remanso, el resumen— se queda con el halo: son ella hablando, no un panel. Las
-tarjetas que no salen de ella —la vista previa, el aviso que llega— conservan su
-sombra oscura, que es lo que Marea le pone a una tarjeta.
+Con `panel` a cero no hay sombra que calcular: el render ni la mira.
 
 ## Lo que le faltó al lenguaje, y ya no
 
@@ -998,12 +996,12 @@ Dieciséis, todas arregladas en pleamar en vez de esquivadas aquí:
 16. **Una sombra solo podía ser negra, y sus números eran fijos.** Una sombra
    negra sobre un escritorio de ventanas oscuras no tiene nada que oscurecer:
    se ve como un cerco sucio alrededor de lo que quería separar del fondo.
-   Ahora `shadow` lleva color, y **todo lo suyo son expresiones**: el mismo
-   cuerpo pasa de halo de menta al 22 % a sombra oscura y desplazada según lo
-   que le salga fuera. Con un solo juego de números había que elegir entre el
-   halo que quiere una bolita y la sombra que quiere un panel de 390 × 410,
-   siendo el mismo cuerpo. El color va en los tres huecos que `color1` ya tenía
-   libres, así que no cuesta ni un byte más por elemento.
+   Ahora `shadow` lleva color, y **todo lo suyo son expresiones**. Con un solo
+   juego de números había que elegir entre lo que quiere una bolita y lo que
+   quiere un panel de 390 × 410, siendo el mismo cuerpo; ahora la sombra
+   aparece con la tarjeta y se va con ella (`32% * panel`), y con la cuenta a
+   cero el render ni la mira. El color va en los tres huecos que `color1` ya
+   tenía libres, así que no cuesta ni un byte más por elemento.
 
 ## Lo siguiente
 

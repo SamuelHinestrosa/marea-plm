@@ -543,27 +543,18 @@ scene Marea {
     //  calcule, y por eso es cóncavo.
     body {
         color: coal
-        rim: 6%
-        //  Y esto no es una sombra: es un HALO.
+        rim: 14%
+        //  Sin sombra y sin halo cuando está sola. Lo que la separa del
+        //  escritorio es su propio filo, que es luz por DENTRO de su silueta:
+        //  no pinta nada fuera de ella, así que no hay cerco negro ni resplandor
+        //  verde alrededor. Sobre un fondo oscuro es lo que la dibuja, y sobre
+        //  uno claro no hace falta nada.
         //
-        //  En la lámina es una sombra oscura, medida, que oscurece el fondo un
-        //  22 % a dos píxeles del filo. Funciona sobre el marfil de la lámina y
-        //  no funciona aquí: sobre un escritorio de ventanas oscuras, una
-        //  sombra negra no tiene nada que oscurecer y lo único que se ve es un
-        //  cerco sucio alrededor de ella. Marea le dio la vuelta en su día por
-        //  esto mismo —«el halo, que ya no es una sombra sino un glow»— y aquí
-        //  se hace igual: color claro y desplazamiento CERO, con lo que abraza
-        //  el contorno en vez de caer hacia un lado.
-        //
-        //  Y cuando de ella sale un panel, vuelve a ser sombra: un halo claro
-        //  de 390 × 410 es una mancha. El color es una expresión, así que el
-        //  mismo cuerpo pasa de halo a sombra según lo que lleve fuera.
-        //  Y cuando de ella sale un panel, vuelve a ser sombra: un halo claro
-        //  de 390 × 410 es una mancha. Todo lo de una sombra es una cuenta, así
-        //  que el mismo cuerpo va de un sitio al otro sin elegir: el halo la
-        //  abraza sin desplazarse, y la sombra del panel cae un poco y se
-        //  extiende, que es lo que hace una sombra.
-        shadow: 0, 2 * panel, 8 + 4 * panel, 22% + 10% * panel, mix(mint, #05070a, panel)
+        //  Una sombra sí, pero solo cuando de ella sale un panel: una tarjeta
+        //  de 390 × 410 flotando sobre las ventanas necesita decir que está
+        //  encima. Todo lo de una sombra es una cuenta, así que aparece con la
+        //  tarjeta y se va con ella.
+        shadow: 0, 2 * panel, 12 * panel, 32% * panel, #05070a
         box agua { from: cx - 70, -70; size: 140, 70 * if(hidden, 1, 0) }
         //  El bulto que el agua hace alrededor de ella: es la misma lámina, que
         //  se estira. Fundido con ella y con la bolita, así que los tres son una
