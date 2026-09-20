@@ -358,10 +358,10 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
     esto destapó»).
 11. **Una superficie no podía esperar a lo que lleva dentro.** `open:` solo
    aceptaba un hecho; ahora una cuenta: `open: tuck > 0.01`.
-10. **Un `clip` suelto recortaba también la otra ventana**, y no se veía nada sin
+12. **Un `clip` suelto recortaba también la otra ventana**, y no se veía nada sin
     que nada lo dijera. Costó una hora encontrarlo. Ahora los recortes abiertos
     acaban donde empieza una superficie con nombre.
-11. **No se podía decir «cuando esto lleve un rato sin cambiar».** El contrato lo
+13. **No se podía decir «cuando esto lleve un rato sin cambiar».** El contrato lo
    pide en tres sitios —el nivel aguanta 1,1 s tras el último cambio, la nota de
    la hora 300 ms de gracia, el aviso 700— y en pleamar solo existía `on change`,
    su reverso. Con él, una ráfaga de teclazos salía como un parpadeo por
