@@ -908,59 +908,72 @@ scene Marea {
         on press icono.1 { emit mute_salida }
 
         // ── las tres de la lámina ────────────────────────────────
+        //  En una COLUMNA de verdad: dónde cae cada una lo pone la maquetación,
+        //  no yo. Antes las ponía a mano con coordenadas y por eso el nombre de
+        //  la red se metía debajo del interruptor y «Concentración» pisaba la
+        //  flecha. Dentro de cada tarjeta las medidas siguen siendo mías, pero
+        //  ahora los textos llevan el ancho que les queda y lo que no cabe se
+        //  corta con puntos suspensivos, que es lo que tiene que pasar.
         text titulo.1 = "Wi-Fi"
         text titulo.2 = "Bluetooth"
         text titulo.3 = "Concentración"
-        //  La del Wi-Fi la escribe el servicio de red, así que solo hacen
-        //  falta las otras dos.
         text sub.1 = ""
         text sub.2 = "Auriculares"
         text sub.3 = "25 min"
-        repeat k in 1..4 {
-            let tx = card.x + 88
-            let ty = card.y - 132 + (k - 1) * 74
-            prop luz.$k = 0 ~140ms
-            zone box fila.$k { at: tx, ty; size: 164, 66; corner: 14; cursor: pointer; active: content > 0.9 }
-            //  La de Concentración va resaltada cuando está puesta: filo de
-            //  menta y el fondo un punto más verde. Es el único borde del panel.
-            body {
-                color: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k * if(k == 3, 1, 0))
-                border: if(k == 3, encendida.$k, 0), mint
-                box { at: tx, ty; size: 164, 66; corner: 14 }
+        column tarjetas {
+            at: card.x + 6, card.y - 165
+            gap: 8
+            repeat k in 1..4 {
+                group {
+                    size: 164, 66
+                    prop luz.$k = 0 ~140ms
+                    zone box fila.$k { from: 0, 0; size: 164, 66; corner: 14; cursor: pointer; active: content > 0.9 }
+                    //  La de Concentración va resaltada cuando está puesta: filo
+                    //  de menta y el fondo un punto más verde. Es el único borde.
+                    body {
+                        color: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k * if(k == 3, 1, 0))
+                        border: if(k == 3, encendida.$k, 0), mint
+                        box { from: 0, 0; size: 164, 66; corner: 14 }
+                    }
+                    //  El icono, dentro y a la izquierda.
+                    //  Wi-Fi: tres arcos y el punto.
+                    repeat a in 1..4 {
+                        arc { at: 24, 39; radius: 3 + a * 3.4; span: 110deg; width: 1.8; color: ink
+                              opacity: 40% + encendida.1 * 60%; show: k == 1 }
+                    }
+                    ellipse { at: 24, 40; radius: 1.8; color: ink; opacity: 40% + encendida.1 * 60%; show: k == 1 }
+                    //  Bluetooth: la runa, de un trazo.
+                    path { at: 19, 24; color: ink; stroke: 1.8; opacity: 40% + encendida.2 * 60%; show: k == 2
+                           move 0, 4; line 10, 14; line 5, 18; line 5, 0; line 10, 4; line 0, 14 }
+                    //  Concentración: la luna, que es un disco al que otro del
+                    //  color de la tarjeta le come un lado. Dentro de un `body`
+                    //  no vale: ahí todas las formas comparten color.
+                    ellipse { at: 24, 33; radius: 8.5; color: ink; opacity: 70%; show: k == 3 }
+                    ellipse { at: 29, 28.5; radius: 8; show: k == 3
+                              color: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k) }
+                    //  Y el texto, con el ancho que le queda: 164 menos el icono
+                    //  y menos el interruptor. Lo que no cabe se corta.
+                    //  La de Concentración no lleva interruptor, solo la
+                    //  flecha, así que le cabe más texto. El ancho lo dice cada
+                    //  una, y lo que no cabe se corta con puntos suspensivos.
+                    text titulo.$k { at: 54, 24; anchor: left center; size: 13; width: if(k == 3, 100, 74); lines: 1; color: ink }
+                    text sub.$k { at: 54, 43; anchor: left center; size: 11.5; width: if(k == 3, 100, 74); lines: 1; color: #8b8f95; show: k != 1 }
+                    text red.name { at: 54, 43; anchor: left center; size: 11.5; width: 74; lines: 1; color: #8b8f95; show: k == 1 }
+                    //  Wi-Fi y Bluetooth llevan interruptor; Concentración, flecha.
+                    group {
+                        show: k < 3
+                        box { at: 138, 33; size: 40, 23; corner: 11.5; color: mix(#2a2b2c, mint, encendida.$k) }
+                        ellipse { at: 129 + 18 * encendida.$k, 33; radius: 8.5; color: #ffffff }
+                    }
+                    path { at: 142, 28; color: ink; stroke: 1.6; opacity: 70%; show: k == 3
+                           move 0, 0; line 5, 5; line 0, 10 }
+                    on enter fila.$k { luz.$k: 1 }
+                    on leave fila.$k { luz.$k: 0 }
+                    on press fila.$k { emit conmutar(k) }
+                }
             }
-            text titulo.$k { at: tx - 34, ty - 9; anchor: left center; size: 13; color: ink }
-            text sub.$k { at: tx - 34, ty + 10; anchor: left center; size: 11.5; width: 84; lines: 1; color: #8b8f95; show: k != 1 }
-            text red.name { at: tx - 34, ty + 10; anchor: left center; size: 11.5; width: 84; lines: 1; color: #8b8f95; show: k == 1 }
-            //  Wi-Fi y Bluetooth llevan interruptor; Concentración, una flecha.
-            group {
-                show: k < 3
-                box { at: tx + 56, ty; size: 40, 23; corner: 11.5; color: mix(#2a2b2c, mint, encendida.$k) }
-                ellipse { at: tx + 47 + 18 * encendida.$k, ty; radius: 8.5; color: #ffffff }
-            }
-            path { at: tx + 58, ty - 5; color: ink; stroke: 1.6; opacity: 70%; show: k == 3
-                   move 0, 0; line 5, 5; line 0, 10 }
-            on enter fila.$k { luz.$k: 1 }
-            on leave fila.$k { luz.$k: 0 }
-            on press fila.$k { emit conmutar(k) }
         }
-        //  Los iconos de las tres, a su izquierda.
-        //  Dentro de la tarjeta, a su izquierda, como en la lámina.
-        let ix = card.x + 26
-        let iy1 = card.y - 132
-        //  Wi-Fi: tres arcos y el punto.
-        repeat a in 1..4 {
-            arc { at: ix, iy1 + 6; radius: 3 + a * 3.4; span: 110deg; width: 1.8; color: ink; opacity: 40% + encendida.1 * 60% }
-        }
-        ellipse { at: ix, iy1 + 7; radius: 1.8; color: ink; opacity: 40% + encendida.1 * 60% }
-        //  Bluetooth: la runa, de un trazo.
-        path { at: ix - 5, iy1 + 74 - 9; color: ink; stroke: 1.8; opacity: 40% + encendida.2 * 60%
-               move 0, 4; line 10, 14; line 5, 18; line 5, 0; line 10, 4; line 0, 14 }
-        //  Concentración: la luna, que es un disco al que otro del color de la
-        //  tarjeta le come un lado. Dentro de un `body` no vale: ahí todas las
-        //  formas comparten color y lo que sale es la unión, no el mordisco.
-        ellipse { at: ix, iy1 + 148; radius: 8.5; color: ink; opacity: 70% }
-        ellipse { at: ix + 5, iy1 + 143.5; radius: 8
-                  color: mix(mix(#1b1b1c, #202021, luz.3), #1a241f, encendida.3) }
+
 
         // ── la línea y lo que suena ──────────────────────────────
         line { from: x0, card.y + 106; to: card.x + 178, card.y + 106; width: 1; color: ink; opacity: 12% }
