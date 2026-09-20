@@ -153,6 +153,17 @@ scene Marea {
         fact n.$k = 0
         fact last.$k = 0
     }
+    //  Cuántos hay esperando, de todas las categorías: es lo que decide si al
+    //  pasar por encima sale la hora o sale el abanico. Va en un `prop` porque
+    //  un `let` no ve los hechos que declara un `repeat` —se resuelve antes—, y
+    //  con un muelle de un frame para que no arrastre.
+    prop pendientes = 0 ~16ms
+    follow pendientes = n.1 + n.2 + n.3 + n.4
+
+    //  La vista previa. Con avisos pendientes, pasar por encima abre las gotas
+    //  en abanico debajo de ella, con el icono de su categoría, y enseña el más
+    //  reciente. **Ocupa el sitio de la nota de la hora**: o una, o la otra.
+    prop abanico = 0 ~160ms
 
     //  La nota de la hora.
     fact note = false
@@ -182,7 +193,8 @@ scene Marea {
     repeat k in 2..7 {
     }
     prop nota = 0 ~190ms
-    follow nota = if(note and not open and face == eye and out > 0.9 and fase == 0, 1, 0)
+    follow nota = if(note and not open and face == eye and out > 0.9 and fase == 0 and pendientes < 1, 1, 0)
+    follow abanico = if(note and not open and not bandeja and face == eye and out > 0.9 and fase == 0 and pendientes > 0, 1, 0)
     let nota.x = cx + (23 + 14 + 52) * nota
 
     prop card = 0 ~290ms
@@ -621,25 +633,79 @@ scene Marea {
         prop late.$k = 0 ~lively
         follow sitio.$k = if(n.1 > 0 and last.1 > last.$k, 1, 0) + if(n.2 > 0 and last.2 > last.$k, 1, 0) + if(n.3 > 0 and last.3 > last.$k, 1, 0) + if(n.4 > 0 and last.4 > last.$k, 1, 0)
         follow hay.$k = if(n.$k > 0 and not open, 1, 0)
-        let ang.$k = -24 + 26 * sitio.$k
-        let gx.$k = cx + 31.7 * cos(ang.$k)
-        let gy.$k = cy_real + 31.7 * sin(ang.$k)
+        //  Del hombro al abanico **por el arco**: lo que se anima es el ángulo,
+        //  así que las gotas bajan rodeándola y no atajando por dentro de ella.
+        //  Todo el abanico gira 76° y se aleja 10: el sitio de cada una dentro
+        //  de él sigue siendo el suyo.
+        //  Abiertas se separan algo más —30° en vez de 26— para que no se
+        //  toquen, y el abanico queda centrado bajo ella.
+        let ang.$k = -24 + (26 + 4 * abanico) * sitio.$k + 69 * abanico
+        let radio.$k = 31.7 + 10.3 * abanico
+        let gx.$k = cx + radio.$k * cos(ang.$k)
+        let gy.$k = cy_real + radio.$k * sin(ang.$k)
+        let color.$k = mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5)
         group {
             pivot: gx.$k, gy.$k
             scale: hay.$k * (1 + late.$k), hay.$k * (1 + late.$k)
             opacity: hay.$k
-            ellipse { at: gx.$k, gy.$k; radius: 7; color: mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5) }
-            text number(n.$k, 0) { at: gx.$k, gy.$k + 0.5; anchor: center; size: 8.5; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 1, 0) }
-            text "9+" { at: gx.$k, gy.$k + 0.5; anchor: center; size: 7.5; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 0, 1) }
+            ellipse { at: gx.$k, gy.$k; radius: 7 + 3 * abanico; color: color.$k }
+            //  Recogida enseña su cuenta; abierta, el icono de su categoría.
+            //  Lo que dice cambia porque lo que preguntas es otra cosa: recogida,
+            //  cuántos hay; abierta, de quién.
+            group {
+                opacity: 1 - abanico
+                text number(n.$k, 0) { at: gx.$k, gy.$k + 0.5; anchor: center; size: 8.5; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 1, 0) }
+                text "9+" { at: gx.$k, gy.$k + 0.5; anchor: center; size: 7.5; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 0, 1) }
+            }
+            group {
+                opacity: clamp(abanico * 2 - 1, 0, 1)
+                //  Mensajes: un bocadillo. Trabajo: una cartera. Calendario: una
+                //  hoja con sus anillas. Sistema: el engranaje de siempre.
+                box { at: gx.$k, gy.$k - 1; size: 11, 8; corner: 2.5; color: #0a0c10; show: k == 1 }
+                path { at: gx.$k - 3.5, gy.$k + 3; color: #0a0c10; show: k == 1
+                       move 0, 0; line 4, 0; line 1, 3.5; close }
+                box { at: gx.$k, gy.$k + 1; size: 11, 8; corner: 1.5; color: #0a0c10; show: k == 2 }
+                box { at: gx.$k, gy.$k - 4; size: 5, 3; corner: 1; color: #0a0c10; show: k == 2 }
+                box { at: gx.$k, gy.$k + 1; size: 10, 9; corner: 1.5; color: #0a0c10; show: k == 3 }
+                box { at: gx.$k - 2.5, gy.$k - 5; size: 1.6, 3; corner: 0.8; color: #0a0c10; show: k == 3 }
+                box { at: gx.$k + 2.5, gy.$k - 5; size: 1.6, 3; corner: 0.8; color: #0a0c10; show: k == 3 }
+                arc { at: gx.$k, gy.$k; radius: 4.6; span: 300deg; width: 1.6; color: #0a0c10; show: k == 4 }
+                ellipse { at: gx.$k, gy.$k; radius: 1.7; color: #0a0c10; show: k == 4 }
+            }
         }
         //  Pulsar una gota abre el oleaje: es de las cuatro maneras que dice el
         //  contrato, y la más directa —ya estás mirando ahí—.
         zone box gotazona.$k { at: gx.$k, gy.$k; size: 24, 24; corner: 12; cursor: pointer; active: hay.$k > 0.5 and not bandeja and not open }
-        on press gotazona.$k { emit abrir_bandeja }
+        on press gotazona.$k { cat = k; emit abrir_bandeja }
         //  La gota donde cae algo late una vez, y su número con ella. Nada en bucle.
         on landed while cual == k { n.$k = n.$k + cuantos; last.$k = max(last.$k, miseq); impulse late.$k 5 }
         on direct while cat == k { n.$k = n.$k + 1; last.$k = seq; impulse late.$k 5 }
     }
+
+    // ── la vista previa ──────────────────────────────────────────
+    //  Debajo del abanico, lo más reciente: quién y la primera línea. Es lo que
+    //  contesta la pregunta sin abrir nada, que es para lo que se pasa por
+    //  encima. Entra un poco después que las gotas, cuando ya están puestas.
+    let vp.x = cx
+    let vp.y = cy_real + 82
+    let vp.abre = clamp(abanico * 2 - 1, 0, 1)
+    body {
+        color: #0c0f12
+        rim: 4%
+        shadow: 0, 6, 14, 30%
+        opacity: vp.abre
+        box { at: vp.x, vp.y; size: 250 * vp.abre, 46 * vp.abre; corner: 14 }
+    }
+    group {
+        opacity: clamp(abanico * 3 - 2, 0, 1)
+        move: 0, (1 - vp.abre) * 6
+        box { at: vp.x - 116, vp.y; size: 3, 26; corner: 1.5; color: tinte }
+        text who { at: vp.x - 106, vp.y - 8; anchor: left center; size: 11.5; weight: 600; width: 200; lines: 1; color: #f6f6f5 }
+        text line { at: vp.x - 106, vp.y + 8; anchor: left center; size: 10.5; width: 200; lines: 1; color: #a9adb3 }
+    }
+    //  El conjunto —ella, el abanico y la vista previa— para la gracia al salir:
+    //  el hueco entre las tres es real y no puede perderse al cruzarlo.
+    zone box abanico_conj { at: cx, cy_real + 40; size: 260, 180; corner: 30; active: abanico > 0.01 }
 
     // ── el aviso que llega ───────────────────────────────────────
     //  Del centro de la tarjeta al hombro por dos curvas distintas: de lado a
@@ -1207,7 +1273,9 @@ scene Marea {
     //  real y no puede perderse al cruzarlo. Se va si se abre el panel.
     zone box nota_zona { at: nota.x, cy_real; size: 104, 56; corner: 13; cursor: pointer; active: nota > 0.8 }
     on hover cuerpo_zona for 180ms while not open { note = true }
-    on away nota_conj for 300ms { note = false }
+    on away nota_conj for 300ms while abanico < 0.01 { note = false }
+    //  Con el abanico fuera, la gracia se cuenta sobre el conjunto entero.
+    on away abanico_conj for 300ms { note = false }
     on change open while open { note = false }
     on press nota_zona { emit calendar }
     //  Un solo reloj de gracia para todo lo que la necesita —el puntero, la

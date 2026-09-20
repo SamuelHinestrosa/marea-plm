@@ -371,8 +371,33 @@ sistema → sitios 2, 1 y 0.
 Y las de detrás no llevan su color hasta que vuelan: mientras esperan son papel
 apilado, y el color es de la que se está leyendo.
 
-**Lo que falta de esta parte:** la llegada con ella dormida y la vista previa en
-abanico.
+### La vista previa
+
+> «Con avisos pendientes, pasar por encima abre las gotas en abanico debajo de
+> ella, con el icono de su categoría, y enseña el más reciente. Ocupa el sitio de
+> la nota de la hora. Pulsar una gota abre la bandeja en esa categoría. 160 ms;
+> se cierra al irse el puntero.»
+
+![El abanico](evidencia/vista-previa.png)
+
+Recogidas, abiertas y recogidas otra vez.
+
+| Lo que dice el contrato | Lo medido |
+| --- | --- |
+| Se abren en abanico debajo de ella | Todo el abanico gira 69° y se aleja 10, **por el arco**: bajan rodeándola y no atajando por dentro. Abiertas se separan 30° en vez de 26, para no tocarse |
+| Con el icono de su categoría | Recogida enseña su cuenta; abierta, su icono. Lo que dice cambia porque lo que preguntas es otra cosa: recogida, cuántos hay; abierta, de quién |
+| Enseña el más reciente | Una tarjeta debajo con quién y la primera línea, que entra cuando las gotas ya están puestas |
+| 160 ms | Muelle `~160ms` |
+| Ocupa el sitio de la nota de la hora | O una, o la otra: con algo pendiente sale el abanico, y sin nada, la hora |
+| Se cierra al irse el puntero | Con 300 ms de gracia sobre el conjunto entero —ella, el abanico y la tarjeta—, porque los huecos entre las tres son reales |
+| Pulsar una gota abre la bandeja en esa categoría | `cat = k` y a abrir |
+
+![La hora o el abanico](evidencia/nota-o-abanico.png)
+
+Sin nada pendiente, la hora. Con dos avisos, el abanico en su sitio.
+
+**Lo que falta de esta parte:** la llegada con ella dormida, que necesita el
+estado de dormir.
 
 ### Lo que esto destapó en pleamar
 
