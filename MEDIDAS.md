@@ -97,11 +97,47 @@ servicios, y el reloj se quedaba en `--:--`. Arreglado en pleamar el mismo día
 (commit «Una escena sin lógica también monta sus servicios»). Escribir de verdad
 encuentra lo que ninguna lista encuentra.
 
+## 20 de septiembre de 2026 · frames y arranque
+
+Con permiso de Abel, Marea se relanzó con el cronómetro de Qt
+(`QSG_RENDER_TIMING=1`) y se devolvió a su sitio, con su entorno exacto, en menos
+de un minuto.
+
+**Cuánto tarda en aparecer:**
+
+| | hasta el primer frame |
+| --- | --- |
+| Marea (Quickshell) | 1876 ms (1579 solo en leer su configuración) |
+| marea-plm | 175 ms |
+
+**Qué hace por frame**, mientras se la deja quieta:
+
+| | frames en 20 s | coste de cada uno |
+| --- | --- | --- |
+| Marea (Quickshell) | 475 (~24 por segundo) | 0,61 ms · polish 0,05 · sync 0,12 · render 0,11 · swap 0,16 |
+| marea-plm | 1200 (60 por segundo) | 0,50 ms · apuntar 0,10 · cerrar 0,21 · mandar 0,23 |
+
+**Lo que dice, y es lo más interesante de todo.** Marea pinta **la mitad de
+frames** que marea-plm y cada frame le cuesta **lo mismo**, pero gasta **dos veces
+y media más CPU**. O sea: su gasto no está en pintar. Está en lo de alrededor —los
+enlaces de QML, el JavaScript, sus servicios—, que es justo lo que en pleamar no
+existe porque lo que se declara lo ejecuta el render y la lógica solo cuenta cosas.
+
+Y cuando no hay nada que mover, marea-plm baja a 0,3 % y Marea no: sigue en su
+sitio.
+
+## Una advertencia sobre estas medidas
+
+Marea recién arrancada gasta 5,75 % de CPU y 386 MB; la misma Marea llevando
+horas corriendo, 13,2 % y 188 MB. Los números de Quickshell **se mueven** con el
+rato que lleve encendida y con lo que haya abierto. Los de pleamar, medidos tres
+veces en tres estados distintos, se quedaron entre 5,0 y 5,4 %.
+
+Cuando se vuelva a medir, medir las dos a la vez y con el mismo rato encendidas.
+
 ## Lo que falta por medir
 
-- **Frames de Marea**: pide relanzarla con `QSG_RENDER_TIMING=1`, y eso deja a
-  Abel sin barra un rato. Cuando él diga.
-- **Cuánto tarda Marea en su primer frame**: lo mismo.
 - **GPU**: `nvidia-smi` da 926 MiB y 7 % para toda la sesión, no por proceso.
-- Con la tarjeta abierta y los paneles dentro, que es cuando Quickshell instancia
-  de verdad.
+- La tarjeta de Marea abierta con sus paneles dentro, que es cuando Quickshell
+  instancia de verdad. Pide tocarle la barra a Abel mientras se mide.
+- Y lo mismo en un rato largo: una hora encendidas las dos.
