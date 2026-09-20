@@ -181,6 +181,47 @@ QML el cuerpo de la cámara es un `Rectangle` con `border` y el fondo
 transparente, y el diafragma no existe porque un número blanco fundiéndose
 sobre una gota blanca sale gris y turbio.
 
+## La fotografía y la esquina de grabar
+
+> **Fotografía.** «Anticipa 70 ms, se estira y sale por el borde superior en
+> 150 ms; entonces se oculta, se congela la pantalla y vuelve con los ojos
+> convertidos en cámara.»
+>
+> **Grabación.** «Ya cuenta desde la esquina que va a ocupar. Luego se mete en una
+> esquina de la pantalla, asomando el 82 % de ella… La mirada se pliega sobre su
+> lado visible.»
+
+![El viaje a la esquina](evidencia/viaje-a-la-esquina.png)
+
+Arriba, su sitio de siempre; abajo, la esquina de la pantalla, que es **otra
+superficie**. De izquierda a derecha: se estira para salir, ya no está y cuenta
+desde la esquina, graba, y ha vuelto.
+
+| Lo que dice el contrato | Lo medido |
+| --- | --- |
+| Anticipa 70 ms | Baja 3,3 px y se estira a 0,94 × 1,12 en 70 ms |
+| Sale por arriba en 150 ms | A los 220 ms del aviso ya no está en el encuadre |
+| Cambia de cara donde nadie la ve | `cam` pasa de 0 a 1 con ella fuera de la superficie |
+| 200 ms de margen | 220 antes de volver |
+| Vuelve hecha cámara | Cae con un muelle vivo y aterriza 3 px pasada: regresa, no «aparece» |
+| El disparo: cierra 80, abre 170 | Un gesto sobre la pose `shut`, con un culatazo del cuerpo (1,05 × 0,95) que en Marea no está |
+| Asoma el 82 % | Centro a 14,7 px del ángulo: 46 × 0,82 − 23 |
+| Cuenta desde la esquina | La cuenta empieza al llegar arriba, con ella entrando ya por la esquina |
+| La mirada se pliega | `min(gaze.x, 0)`, `max(gaze.y, 0)`: nunca mira hacia su mitad escondida |
+| Pulsarla para | Y parar a mitad de cuenta la devuelve con sus ojos, no grabando |
+
+**Ella viaja por los bordes.** Marea esconde una ventana y enseña otra. Aquí
+sale de verdad por arriba —con el mismo gesto para la foto y para grabar— y
+entra de verdad por la esquina, encajándose con un rebote contra el ángulo. La
+cara es un `component`, así que en los dos sitios es la misma, con los mismos
+muelles. Y la superficie de la esquina se queda abierta mientras quede algo de
+ella dentro (`open: tuck > 0.01`), así que al parar se desliza fuera en vez de
+desaparecer con la ventana.
+
+**Lo que no se puede todavía:** fuera de su superficie no sabe dónde está el
+puntero —Wayland no lo dice, es la limitación S5 de pleamar—, así que en la
+esquina solo sigue al ratón cuando lo tiene encima.
+
 ## Medidas de la lámina
 
 De `design/concepts/2026-09-12-reposo-vivo/referencia-real-limpia.png`, que
@@ -221,7 +262,12 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
    y con nada moviéndose, «el siguiente» era la próxima cita: **un segundo más
    tarde**. La cuenta pasaba al disco rojo un segundo después de su último
    número. Ahora, tras un efecto, hay un frame más garantizado: 17 ms.
-9. **No se podía decir «cuando esto lleve un rato sin cambiar».** El contrato lo
+9. **Una superficie no podía esperar a lo que lleva dentro.** `open:` solo
+   aceptaba un hecho; ahora una cuenta: `open: tuck > 0.01`.
+10. **Un `clip` suelto recortaba también la otra ventana**, y no se veía nada sin
+    que nada lo dijera. Costó una hora encontrarlo. Ahora los recortes abiertos
+    acaban donde empieza una superficie con nombre.
+11. **No se podía decir «cuando esto lleve un rato sin cambiar».** El contrato lo
    pide en tres sitios —el nivel aguanta 1,1 s tras el último cambio, la nota de
    la hora 300 ms de gracia, el aviso 700— y en pleamar solo existía `on change`,
    su reverso. Con él, una ráfaga de teclazos salía como un parpadeo por
@@ -232,9 +278,7 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
 
 ## Lo siguiente
 
-- La coreografía de la fotografía: anticipa 70 ms, se estira y sale por el borde
-  de arriba en 150, y vuelve ya convertida en cámara sobre la pantalla congelada.
-- La esquina de grabar: se mete en una de las cuatro asomando el 82 %, y la
-  mirada se pliega sobre su lado visible.
+- En la esquina: que acercarse saque el reloj y «Detener» a su lado, y elegir
+  entre las cuatro esquinas la que caiga fuera de lo grabado.
 - La nota de la hora, que nace por detrás de ella.
 - Los avisos como oleaje: la tarjeta que aterriza como gota y vuelve a serlo.
