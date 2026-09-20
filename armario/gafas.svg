@@ -1,13 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="56" height="26" viewBox="0 0 56 26">
-  <!-- Unas gafas redondas. Van pegadas a su cara, así que no persiguen nada:
-       heredan su giro, su aplastamiento y su salto. -->
-  <g id="izquierdo">
-    <circle cx="15" cy="13" r="8.5" fill="none" stroke="#f0ece4" stroke-width="2.4"/>
-  </g>
-  <g id="derecho">
-    <circle cx="41" cy="13" r="8.5" fill="none" stroke="#f0ece4" stroke-width="2.4"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="44" height="24" viewBox="0 0 44 24">
+  <!-- Medidas de SU cara, no de unas gafas cualquiera: sus ojos miden 5 × 13 y
+       están a 13 px entre centros, así que los cristales van a ±6,5 del centro
+       del lienzo (22, 12) y son óvalos altos que los contienen con holgura.
+       Dibujada 1:1 con los píxeles a los que se pinta: `size: 44, 24`. -->
+  <g id="patillas">
+    <path d="M9.6 10.6 L3.5 8.4" fill="none" stroke="#f0ece4" stroke-width="1.7"/>
+    <path d="M34.4 10.6 L40.5 8.4" fill="none" stroke="#f0ece4" stroke-width="1.7"/>
   </g>
   <g id="puente">
-    <path d="M23.5 12 C26 9.5 30 9.5 32.5 12" fill="none" stroke="#f0ece4" stroke-width="2.2"/>
+    <path d="M19.8 9.2 C21 8 23 8 24.2 9.2" fill="none" stroke="#f0ece4" stroke-width="1.7"/>
+  </g>
+  <g id="cristales">
+    <ellipse cx="15.5" cy="12" rx="4.7" ry="8.3" fill="none" stroke="#f0ece4" stroke-width="1.9"/>
+    <ellipse cx="28.5" cy="12" rx="4.7" ry="8.3" fill="none" stroke="#f0ece4" stroke-width="1.9"/>
   </g>
 </svg>

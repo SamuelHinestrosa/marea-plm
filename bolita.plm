@@ -870,7 +870,13 @@ scene Marea {
     //  de la pantalla: se veían dos rayitas. Bajarlos dentro de la cara los
     //  enseña enteros sin tener que enseñar más de ella. Son los 7 de 56 de
     //  Marea, por 46/56, y algo menos ahora que asoma más.
-    Cara(cx, cy_real, gaze.x * (1 - atenta) + 4 * atenta, gaze.y * (1 - atenta), (1 - out) * 4.5 * if(hidden, 1, 0))
+    //  Dónde está su cara, dicho UNA vez: lo usan la cara y lo que se le pega.
+    //  Escrito dos veces, unas gafas se quedan mirando a otro lado en cuanto
+    //  alguien toca uno de los dos sitios.
+    let cara.dx = gaze.x * (1 - atenta) + 4 * atenta
+    let cara.dy = gaze.y * (1 - atenta)
+    let cara.baja = (1 - out) * 4.5 * if(hidden, 1, 0)
+    Cara(cx, cy_real, cara.dx, cara.dy, cara.baja)
 
     // ── la cápsula del Remanso ───────────────────────────────────
     //  El conjunto —ella y la cápsula—, para la gracia al salir. Y va DEBAJO de
@@ -1277,10 +1283,16 @@ scene Marea {
         figure gorro.corona  { at: 0, 0; size: 58, 43 }
         figure gorro.pompon  { at: 0, 0; size: 58, 43 }
     }
-    //  En su cara: no persigue nada, hereda lo suyo. Y la mirada la lleva
-    //  dentro, como los ojos, porque unas gafas miran con ella.
-    Pegado(cx + gaze.x * 0.5, cy_real - 2 + gaze.y * 0.5, tilt + lean, sx, sy, puesto.2) {
-        figure gafas { at: 0, 0; size: 46, 21 }
+    //  En su cara: no persigue nada, hereda lo suyo. Lo que se le pasa es el
+    //  giro y el aplastamiento **de ella**, con su centro por pivote, y la
+    //  pieza se coloca dentro: así el aplastamiento la aplasta como aplasta a
+    //  la cara, y no alrededor de sí misma.
+    //
+    //  Y van donde están sus ojos: 2,5 px por debajo de su centro, con la misma
+    //  mirada que ellos. Antes estaban 2 px por ENCIMA y con media mirada, así
+    //  que se le quedaban en la frente y miraban a otro lado.
+    Pegado(cx, cy_real, tilt + lean, sx, sy, puesto.2) {
+        figure gafas { at: cara.dx, 2.5 + cara.dy + look.y + cara.baja; size: 44, 24 }
     }
     //  Al lado: acompaña, se queda atrás y flota.
     Acompana(cx, cy_real, puesto.3, vaiven, lejos: 42) {

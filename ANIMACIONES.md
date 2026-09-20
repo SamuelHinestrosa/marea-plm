@@ -979,7 +979,22 @@ lo que el gorro tiene que perseguir, o se queda quieto justo cuando más se
 espera que se mueva. Por eso la mirada entra en el objetivo con su propio factor.
 
 Y el retraso, en unas gafas, sería que se están resbalando. Por eso `Pegado` no
-persigue nada: colgado de su cuerpo, lo hereda todo.
+persigue nada: colgado de su cuerpo, lo hereda todo. Lo que se le pasa es el
+giro y el aplastamiento **de ella, con su centro por pivote**, y la pieza se
+coloca dentro: así el aplastamiento la aplasta como aplasta a la cara, y no
+alrededor de sí misma.
+
+**Y una pieza pegada se mide sobre la cara que lleva debajo, no sobre sí
+misma.** Sus ojos miden 5 × 13 y están a 13 px entre centros, 2,5 por debajo de
+su centro: los cristales son óvalos a ±6,5 que los contienen con holgura, y el
+SVG está dibujado 1:1 con los píxeles a los que se pinta para que eso se lea de
+un vistazo. Estaban 2 px por **encima** y con media mirada, así que se le
+quedaban en la frente y miraban a otro lado. Ahora dónde está su cara se dice
+una sola vez —`cara.dx`, `cara.dy`, `cara.baja`— y lo usan la cara y lo que se
+le pega: escrito dos veces, unas gafas se descuadran en cuanto alguien toca uno
+de los dos sitios.
+
+![Las gafas, sobre sus ojos y con su mirada](evidencia/gafas.png)
 
 ![El gorro, arrastrándose en el viaje](evidencia/gorro-retraso.png)
 
