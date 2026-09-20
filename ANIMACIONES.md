@@ -497,6 +497,39 @@ row tarjeta { size: 173, 66; gap: 6; padding: 8; fill: …; corner: 14
 }
 ```
 
+### Las páginas, que salen de su tarjeta
+
+![La página creciendo](evidencia/pagina-crece.png)
+
+Pulsar una tarjeta abre su página, y **la página sale de la tarjeta**: crece
+desde su sitio hasta llenar el panel, mientras la portada se va. No es una
+pantalla que sustituye a otra; es la misma tarjeta, abierta. Es el mismo gesto
+que la bandeja saliendo de ella, un piso más abajo.
+
+![Wi-Fi](evidencia/pagina-wifi.png)
+
+Y traen datos de verdad de esta máquina:
+
+![Bluetooth y Concentración](evidencia/paginas.png)
+
+| | |
+| --- | --- |
+| **Wi-Fi** | Las redes que hay, con su fuerza en los mismos arcos del icono, la puesta marcada, y una misma red una sola vez —sale una por antena, y se queda la que mejor llega— |
+| **Bluetooth** | Lo emparejado, con lo conectado marcado |
+| **Concentración** | Lo que hace, dicho, y tres duraciones |
+
+**Y aquí la lógica se gana el sueldo.** pleamar sabe **leer** la red y no
+listarla ni cambiarla —es su B15—, y de bluetooth no sabe nada. Así que esto no
+lo hace la escena: lo hace `bolita.luau` preguntándole a `nmcli` y a
+`bluetoothctl`, que es justo para lo que está la lógica. La escena no manda
+nada; cuenta lo que le dicen.
+
+Pulsar una red la pone, **pero solo si ya estaba guardada**: `connection up` no
+se inventa una contraseña, así que esto no se mete en la red del vecino. Una
+nueva pide su clave, y eso es una conversación, no un clic. Y el `mac` de cada
+auricular viaja en su registro aunque la escena no lo declare: es donde la
+lógica guarda lo que la escena no necesita saber.
+
 ### Lo que esto destapó en pleamar
 
 **No había servicio de brillo.** Es la primera pista que busca cualquiera en un
