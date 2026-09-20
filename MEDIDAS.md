@@ -69,6 +69,34 @@ se mueva un círculo. Queda anotado en pleamar como la limitación P11, con su p
 
 Para comparar: Quickshell gasta unos 2 ms de CPU por frame haciendo lo mismo.
 
+## 20 de septiembre de 2026 · con los efectos puestos
+
+Encima de lo anterior: la píldora del escritorio **se estira mientras viaja**
+(con la velocidad de su propio muelle, que solo el render conoce), cada escritorio
+**se realza** al pasar por encima con su muelle propio, y al cambiar el minuto **la
+hora entra desde arriba** con un empujón que devuelve el muelle. Son 24 propiedades
+animadas, 71 instrucciones y 32 reglas.
+
+| | CPU | RSS | PSS | hilos |
+| --- | --- | --- | --- | --- |
+| Marea (Quickshell) | 13,16 % | 188,1 MB | 147,3 MB | 14 |
+| marea-plm, con los efectos | 5,40 % | 113,1 MB | 96,4 MB | 17 |
+
+**Lo que dice.** Diez propiedades animadas más, tres efectos nuevos y diecinueve
+reglas más: **0,08 % de CPU**. Añadir movimiento aquí no cuesta, porque el gasto
+es el suelo de presentar el frame, y ese ya se paga.
+
+Eso es lo contrario de lo que pasa en QtQuick, donde cada `NumberAnimation` y
+cada `Behavior` es un objeto que se evalúa en el hilo de la interfaz.
+
+## Un fallo que destapó escribir esto
+
+La tarjeta prometía llegar sin una línea de lógica, y no llegaba: si una escena
+no tenía su `.luau` al lado, pleamar le daba un guion tonto que no montaba sus
+servicios, y el reloj se quedaba en `--:--`. Arreglado en pleamar el mismo día
+(commit «Una escena sin lógica también monta sus servicios»). Escribir de verdad
+encuentra lo que ninguna lista encuentra.
+
 ## Lo que falta por medir
 
 - **Frames de Marea**: pide relanzarla con `QSG_RENDER_TIMING=1`, y eso deja a
