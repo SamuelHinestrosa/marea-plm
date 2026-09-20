@@ -68,6 +68,30 @@ scene Marea {
     prop meter = 0 ~180ms             // 0 cara, 1 barra
     prop nivel = 0 ~quick             // lo que marca la barra
 
+    //  ── lo que la cara puede ser ────────────────────────────────
+    //  Un hecho con tipo: el compilador comprueba contra qué se compara, así
+    //  que `face == lupa` no pasa de la primera lectura.
+    fact face: eye | count | camera | rec = eye
+    fact left = 0                     // lo que queda de la cuenta
+    fact taping = false               // el grabador corriendo DE VERDAD
+    fact shot = false                 // el obturador, un instante
+
+    prop num = 0 ~260ms               // 0 cara, 1 número
+    prop cam = 0 ~220ms               // 0 cara, 1 cámara
+    prop dot = 0 ~260ms               // 0 cara, 1 disco
+    prop red = 0 ~200ms               // el rojo, que es otra cosa que el disco
+    prop pop = 0 ~lively              // el rebote de la cuenta
+    prop shut = 0 ~90ms               // el obturador cerrado
+
+    //  Cada estado es un muelle que sigue a su hecho. Por eso uno puede
+    //  interrumpir a otro a mitad de camino y lo único que pasa es que la
+    //  forma se dobla: no hay dos animaciones peleándose por los mismos ojos.
+    follow num = if(face == count, 1, 0)
+    follow cam = if(face == camera, 1, 0)
+    follow dot = if(face == rec, 1, 0)
+    follow red = if(taping, 1, 0)
+    follow shut = if(shot, 1, 0)
+
     // ── reposo vivo ──────────────────────────────────────────────
     //  Parpadeo breve, cada 5,2 s. Y la mirada, que sigue al ratón de cerca.
     blink lid every 5.2s for 120ms
@@ -119,59 +143,148 @@ scene Marea {
     //  Recortada al cuerpo: lo que se salga de la bolita no existe. Es lo que
     //  deja que los ojos se conviertan en otra cosa sin salirse de ella.
     //
-    //  Tumbarse es el mismo pill girado 90°: el ojo mide 5 de ancho por 13 de
-    //  alto, y la barra mide 13 por 5. No nace una forma nueva; la cara que ya
-    //  conoces se recoloca, que es de lo que va todo esto.
-    let ojo.w = 5 + 8 * meter                       // 5 de pie, 13 tumbado
-    let ojo.h = eyes * lid * (1 - meter) + 5 * meter
-    //  Los centros se juntan de 6,5 a 2,5: el vuelo total sigue siendo 18 de
-    //  pie y tumbados, así que los ojos solo se ensanchan y se deslizan. Nada
-    //  pega un salto. Y solapados 8, con las puntas redondas de 2,5 cada una,
-    //  la junta no existe: es una barra, no dos pastillas pegadas.
-    let ojo.sep = 6.5 - 4 * meter
-    let ojo.y = cy_real + 2.5
-    //  Y como son un cuerpo y no dos cajas, al acercarse se funden de verdad:
-    //  se les forma un puente entre medias ANTES de tocarse, igual que a la
-    //  bolita con el borde. Dos rectángulos redondeados se solapan; esto fluye.
+    //  Todo lo que sigue es UNA cadena: el ojo de siempre, y cada estado
+    //  tirando de él. Se escribe así y no con pesos sueltos porque cada línea
+    //  dice qué hace ese estado, y porque dos muelles a mitad de camino nunca
+    //  suman uno. La cara no se cambia por otra: se dobla hasta ser otra cosa.
     //
-    //  Es una campana, como el cuello del menisco: se tocan justo a la mitad
-    //  del viaje —el hueco mide 8 de pie y −8 tumbados—, así que ahí es donde
-    //  tiene que estar lo gordo. A los extremos no queda nada: de pie son dos
-    //  ojos limpios, y tumbados dos pastillas solapadas 8 son una barra sin
-    //  cintura. Esto es lo que QML no puede hacer sin dibujar una tercera forma.
-    let ojo.fusion = 6 * 4 * meter * (1 - meter)
+    //  Las medidas salen de la lámina de Marea, que dibuja la cara en un
+    //  espacio de 56; aquí la bolita mide 46, así que todo va por 46/56.
+
+    //  Cuando manda otra cosa, el párpado deja de contar: una cámara no
+    //  parpadea y un número tampoco.
+    let manda = clamp(meter + num + cam + dot, 0, 1)
+    let parpado = lid + (1 - lid) * manda
+
+    //  1. El ojo, y el nivel tumbándolo. (Medido en «El nivel en la cara».)
+    let o.w = 5 + 8 * meter
+    let o.h = eyes * parpado * (1 - meter) + 5 * meter
+    let o.sep = 6.5 - 4 * meter
+
+    //  2. La cuenta atrás. Los dos ojos se van al centro y se redondean hasta
+    //  ser UNA gota —se funden de verdad, que para eso son un cuerpo—, y
+    //  entonces la gota **se abre como un diafragma**: crece mientras se le
+    //  come el centro, se queda en un anillo, y dentro estaba el número. No es
+    //  que los ojos se escondan y aparezca un número encima; es que el número
+    //  estaba detrás de ellos y los ojos se abren para enseñarlo.
+    let junta = clamp(num * 2, 0, 1)
+    let abre = clamp(num * 2 - 1, 0, 1)
+    let c.w = o.w + (9 - o.w) * junta
+    let c.h = o.h + (9 - o.h) * junta
+    let c.sep = o.sep * (1 - junta)
+    //  18 y no 30: el anillo se queda en algo más de media bolita. Con 30 casi
+    //  la llenaba, y en 260 ms eso no es un diafragma, es un fogonazo.
+    let g.w = c.w + 18 * abre
+    let g.h = c.h + 18 * abre
+
+    //  3. La cámara. El izquierdo se abre en el objetivo y el derecho se
+    //  estira alrededor hasta ser el cuerpo; los dos al centro de la cara.
+    //  El objetivo mide 13 de la lámina, y 5 con el obturador cerrado.
+    let ojo.l = 10.7 - 5.4 * shut
+    let l.w = g.w + (ojo.l - g.w) * cam
+    let l.h = g.h + (ojo.l - g.h) * cam
+    let r.w = g.w + (24.6 - g.w) * cam
+    let r.h = g.h + (17.3 - g.h) * cam
+    let sep = c.sep * (1 - cam)
+
+    //  4. El disco de grabar: el ojo izquierdo, y solo él. El derecho sigue
+    //  siendo un ojo y sigue al puntero, que es lo que la mantiene viva
+    //  mientras dura. El disco se queda donde estaba el ojo, no se centra.
+    let d.w = l.w + (9 - l.w) * dot
+    let d.h = l.h + (9 - l.h) * dot
+
+    let ojo.y = cy_real + 2.5
+    let l.x = cx - sep
+    let r.x = cx + sep
+    //  Redondo cuando es redondo: la mitad del lado corto sale pill de pie,
+    //  pill tumbado, gota, objetivo y disco sin decirlo cinco veces. El cuerpo
+    //  de la cámara es el único que se aparta, porque tiene esquina propia.
+    let l.corner = min(d.w, d.h) / 2
+    let r.corner = min(r.w, r.h) / 2 + (4.9 - min(r.w, r.h) / 2) * cam
+    //  Y el puente entre los dos: campana, como la del menisco. Máximo justo
+    //  cuando se tocan —a mitad del viaje del nivel, y al juntarse en la gota—
+    //  y nada en los extremos.
+    let ojo.fusion = 6 * 4 * meter * (1 - meter) + 7 * junta * (1 - cam)
 
     group {
         clip inset 1 ellipse { at: cx, cy_real; radius: r }
         move: gaze.x, gaze.y + look.y
 
-        //  Los ojos. Tumbados son la pista vacía de la barra, y por eso se
-        //  oscurecen: una pista blanca con menta encima no se lee como un nivel.
+        //  Los ojos, que aquí son todo: pista del nivel, gota de la cuenta,
+        //  objetivo y cuerpo de la cámara, y sitio del disco rojo. Se
+        //  oscurecen tumbados porque una pista blanca con menta encima no se
+        //  lee como un nivel; y se van cuando la gota se abre.
         body {
             color: mix(ink, #34373a, meter)
-            box { at: cx - ojo.sep, ojo.y; size: ojo.w, ojo.h; corner: 2.5; blend: ojo.fusion }
-            box { at: cx + ojo.sep, ojo.y; size: ojo.w, ojo.h; corner: 2.5; blend: ojo.fusion }
+            box { at: l.x, ojo.y; size: d.w, d.h; corner: l.corner; blend: ojo.fusion }
+            box { at: r.x, ojo.y; size: r.w, r.h; corner: r.corner; blend: ojo.fusion }
         }
 
-        //  Lo lleno es **la misma pista**, pintada otra vez y recortada por la
-        //  izquierda. Así la menta tiene la forma exacta de la barra —con sus
-        //  puntas redondas— sin dibujar ni una geometría más. En gris cuando
-        //  está silenciado: el nivel sigue siendo verdad, pero no suena.
-        //  En su propio grupo: un recorte llega hasta el final del grupo donde
-        //  vive, y sin este la frente quedaba recortada a la barra —el
-        //  porcentaje no salía, y nada avisaba de ello—.
+        //  Lo lleno del nivel es **la misma pista**, pintada otra vez y
+        //  recortada por la izquierda. Así la menta tiene la forma exacta de la
+        //  barra —con sus puntas— sin dibujar ni una geometría más. En su
+        //  propio grupo: un recorte llega hasta el final del grupo donde vive.
         group {
             clip inset 0 box { from: cx - 9, ojo.y - 4; size: 18 * nivel, 8 }
             body {
                 color: mix(mint, #6b7280, sonido.muted)
                 opacity: meter
-                box { at: cx - ojo.sep, ojo.y; size: ojo.w, ojo.h; corner: 2.5; blend: ojo.fusion }
-                box { at: cx + ojo.sep, ojo.y; size: ojo.w, ojo.h; corner: 2.5; blend: ojo.fusion }
+                box { at: l.x, ojo.y; size: d.w, d.h; corner: l.corner; blend: ojo.fusion }
+                box { at: r.x, ojo.y; size: r.w, r.h; corner: r.corner; blend: ojo.fusion }
             }
         }
 
-        //  El porcentaje, en la frente. Sube los tres últimos píxeles mientras
-        //  aparece: entra con la barra en vez de encenderse encima de ella.
+        //  El diafragma. La gota no se desvanece: se le come el centro con una
+        //  forma del color de la bolita, así que queda un anillo que crece hasta
+        //  que ya no hay anillo. Un número blanco sobre una gota blanca que se
+        //  funde sale gris y turbio; esto sale limpio, y además es la misma
+        //  cuenta de siempre: aquí todo son distancias, y un agujero es una
+        //  forma más.
+        body {
+            color: coal
+            ellipse { at: cx, ojo.y; radius: g.w / 2 * abre * 1.25 }
+        }
+
+        //  El hueco de la cámara. El cuerpo no se dibuja con un borde: se le
+        //  come el centro con una forma del color de la bolita, que es como se
+        //  hace un agujero cuando todo son distancias. Crece desde nada, así
+        //  que el ojo se vacía en vez de cambiarse por un marco.
+        body {
+            color: coal
+            box { at: cx, ojo.y; size: 21.3 * cam, 14 * cam; corner: 3.3 }
+        }
+
+        //  Y el objetivo encima del hueco, que es lo único que el hueco se
+        //  llevó por delante. Misma forma y mismo sitio que el ojo de debajo,
+        //  así que no se ve ningún cruce: se ve un ojo que se vacía alrededor.
+        body {
+            color: ink
+            opacity: cam
+            ellipse { at: cx, ojo.y; radius: ojo.l / 2 }
+        }
+
+        //  El visor. Este no puede ser un ojo —ya se usaron los dos— así que es
+        //  una marca aparte, despegada del contorno para que no se junten en
+        //  una costura, y entra y sale con el resto.
+        box {
+            at: cx - 6.2, ojo.y - 11.6
+            size: 5.7 * cam, 2.9 * cam
+            corner: 1.2
+            color: ink
+        }
+
+        //  El disco de grabar, justo encima del ojo izquierdo y de su tamaño:
+        //  no es una forma que llega, es el ojo que se pone rojo. Y el rojo se
+        //  enciende con `taping`, no con la pulsación: el disco dice que el
+        //  grabador ESTÁ corriendo, no que se lo ha pedido.
+        body {
+            color: mix(#34373a, #fc6753, red)
+            opacity: dot
+            ellipse { at: l.x, ojo.y; radius: d.w / 2 }
+        }
+
+        //  El porcentaje del nivel, en la frente. Sube los tres últimos píxeles
+        //  mientras aparece: entra con la barra en vez de encenderse encima.
         text number(sonido.volume * 100, 0, " %") {
             at: cx, cy_real - 9 + (1 - meter) * 3
             anchor: center
@@ -179,6 +292,25 @@ scene Marea {
             weight: 600
             color: ink
             opacity: meter
+        }
+
+        //  El número de la cuenta, donde estaban sus ojos. Grande para leerse
+        //  desde el otro lado de la mesa, que es toda la razón de que esté aquí
+        //  y no en una etiqueta aparte: lo que va a empezar lo hace ella.
+        group {
+            pivot: cx, ojo.y
+            scale: 1 + pop, 1 + pop
+            text number(max(left, 1), 0) {
+                at: cx, ojo.y
+                anchor: center
+                size: 24.6
+                weight: 300
+                color: ink
+                //  Entra antes que el anillo se vaya del todo: para cuando el
+                //  agujero lo enseña, ya está ahí. Si entrara después, el
+                //  diafragma se abriría sobre nada.
+                opacity: clamp(abre * 1.7, 0, 1)
+            }
         }
     }
 
@@ -286,6 +418,25 @@ scene Marea {
     //  teclazos es una lectura continua y no un parpadeo por escalón. Esto es
     //  lo que pleamar no sabía decir y ahora dice: `on still`.
     on still sonido.volume for 1.1s { meter: 0 }
+
+    // ── la cuenta atrás ──────────────────────────────────────────
+    //  Ocurre DENTRO de la bolita y ANTES de arrancar el grabador, así que no
+    //  sale en el vídeo. Y el número nunca llega a enseñar el cero: el cero no
+    //  es una cuenta, es el momento de empezar.
+    //  Al salir vuelve a cero, y así entrar SIEMPRE es un cambio de 0 a 3: el
+    //  tres se lleva su rebote como el dos y el uno, sin una regla aparte que
+    //  luego se dispare dos veces.
+    on change face while face != count { left = 0 }
+    on change face while face == count { left = 3 }
+    every 1s while face == count { left = left - 1 }
+    //  El rebote DECRECE con la cuenta: tres golpes cada vez más pequeños para
+    //  que el último aterrice en silencio justo cuando arranca el grabador. Un
+    //  empujón a la velocidad del muelle, no una animación hasta un tamaño: por
+    //  eso cada golpe sale de donde estaba el anterior en vez de cortarlo, y
+    //  por eso la cantidad puede depender de la cuenta —que es lo que pleamar
+    //  no sabía hacer: `impulse` solo aceptaba un número escrito—.
+    on change left while left > 0 { impulse pop left * 2.5 }
+    on change left while left == 0 { face = rec }
 
     // ── lo que responde al ratón ─────────────────────────────────
     zone box cuerpo_zona { at: cx, cy_real; size: 2 * r, 2 * r + 30; corner: r; cursor: pointer }

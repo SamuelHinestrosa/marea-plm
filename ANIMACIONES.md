@@ -129,6 +129,58 @@ falta dibujar una tercera forma que nadie mira.
 frames, y **683 ms de esos 1,1 s el render está dormido**: en cuanto el muelle se
 posa deja de pintar, y la regla que espera no sondea nada, se apunta una cita.
 
+## La cuenta, la cámara y el disco rojo
+
+> **Grabación.** «La cuenta atrás ocurre DENTRO de la bolita: sus ojos se
+> convierten en el número, con un rebote decreciente por segundo… con el ojo
+> izquierdo convertido en disco rojo y siguiendo al puntero. El disco rojo se
+> enciende cuando el grabador está corriendo, no al pulsar: es una afirmación
+> sobre el presente.»
+>
+> **Fotografía.** «…vuelve con los ojos convertidos en cámara.»
+
+![La cuenta atrás](evidencia/cuenta-atras.png)
+
+Y la cámara, con su obturador, y el disco antes y después de que el grabador
+arranque de verdad:
+
+![La cámara y el disco](evidencia/camara-y-disco.png)
+
+### Cómo está escrito
+
+Todo esto es **una sola cadena**: el ojo de siempre, y cada estado tirando de
+él. No hay formas que se intercambian ni una animación por estado peleando por
+los mismos ojos; hay cinco muelles que siguen a un hecho con tipo
+(`fact face: eye | count | camera | rec`), y la geometría se dobla hasta ser
+otra cosa. Por eso cualquier estado puede interrumpir a otro a mitad de camino y
+lo único que se ve es que la forma cambia de idea.
+
+| Lo que dice el contrato | Lo medido |
+| --- | --- |
+| Tres números, uno por segundo | 1 000 ms, 1 000 ms, 1 000 ms |
+| Rebote **decreciente** por segundo | Escala 1,25 · 1,17 · 1,08. Es un empujón a la velocidad del muelle (`impulse pop left * 2.5`), no una animación hasta un tamaño: cada golpe sale de donde estaba el anterior |
+| «El último aterriza justo cuando arranca el grabador» | Del último número al disco: **17 ms**, un frame |
+| El cero no se enseña | El número es `max(left, 1)`: el cero no es una cuenta, es el momento de empezar |
+| El disco se enciende con el grabador, no al pulsar | Dos cosas separadas: `dot` es el disco (sigue a `face == rec`) y `red` es el rojo (sigue a `taping`). Primero el ojo se vuelve disco oscuro; el rojo llega cuando el grabador está |
+| El derecho sigue siendo un ojo | Sí, y sigue al puntero: es lo que la mantiene viva mientras dura |
+| Los ojos convertidos en cámara | El izquierdo se abre en el objetivo (13 de la lámina, 5 con el obturador) y el derecho se estira hasta el cuerpo (30 × 21, esquina 6). El visor es una marca aparte porque ya no quedan ojos |
+
+### Las dos cosas que aquí son de pleamar y no de QML
+
+**El número sale de los ojos.** Los dos se van al centro, se funden en una gota
+—se funden de verdad, que para eso son un cuerpo— y la gota **se abre como un
+diafragma**: crece mientras se le come el centro, se queda en un anillo, y
+dentro estaba el número.
+
+![El diafragma](evidencia/diafragma.png)
+
+**El agujero es una forma más.** Ni el diafragma ni el cuerpo de la cámara se
+dibujan con un borde: se les come el centro con una forma del color de la
+bolita. Aquí todo son distancias, así que un hueco no es un caso especial. En
+QML el cuerpo de la cámara es un `Rectangle` con `border` y el fondo
+transparente, y el diafragma no existe porque un número blanco fundiéndose
+sobre una gota blanca sale gris y turbio.
+
 ## Medidas de la lámina
 
 De `design/concepts/2026-09-12-reposo-vivo/referencia-real-limpia.png`, que
@@ -158,7 +210,18 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
    un gesto manda, y el reloj de lo ambiental se congela mientras dura.
 5. **Una sombra que no cabía se cortaba sin decir nada.** Ahora el render lo
    dice, una vez, cuando la cuenta deja de crecer.
-6. **No se podía decir «cuando esto lleve un rato sin cambiar».** El contrato lo
+6. **El empujón no podía depender de nada.** `impulse` solo aceptaba un número
+   escrito, y el contrato pide un rebote que **decrece** con la cuenta. Ahora es
+   una expresión que se evalúa al dispararse: `impulse pop left * 2.5`.
+7. **`every … while x` contaba su espera mientras `x` era falso**, así que la
+   cuenta atrás daba su primer paso a los 300 ms —lo que quedara del reloj de
+   antes—. Ahora el reloj se pone entero mientras no se cumple.
+8. **Una regla no podía ver lo que otra acababa de hacer.** Las reglas se miran
+   todas antes de aplicar nada, así que un `on change` lo ve al frame siguiente;
+   y con nada moviéndose, «el siguiente» era la próxima cita: **un segundo más
+   tarde**. La cuenta pasaba al disco rojo un segundo después de su último
+   número. Ahora, tras un efecto, hay un frame más garantizado: 17 ms.
+9. **No se podía decir «cuando esto lleve un rato sin cambiar».** El contrato lo
    pide en tres sitios —el nivel aguanta 1,1 s tras el último cambio, la nota de
    la hora 300 ms de gracia, el aviso 700— y en pleamar solo existía `on change`,
    su reverso. Con él, una ráfaga de teclazos salía como un parpadeo por
@@ -169,7 +232,9 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
 
 ## Lo siguiente
 
-- Las transformaciones de la cara que quedan: los ojos que se vuelven número al
-  contar y cámara al encuadrar, y el ojo izquierdo convertido en disco rojo.
+- La coreografía de la fotografía: anticipa 70 ms, se estira y sale por el borde
+  de arriba en 150, y vuelve ya convertida en cámara sobre la pantalla congelada.
+- La esquina de grabar: se mete en una de las cuatro asomando el 82 %, y la
+  mirada se pliega sobre su lado visible.
 - La nota de la hora, que nace por detrás de ella.
 - Los avisos como oleaje: la tarjeta que aterriza como gota y vuelve a serlo.
