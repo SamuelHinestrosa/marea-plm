@@ -24,8 +24,24 @@ on("siguiente", function() sys.call("media.next") end)
 --  Bluetooth no: pleamar sabe LEER la red pero no cambiarla, y de bluetooth no
 --  sabe nada todavía. Un interruptor que se mueve sin hacer nada es mentira,
 --  así que no se mueve.
+--  El interruptor de verdad. Se lee primero y se pone lo contrario, en vez de
+--  suponer: si alguien lo ha cambiado por fuera, esto sigue acertando. Y apagar
+--  la radio se puede deshacer desde el mismo sitio, que es lo mínimo que se le
+--  pide a un interruptor.
 on("conmutar", function(k)
-    if k == 3 then fact["puesta.3"] = not fact["puesta.3"] end
+    if k == 1 then
+        run("nmcli", { "radio", "wifi" }, function(salida)
+            local puesta = tostring(salida):match("enabled") ~= nil
+            run("nmcli", { "radio", "wifi", puesta and "off" or "on" }, function() end)
+        end)
+    elseif k == 2 then
+        run("bluetoothctl", { "show" }, function(salida)
+            local puesta = tostring(salida):match("Powered: yes") ~= nil
+            run("bluetoothctl", { "power", puesta and "off" or "on" }, function() end)
+        end)
+    else
+        fact["puesta.3"] = not fact["puesta.3"]
+    end
 end)
 
 -- ── las páginas ────────────────────────────────────────────────────

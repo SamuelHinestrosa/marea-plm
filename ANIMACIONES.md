@@ -535,6 +535,14 @@ Y traen datos de verdad de esta máquina:
 | **Bluetooth** | Lo emparejado, con lo conectado marcado |
 | **Concentración** | Lo que hace, dicho, y tres duraciones |
 
+**Y el interruptor enciende y apaga de verdad.** Tiene su propia zona encima de
+la de la tarjeta: pulsarlo conmuta la radio, y pulsar el resto abre la página.
+Antes el cuerpo se llevaba las dos cosas y el interruptor no hacía nada, así que
+con la Wi-Fi apagada **no había manera de volver a ponerla desde el panel** —un
+interruptor que solo apaga no es un interruptor—. La lógica lee primero el
+estado y pone el contrario, en vez de suponerlo: si alguien lo ha cambiado por
+fuera, esto sigue acertando.
+
 **Y aquí la lógica se gana el sueldo.** pleamar sabe **leer** la red y no
 listarla ni cambiarla —es su B15—, y de bluetooth no sabe nada. Así que esto no
 lo hace la escena: lo hace `bolita.luau` preguntándole a `nmcli` y a

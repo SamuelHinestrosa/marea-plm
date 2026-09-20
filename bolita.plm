@@ -1058,11 +1058,18 @@ scene Marea {
             repeat k in 1..4 {
                 prop luz.$k = 0 ~140ms
                 zone box fila.$k { at: card.x + 90, card.y - 96 + (k - 1) * 74; size: 173, 66; corner: 14; cursor: pointer; active: content > 0.9 }
+                //  El interruptor tiene su propia zona, ENCIMA de la de la
+                //  tarjeta: pulsarlo enciende o apaga, y pulsar el resto abre la
+                //  página. Antes el cuerpo se llevaba las dos cosas y el
+                //  interruptor no hacía nada, así que con la Wi-Fi apagada no
+                //  había manera de volver a ponerla desde aquí.
+                zone box interruptor.$k { at: card.x + 146, card.y - 96 + (k - 1) * 74; size: 52, 44; corner: 20; cursor: pointer; active: content > 0.9 and k < 3 }
                 on enter fila.$k { luz.$k: 1 }
                 on leave fila.$k { luz.$k: 0 }
+                on press interruptor.$k { emit conmutar(k) }
                 //  Pulsar la tarjeta abre su página. El interruptor de Wi-Fi y
             //  Bluetooth sigue siendo del sistema; lo que aquí se abre es la lista.
-            on press fila.$k { emit conmutar(k); emit mirar(k) }
+                on press fila.$k { emit mirar(k) }
             }
             column tarjetas {
                 at: card.x + 4, card.y - 129
