@@ -48,6 +48,10 @@ scene Marea {
         anchor: top
         margin: 0
         screens: "HDMI-A-1"
+        //  Teclado solo mientras el menú esté abierto, y a petición: se pide al
+        //  pulsar y se devuelve al cerrarlo. «El clic da foco de teclado, pero
+        //  no los deja pegados a la pantalla.»
+        keyboard: on_demand while menuab
     }
 
     // ── dónde vive ───────────────────────────────────────────────
@@ -299,14 +303,32 @@ scene Marea {
     //  como se acaba con una tarjeta encendida y la bolita despierta.
     follow encendida.3 = if(remanso, 1, 0)
     prop nota = 0 ~190ms
-    follow nota = if(note and not open and not remanso and face == eye and out > 0.9 and fase == 0 and pendientes < 1, 1, 0)
-    follow abanico = if(note and not open and not bandeja and not remanso and face == eye and out > 0.9 and fase == 0 and pendientes > 0, 1, 0)
+    //  Y con el menú fuera no sale ninguna de las dos: ocupan su sitio.
+    follow nota = if(note and not open and not remanso and not menuab and face == eye and out > 0.9 and fase == 0 and pendientes < 1, 1, 0)
+    follow abanico = if(note and not open and not bandeja and not remanso and not menuab and face == eye and out > 0.9 and fase == 0 and pendientes > 0, 1, 0)
+    // ── su menú, el del botón derecho ────────────────────────────
+    //  «El botón derecho abre su menú, que se cierra igual al salir de ella y
+    //  del menú.» Las filas de la casa —Ajustes y Personalizar— y, bajo una
+    //  línea, lo que traen los complementos, agrupado por el nombre del suyo:
+    //  una entrada que se llama «Historial» dice de quién es ese historial.
+    //  Sale por el mismo lado que la hora y de la misma caja, porque es lo
+    //  mismo: lo que ella tiene que decir cuando le preguntas ahí.
+    fact menuab = false
+    fact elegida = -1                  // la fila del teclado: 0 y 1 la casa, 2+ lo demás
+    fact grupos = 0                    // cuántos complementos traen algo
+    event personalizar ->
+    event del_menu ->                  // una entrada de un complemento, por su número
+    event señala ->
+    model entradas max 6 { grupo: text; titulo: text; primera: bool = false }
+    prop menu = 0 ~190ms
+    follow menu = if(menuab, 1, 0)
+
     //  Y en Remanso, la cápsula: ocupa el mismo sitio que la hora.
     prop capsula = 0 ~160ms
     //  Abre en 160 y se repliega en 140, que es lo que pide el contrato. Un
     //  `follow` no sabe de qué lado viene, así que quien lo dice son dos
     //  reglas sobre lo mismo: la ida y la vuelta no son el mismo viaje.
-    let cap.quiere = note and remanso and out > 0.9
+    let cap.quiere = note and remanso and not menuab and out > 0.9
     on change cap.quiere while cap.quiere { capsula: 1 ~160ms }
     on change cap.quiere while not cap.quiere { capsula: 0 ~140ms }
     let nota.x = cx + (23 + 14 + 52) * nota
@@ -448,6 +470,17 @@ scene Marea {
     //  La cápsula, 12 px más abajo que ella: mide 92 de alto y centrada en su
     //  centro se salía por el borde de arriba.
     let cap.y = cy_real + 12
+    //  El menú: 163 de ancho —los 248 de la lámina por 46/70— y de alto lo que
+    //  pida lo que haya. Cada entrada mide 23 y la primera de cada grupo se
+    //  lleva 16 más para el nombre de quien la trae.
+    //  Nace de su centro y se desliza a la derecha hasta quedar a 9 px, como
+    //  la hora: su medio ancho va en la cuenta.
+    let menu.x = cx + (23 + 9 + 82) * menu
+    let menu.w = 163
+    let menu.h = 8 + 46 + 6 + entradas.count * 23 + grupos * 16
+    //  Su primera fila a la altura de su cara, y el resto colgando.
+    let menu.y0 = cy_real - 15
+    let menu.cy = menu.y0 + menu.h / 2
 
     //  El cuello: mínimo en reposo y máximo a mitad de la separación, que es una
     //  campana. Al final no queda nada y el hilo se rompe solo.
@@ -563,6 +596,14 @@ scene Marea {
             size: 208 * clamp(capsula * 1.6, 0, 1), 92 * clamp(capsula * 2.4, 0, 1)
             corner: 16
             blend: 18 * 4 * capsula * (1 - capsula)
+        }
+        //  Y su menú, por el mismo lado y de la misma caja que la hora: «en el
+        //  mismo sitio donde sale la nota del reloj y en la misma caja».
+        box menu_caja {
+            at: menu.x, menu.cy
+            size: menu.w * clamp(menu * 1.6, 0, 1), menu.h * clamp(menu * 2.4, 0, 1)
+            corner: 9
+            blend: 18 * 4 * menu * (1 - menu)
         }
         //  Y el resumen al volver: lo último que hace el Remanso es devolverle
         //  lo que guardó, y se lo devuelve saliendo de ella.
@@ -1159,6 +1200,76 @@ scene Marea {
     zone box conjunto { at: cx + card * 300, cy_real + card.h / 2 - 8; size: 200 + card.w + 80, 2 * r + 30 + card.h; corner: 30; active: open }
     on away conjunto for 320ms { open = false }
 
+    //  Y la zona de gracia —ella y el menú— va DEBAJO de las filas, como todas
+    //  las demás: declarada después se quedaba con sus clics. Van cinco.
+    zone box menu_conj { at: cx + 60, menu.cy; size: 300, menu.h + 90; corner: 24; active: menu > 0.01 }
+
+    // ── lo que se ve de su menú ──────────────────────────────────
+    //  El dibujo va aquí y las zonas al final del todo, y no es un capricho:
+    //  el recorte de la tarjeta es suelto y se lleva todo lo que venga detrás
+    //  hasta la siguiente superficie con nombre, así que un menú escrito más
+    //  abajo salía recortado a una tarjeta cerrada —o sea, no salía—.
+    //  Una entrada de un complemento. Es una pieza y no seis copias escritas a
+    //  mano porque la lista la trae la lógica: cada copia tiene su muelle y su
+    //  zona, y la fila señalada con el teclado se la pasan de fuera.
+    component FilaMenu(e: record, marcada: number, escoge: event) {
+        size: 155, 23 + e.primera * 16
+        prop luz = 0 ~110ms
+        let fy = e.primera * 16
+        let mia = if(marcada == e.index, 1, 0)
+        //  El nombre de quien la trae, solo encima de la primera de su grupo.
+        text e.grupo { at: 8, 8; anchor: left center; size: 9.5; weight: 600; color: #6f7378
+                       width: 139; lines: 1; show: e.primera }
+        //  En reposo la fila no tiene fondo: el de la caja es el de ella, que
+        //  es de quien es la caja. Lo único que se pinta es lo señalado.
+        box { from: 0, fy; size: 155, 23; corner: 7; color: #23282b; opacity: luz }
+        //  El resalte del puntero se rellena; el del teclado es un filo. Son dos
+        //  cosas distintas y por eso se ven distintas.
+        box { from: 0, fy; size: 155, 23; corner: 7; stroke: 1; color: mint; opacity: mia * (1 - luz) }
+        //  Sin catálogo de iconos, el glifo de una entrada es su cuadradito.
+        box { at: 13, fy + 11.5; size: 9, 9; corner: 2.5; stroke: 1.4; color: mix(#8b8f95, #f6f6f5, luz) }
+        text e.titulo { at: 26, fy + 11.5; anchor: left center; size: 12; width: 122; lines: 1
+                        color: mix(#dfe1e3, #f6f6f5, luz) }
+        zone box toca { from: 0, fy; size: 155, 23; corner: 7; cursor: pointer }
+        on enter toca { luz: 1 }
+        on leave toca { luz: 0 }
+        on press toca { emit escoge(e.index) }
+    }
+
+    group {
+        opacity: clamp(menu * 4 - 3, 0, 1)
+        move: (1 - menu) * -13, 0
+        let mx0 = menu.x - menu.w / 2 + 4
+        //  Las dos de la casa. Van escritas y no en el modelo porque son de
+        //  ella: un complemento no puede poner ni quitar Ajustes.
+        repeat m in 0..2 {
+            prop casa.$m = 0 ~110ms
+            box { at: menu.x, menu.y0 + 15.5 + m * 23; size: 155, 23; corner: 7
+                  color: #23282b; opacity: casa.$m }
+            box { at: menu.x, menu.y0 + 15.5 + m * 23; size: 155, 23; corner: 7; stroke: 1; color: mint
+                  opacity: if(elegida == m, 1, 0) * (1 - casa.$m) }
+        }
+        let ry.casa = menu.y0 + 15.5
+        let ry.pers = menu.y0 + 38.5
+        //  El engranaje de Ajustes, el mismo de la cabecera del panel.
+        arc { at: mx0 + 13, ry.casa; radius: 5; span: 300deg; width: 1.4; color: mix(#8b8f95, #f6f6f5, casa.0) }
+        ellipse { at: mx0 + 13, ry.casa; radius: 1.9; color: mix(#8b8f95, #f6f6f5, casa.0) }
+        text "Ajustes" { at: mx0 + 26, ry.casa; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, casa.0) }
+        //  Y el destello de Personalizar: una estrella de cuatro puntas, que es
+        //  un cuadrado al que se le han comido los lados.
+        path { at: mx0 + 13, ry.pers; color: mix(#8b8f95, #f6f6f5, casa.1)
+               move 0, -5.5; curve 5.5, 0 via 1.2, -1.2; curve 0, 5.5 via 1.2, 1.2
+               curve -5.5, 0 via -1.2, 1.2; curve 0, -5.5 via -1.2, -1.2; close }
+        text "Personalizar" { at: mx0 + 26, ry.pers; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, casa.1) }
+        //  La línea, y debajo lo de los complementos.
+        line { from: mx0 + 8, menu.y0 + 53; to: mx0 + 147, menu.y0 + 53; width: 1; color: #1f2226 }
+        column menu_col {
+            at: mx0, menu.y0 + 56
+            gap: 0
+            for e in entradas { FilaMenu(e, marcada: elegida - 2, escoge: del_menu) }
+        }
+    }
+
     // ── la tarjeta ───────────────────────────────────────────────
     //  El centro de control, medido sobre la lámina
     //  (`design/concepts/2026-08-31-centro-y-apps/centro-de-control.png`): la
@@ -1734,13 +1845,15 @@ scene Marea {
     //  hora. Y 300 de gracia al irse, porque el hueco entre ella y la nota es
     //  real y no puede perderse al cruzarlo. Se va si se abre el panel.
     zone box nota_zona { at: nota.x, cy_real; size: 104, 56; corner: 13; cursor: pointer; active: nota > 0.8 }
-    on hover cuerpo_zona for 180ms while not open { note = true }
+    on hover cuerpo_zona for 180ms while not open and not menuab { note = true }
     //  Y esto no manda en Remanso: con la zona apagada, «estar fuera» es verdad
     //  siempre, así que apagaba la cápsula 300 ms después de abrirla.
     on away nota_conj for 300ms while abanico < 0.01 and not remanso { note = false }
     //  Con el abanico fuera, la gracia se cuenta sobre el conjunto entero.
     on away abanico_conj for 300ms { note = false }
-    on change open while open { note = false }
+    //  Y abrir la tarjeta se lleva por delante el menú, como el menú se lleva
+    //  por delante la tarjeta: no hay dos cosas suyas abiertas a la vez.
+    on change open while open { note = false; menuab = false }
     on press nota_zona { emit calendar }
     //  Un solo reloj de gracia para todo lo que la necesita —el puntero, la
     //  nota, la tarjeta—: 2,6 s desde que lo ÚLTIMO deja de necesitarla. Con un
@@ -1755,6 +1868,37 @@ scene Marea {
     //  entero tapara lo que estabas leyendo.
     on press cuerpo_zona { press: 1; toggle open }
     on release cuerpo_zona { press: 0 }
+    // ── su menú ──────────────────────────────────────────────────
+    //  Va al final a propósito: sus zonas tienen que ser las últimas, porque la
+    //  pulsación es de la zona de más arriba y la de la hora le cae encima.
+    //  Abierto, la hora, el abanico y la cápsula se recogen: «lo que el puntero
+    //  hubiera sacado por ahí, se va». Quien llega último, gana.
+    on press right cuerpo_zona { toggle menuab }
+    on change menuab while menuab { open = false; note = false; elegida = -1 }
+    //  Se cierra como la nota: al llevar un rato fuera del conjunto —ella y el
+    //  menú—, con Esc, al elegir algo, o con otro clic derecho.
+    on away menu_conj for 300ms { menuab = false }
+    on key Escape while menuab { menuab = false }
+    //  Con el teclado: las flechas mueven la fila señalada y Enter la elige.
+    //  Enter sin haber señalado nada coge la primera, que es Ajustes: lo que el
+    //  botón derecho hacía antes sigue estando a una tecla.
+    on key Down while menuab { elegida = min(elegida + 1, 1 + entradas.count) }
+    on key Up while menuab { elegida = max(elegida - 1, 0) }
+    on key Return while menuab and elegida < 1 { emit ajustes; menuab = false }
+    on key Return while menuab and elegida == 1 { emit personalizar; menuab = false }
+    on key Return while menuab and elegida > 1 { emit del_menu(elegida - 2); menuab = false }
+    on del_menu { menuab = false }
+
+    //  Las zonas de la casa, fuera del dibujo y después del conjunto.
+    repeat m in 0..2 {
+        zone box casa_zona.$m { at: menu.x, menu.y0 + 4 + 11.5 + m * 23; size: 155, 23
+                                corner: 7; cursor: pointer; active: menu > 0.9 }
+        on enter casa_zona.$m { casa.$m: 1; elegida = -1 }
+        on leave casa_zona.$m { casa.$m: 0 }
+    }
+    on press casa_zona.0 { emit ajustes; menuab = false }
+    on press casa_zona.1 { emit personalizar; menuab = false }
+
     // ── la esquina ───────────────────────────────────────────────
     //  Asoma el 82 %: con algo más de la mitad el ojo rojo se pasaba el rato
     //  detrás del borde, que es justo lo único para lo que sirve este modo.

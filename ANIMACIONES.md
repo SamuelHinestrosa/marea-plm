@@ -825,6 +825,67 @@ hacía dos cosas a la vez: no dejaba pulsar debajo de ella y daba por cierto el
 despiste: **es una forma de esta escena**, y por eso está escrita en el sitio
 donde pasa.
 
+## Su menú, el del botón derecho
+
+![El menú abierto, con la fila señalada por el teclado](evidencia/menu.png)
+
+> «El clic abre paneles que se cierran al salir del conjunto mascota–puente–
+> tarjeta; **el botón derecho abre su menú**, que se cierra igual al salir de
+> ella y del menú. El clic da foco de teclado, pero no los deja pegados a la
+> pantalla.»
+
+Hasta ahora el botón derecho no hacía nada aquí, y por eso cerraba el programa:
+es la salida de emergencia de pleamar. Ahora hace lo que dice el contrato.
+
+Arriba, las dos filas de la casa —**Ajustes**, que es lo que el clic derecho
+abría antes, y **Personalizar**—. Bajo una línea, lo que traen los
+complementos, **agrupado por el nombre del suyo**, para que una entrada llamada
+«Historial» diga de quién es ese historial. Las de la casa van escritas en la
+escena porque son de ella: un complemento no puede quitar Ajustes. Las otras
+las manda la lógica —aquí van dichas, que catálogo no hay— con un único dato de
+más: si abre grupo. Es una cuenta y no una coordenada; dónde cae cada fila lo
+reparte una columna.
+
+![Naciendo de ella](evidencia/menu-nace.png)
+
+Y nace de ella: su caja va **dentro de su cuerpo**, sale de su centro con ancho
+cero y se desliza a la derecha, con un cuello que nadie dibuja —segundo
+fotograma—. Es el mismo sitio y la misma caja que la nota de la hora, porque es
+lo mismo: lo que ella tiene que decir cuando le preguntas ahí. Abrirlo recoge la
+hora, el abanico y la cápsula del Remanso: quien llega último, gana.
+
+Medido: **185 ms** del 1 % al 99 % al abrir, **183** al recogerse, y 300 ms de
+gracia al salir del conjunto antes de empezar a cerrarse. Se cierra también con
+Esc, con otro clic derecho, al elegir algo y al abrir la tarjeta.
+
+**Dos resaltes distintos porque son dos cosas distintas**: el del puntero
+rellena la fila, y el del teclado es un filo de menta. Las flechas mueven la
+fila señalada y Enter la elige; Enter sin haber señalado nada coge la primera,
+que es Ajustes, así que lo que el botón derecho hacía antes sigue estando a una
+tecla. El teclado se pide **solo mientras el menú está abierto** (`keyboard:
+on_demand while menuab`), que es lo que el contrato llama no dejarlos pegados a
+la pantalla.
+
+### Lo que esto destapó en pleamar
+
+**La salida de emergencia le quitaba el botón a quien lo usara.** El botón
+derecho cierra el programa mientras ninguna escena lo use, y en cuanto una lo
+usa —`on press right`— desaparecía del todo: no había manera de tener un menú y
+poder cerrar el prototipo. Pero quien sabe si el clic ha caído encima de algo es
+el render, que es el que mira las zonas. Ahora lo dice él: si debajo del puntero
+no había ninguna zona, cierra; si había, el clic es de la escena. Encima de ella
+sale su menú, y dos dedos más allá se cierra como siempre.
+
+**Y la quinta vez con las zonas.** La de gracia del menú, declarada después de
+sus filas, se quedaba con todos sus clics. Ya no hace falta contarlo otra vez:
+en esta escena una zona de gracia va **siempre** debajo de lo que envuelve.
+
+**Y un recorte suelto llega más lejos de lo que parece.** El de la tarjeta se
+lleva todo lo que venga detrás hasta la siguiente superficie con nombre, así que
+el menú, escrito más abajo, salía recortado a una tarjeta cerrada: una caja
+vacía. Su dibujo va ahora antes del recorte y sus zonas siguen al final, que es
+donde tienen que estar.
+
 ## Medidas de la lámina
 
 De `design/concepts/2026-09-12-reposo-vivo/referencia-real-limpia.png`, que
@@ -839,7 +900,7 @@ conserva el tamaño real:
 
 ## Lo que le faltó al lenguaje, y ya no
 
-Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
+Quince, todas arregladas en pleamar en vez de esquivadas aquí:
 
 1. **No había forma de comprobar un tiempo.** Sondear desde fuera cuesta 16 ms
    por lectura, que es un frame entero. Ahora está `--registrar`.
@@ -888,6 +949,11 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
    seguir girando—. Ahora el parpadeo se queda abierto, la onda en la mitad de
    su viaje y el giro donde estaba. Medido: la marea marca 0,0000 en los 32
    fotogramas de cinco segundos, y son 32 porque sin nada moviéndose duerme.
+15. **La salida de emergencia le quitaba el botón derecho a quien lo usara.**
+   Cerraba el programa mientras ninguna escena usara ese botón, y en cuanto una
+   lo usaba desaparecía del todo: o menú, o poder cerrar el prototipo. Ahora lo
+   decide el render, que es quien mira las zonas: si el clic no cayó encima de
+   ninguna, cierra. Encima de ella sale su menú; dos dedos más allá, se cierra.
 
 ## Lo siguiente
 

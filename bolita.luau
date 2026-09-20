@@ -120,6 +120,41 @@ on("mirar", function(k)
 end)
 
 on("ajustes", function() log("settings would open here") end)
+on("personalizar", function() log("customize would open here") end)
+
+-- ── su menú ────────────────────────────────────────────────────────
+--  Lo que el botón derecho ofrece. Las dos filas de la casa las pone la
+--  escena; esto trae lo de los complementos, que es lo único que cambia de una
+--  máquina a otra. Aquí no hay catálogo, así que van dichas: lo que importa es
+--  que la frontera está escrita y que agrupar es cosa de aquí.
+--
+--  `primera` dice si abre grupo, y entonces la fila se lleva 16 px más para el
+--  nombre de quien la trae. Es una cuenta y no una coordenada: dónde cae cada
+--  fila lo reparte la escena, que para eso tiene una columna.
+local del_menu = {
+    { id = "deriva.prestar",  grupo = "Deriva", titulo = "Prestar algo" },
+    { id = "deriva.soltar",   grupo = "Deriva", titulo = "Soltar lo prestado" },
+    { id = "oleaje.historial", grupo = "Oleaje", titulo = "Historial" },
+}
+
+local function poner_el_menu()
+    local grupo, grupos = nil, 0
+    for _, e in ipairs(del_menu) do
+        e.primera = e.grupo ~= grupo
+        if e.primera then
+            grupo = e.grupo
+            grupos = grupos + 1
+        end
+    end
+    fact.grupos = grupos
+    model.entradas = del_menu
+end
+poner_el_menu()
+
+on("del_menu", function(i)
+    local e = del_menu[i + 1]
+    log("a plugin entry from her menu", e ~= nil and e.id or i)
+end)
 
 -- ── el oleaje ──────────────────────────────────────────────────────
 --  Resolver una fila es marcarla leída donde de verdad viva. Aquí solo se

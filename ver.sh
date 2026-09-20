@@ -13,4 +13,4 @@ pkill -x pleamar
 sleep 0.5
 setsid nohup "$P" --escena bolita.plm --pantalla "${1:-HDMI-A-1}" --sin-hud --bloqueo 0 > /tmp/marea-plm.log 2>&1 &
 sleep 1.5
-echo "abierta. el log en /tmp/marea-plm.log · clic derecho encima para cerrarla"
+echo "abierta. el log en /tmp/marea-plm.log · clic derecho FUERA de ella para cerrarla (encima abre su menú)"
