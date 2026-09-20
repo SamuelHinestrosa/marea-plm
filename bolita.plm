@@ -856,9 +856,9 @@ scene Marea {
         //  de la tarjeta: la cabecera acaba en −150 y el contenido empieza en
         //  −134. Antes la columna de la derecha empezaba en −165 y se le subía
         //  encima a la cruz.
-        let niv.x = card.x - 105
+        let niv.x = card.x - 93
         let niv.y = card.y - 15
-        box { at: niv.x, niv.y; size: 172, 238; corner: 16; color: #1b1b1c }
+        box { at: niv.x, niv.y; size: 170, 238; corner: 16; color: #1b1b1c }
         repeat k in 0..2 {
             let sx = niv.x - 38 + k * 76
             let val = if(k == 0, brillo, nivel)
@@ -912,71 +912,80 @@ scene Marea {
         on press icono.1 { emit mute_salida }
 
         // ── las tres de la lámina ────────────────────────────────
-        //  En una COLUMNA de verdad: dónde cae cada una lo pone la maquetación,
-        //  no yo. Antes las ponía a mano con coordenadas y por eso el nombre de
-        //  la red se metía debajo del interruptor y «Concentración» pisaba la
-        //  flecha. Dentro de cada tarjeta las medidas siguen siendo mías, pero
-        //  ahora los textos llevan el ancho que les queda y lo que no cabe se
-        //  corta con puntos suspensivos, que es lo que tiene que pasar.
+        //  Cada tarjeta es una `row` de tres: el icono, lo que se lee, y el
+        //  interruptor o la flecha. Lo del medio pide el sitio que sobra
+        //  (`grow: 1`) y sus textos lo cogen de ancho, así que **aquí no hay un
+        //  solo ancho escrito a mano** y lo que no cabe se corta solo. Antes lo
+        //  ponía yo y por eso el nombre de la red se metía bajo el interruptor.
         text titulo.1 = "Wi-Fi"
         text titulo.2 = "Bluetooth"
         text titulo.3 = "Concentración"
         text sub.1 = ""
         text sub.2 = "Auriculares"
         text sub.3 = "25 min"
+        //  Los muelles y las zonas van FUERA del reparto: dentro de una `column`
+        //  todo lo que hay es un hijo, y un `prop` no ocupa sitio.
+        repeat k in 1..4 {
+            prop luz.$k = 0 ~140ms
+            zone box fila.$k { at: card.x + 90, card.y - 96 + (k - 1) * 74; size: 173, 66; corner: 14; cursor: pointer; active: content > 0.9 }
+            on enter fila.$k { luz.$k: 1 }
+            on leave fila.$k { luz.$k: 0 }
+            on press fila.$k { emit conmutar(k) }
+        }
         column tarjetas {
-            at: card.x + 6, card.y - 129
+            at: card.x + 4, card.y - 129
             gap: 8
             repeat k in 1..4 {
-                group {
-                    size: 164, 66
-                    prop luz.$k = 0 ~140ms
-                    zone box fila.$k { from: 0, 0; size: 164, 66; corner: 14; cursor: pointer; active: content > 0.9 }
-                    //  La de Concentración va resaltada cuando está puesta: filo
-                    //  de menta y el fondo un punto más verde. Es el único borde.
-                    body {
-                        color: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k * if(k == 3, 1, 0))
-                        border: if(k == 3, encendida.$k, 0), mint
-                        box { from: 0, 0; size: 164, 66; corner: 14 }
-                    }
-                    //  El icono, dentro y a la izquierda.
-                    //  Wi-Fi: tres arcos y el punto.
-                    repeat a in 1..4 {
-                        arc { at: 24, 39; radius: 3 + a * 3.4; span: 110deg; width: 1.8; color: ink
-                              opacity: 40% + encendida.1 * 60%; show: k == 1 }
-                    }
-                    ellipse { at: 24, 40; radius: 1.8; color: ink; opacity: 40% + encendida.1 * 60%; show: k == 1 }
-                    //  Bluetooth: la runa, de un trazo.
-                    path { at: 19, 24; color: ink; stroke: 1.8; opacity: 40% + encendida.2 * 60%; show: k == 2
-                           move 0, 4; line 10, 14; line 5, 18; line 5, 0; line 10, 4; line 0, 14 }
-                    //  Concentración: la luna, que es un disco al que otro del
-                    //  color de la tarjeta le come un lado. Dentro de un `body`
-                    //  no vale: ahí todas las formas comparten color.
-                    ellipse { at: 24, 33; radius: 8.5; color: ink; opacity: 70%; show: k == 3 }
-                    ellipse { at: 29, 28.5; radius: 8; show: k == 3
-                              color: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k) }
-                    //  Y el texto, con el ancho que le queda: 164 menos el icono
-                    //  y menos el interruptor. Lo que no cabe se corta.
-                    //  La de Concentración no lleva interruptor, solo la
-                    //  flecha, así que le cabe más texto. El ancho lo dice cada
-                    //  una, y lo que no cabe se corta con puntos suspensivos.
-                    text titulo.$k { at: 54, 24; anchor: left center; size: 13; width: if(k == 3, 100, 74); lines: 1; color: ink }
-                    text sub.$k { at: 54, 43; anchor: left center; size: 11.5; width: if(k == 3, 100, 74); lines: 1; color: #8b8f95; show: k != 1 }
-                    text red.name { at: 54, 43; anchor: left center; size: 11.5; width: 74; lines: 1; color: #8b8f95; show: k == 1 }
-                    //  Wi-Fi y Bluetooth llevan interruptor; Concentración, flecha.
+                row tarjeta {
+                    size: 173, 66
+                    gap: 6
+                    padding: 8
+                    //  La de Concentración va resaltada cuando está puesta: el
+                    //  fondo un punto más verde. Es el único borde del panel, y
+                    //  lo pinta la tarjeta, no el reparto.
+                    fill: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k * if(k == 3, 1, 0))
+                    corner: 14
                     group {
-                        show: k < 3
-                        box { at: 138, 33; size: 40, 23; corner: 11.5; color: mix(#2a2b2c, mint, encendida.$k) }
-                        ellipse { at: 129 + 18 * encendida.$k, 33; radius: 8.5; color: #ffffff }
+                        size: 20, 22
+                        //  Wi-Fi: tres arcos y el punto.
+                        repeat a in 1..4 {
+                            arc { at: 11, 14; radius: 3 + a * 3.4; span: 110deg; width: 1.8; color: ink
+                                  opacity: 40% + encendida.1 * 60%; show: k == 1 }
+                        }
+                        ellipse { at: 11, 15; radius: 1.8; color: ink; opacity: 40% + encendida.1 * 60%; show: k == 1 }
+                        //  Bluetooth: la runa, de un trazo.
+                        path { at: 6, 2; color: ink; stroke: 1.8; opacity: 40% + encendida.2 * 60%; show: k == 2
+                               move 0, 4; line 10, 14; line 5, 18; line 5, 0; line 10, 4; line 0, 14 }
+                        //  Concentración: la luna, que es un disco al que otro
+                        //  del color de la tarjeta le come un lado.
+                        ellipse { at: 11, 11; radius: 9; color: ink; opacity: 70%; show: k == 3 }
+                        ellipse { at: 16, 6; radius: 8.5; show: k == 3
+                                  color: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k) }
                     }
-                    path { at: 142, 28; color: ink; stroke: 1.6; opacity: 70%; show: k == 3
-                           move 0, 0; line 5, 5; line 0, 10 }
-                    on enter fila.$k { luz.$k: 1 }
-                    on leave fila.$k { luz.$k: 0 }
-                    on press fila.$k { emit conmutar(k) }
+                    //  Lo que se lee, con el sitio que quede. Sin anchos.
+                    column { grow: 1; gap: 2
+                        text titulo.$k { size: 13; lines: 1; color: ink }
+                        text sub.$k { size: 11.5; lines: 1; color: #8b8f95; show: k != 1 }
+                        text red.name { size: 11.5; lines: 1; color: #8b8f95; show: k == 1 }
+                    }
+                    //  El interruptor, o la flecha de las que abren una página.
+                    //  La que abre una página solo lleva flecha, así que ocupa
+                    //  mucho menos y a su texto le queda más sitio.
+                    group {
+                        size: if(k < 3, 40, 12), 23
+                        box { from: 0, 0; size: 40, 23; corner: 11.5; color: mix(#2a2b2c, mint, encendida.$k); show: k < 3 }
+                        ellipse { at: 11.5 + 18 * encendida.$k, 11.5; radius: 8.5; color: #ffffff; show: k < 3 }
+                        path { at: 3, 6; color: ink; stroke: 1.6; opacity: 70%; show: k == 3
+                               move 0, 0; line 5, 5; line 0, 10 }
+                    }
                 }
             }
         }
+        //  El filo de menta de la que está puesta. Va aparte y con `stroke`
+        //  —solo el contorno— porque el fondo de una maquetación es un color y
+        //  no lleva borde; un `body` relleno encima tapaba la tarjeta entera.
+        box { at: card.x + 90, card.y + 52; size: 173, 66; corner: 14
+              stroke: 1; color: mint; opacity: encendida.3 }
 
 
         // ── la línea y lo que suena ──────────────────────────────

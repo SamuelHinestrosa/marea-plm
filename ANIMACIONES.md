@@ -438,18 +438,31 @@ sabe **leer** la red y no cambiarla, y de bluetooth no sabe nada todavía. Está
 apuntado como su limitación B15. Un interruptor que se mueve sin hacer nada es
 mentira, así que no se mueve.
 
-### Y con maquetación, no a mano
+### Y con maquetación, sin un solo ancho a mano
 
 Las tres tarjetas se pisaban: el nombre de la red se metía debajo del
-interruptor y «Concentración» le daba a la flecha. No era de pleamar —tiene
-`row` y `column` con su `gap`, y `wrap: n` que es una rejilla—: era que yo las
-estaba colocando a mano con coordenadas.
+interruptor y «Concentración» le daba a la flecha. Era que yo las estaba
+colocando a mano con coordenadas y adivinando los anchos.
 
-Ahora van en una `column`, así que dónde cae cada una lo pone la maquetación. Lo
-que sí sigue siendo mío es el ancho de los textos dentro de cada tarjeta, porque
-**en pleamar un hijo no puede pedir el sitio que le queda**: no hay crecimiento
-ni pesos. Está apuntado como su G28. Mientras tanto, cada texto dice su ancho y
-lo que no cabe se corta con puntos suspensivos, que es lo que tiene que pasar.
+Ahora cada tarjeta es una `row` de tres —el icono, lo que se lee, y el
+interruptor o la flecha— dentro de una `column`. Lo del medio pide el sitio que
+sobra con **`grow: 1`** y sus textos lo cogen de ancho, así que **en esta parte
+de la escena no hay un solo ancho escrito**: lo que no cabe acaba en puntos
+suspensivos solo, y la que lleva flecha en vez de interruptor tiene más sitio
+porque la flecha ocupa menos.
+
+`grow:` no existía cuando empecé esto. Era la G28 de pleamar, y salió de aquí.
+
+```plm
+row tarjeta { size: 173, 66; gap: 6; padding: 8; fill: …; corner: 14
+    group { size: 20, 22;  …el icono… }
+    column { grow: 1; gap: 2
+        text titulo.$k { size: 13; lines: 1; color: ink }
+        text sub.$k { size: 11.5; lines: 1; color: #8b8f95 }
+    }
+    group { size: if(k < 3, 40, 12), 23;  …interruptor o flecha… }
+}
+```
 
 ### Lo que esto destapó en pleamar
 
