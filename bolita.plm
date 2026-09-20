@@ -15,7 +15,8 @@
 import "comun/paleta.plm"
 
 scene Marea {
-    permissions { services: "audio" }
+    permissions { services: "audio", "clock" }
+    service clock as ahora { time: text = "--:--"; date: text }
     service audio as sonido { volume: number; muted: bool }
 
     surface {
@@ -62,6 +63,13 @@ scene Marea {
     //  abrir manda la geometría y el contenido la sigue; al cerrar se funde
     //  primero el contenido y **luego** se recoge la geometría.
     fact open = false
+    //  La nota de la hora.
+    fact note = false
+    event calendar ->                  // un clic en ella: la lógica abre el calendario
+    prop nota = 0 ~190ms
+    follow nota = if(note and not open and face == eye and out > 0.9, 1, 0)
+    let nota.x = cx + (23 + 14 + 52) * nota
+
     prop card = 0 ~290ms
     prop content = 0 ~200ms
 
@@ -183,6 +191,24 @@ scene Marea {
             scale: sx + press * 0.04, sy - press * 0.05
             blend: cuello
         }
+        //  La nota de la hora, que sale de DETRÁS de ella: nace en su centro con
+        //  ancho cero y se desliza a la derecha hasta quedar a 14 px, con su
+        //  cuello a mitad de camino. Es parte del mismo cuerpo, así que la
+        //  sombra es una sola y el borde también.
+        box nota_caja {
+            at: nota.x, cy_real
+            size: 104 * clamp(nota * 1.6, 0, 1), 56 * clamp(nota * 2.4, 0, 1)
+            corner: 13
+            blend: 18 * 4 * nota * (1 - nota)
+        }
+    }
+
+    //  Lo que lleva escrito. La hora la trae el sistema; aquí no hay lógica.
+    group {
+        opacity: clamp(nota * 4 - 3, 0, 1)
+        move: (1 - nota) * -12, 0
+        text ahora.time { at: nota.x - 39, cy_real - 9; anchor: left center; size: 21; weight: 600; color: #f6f6f5 }
+        text "{upper(ahora.date)}" { at: nota.x - 39, cy_real + 13; anchor: left center; size: 10; color: #8b8f95 }
     }
 
     // ── la cara ──────────────────────────────────────────────────
@@ -527,11 +553,29 @@ scene Marea {
     }
 
     // ── lo que responde al ratón ─────────────────────────────────
+    //  Debajo de ella: la pulsación es de la zona de más arriba.
+    zone box nota_conj { from: cx - 30, cy_real - 40; size: 200, 80; active: note }
     zone box cuerpo_zona { at: cx, cy_real; size: 2 * r, 2 * r + 30; corner: r; cursor: pointer }
     //  Cualquier cosa que la necesite la saca; y vuelve a hundirse tras 2,6 s de
     //  gracia, que es lo que el contrato llama gracia y aquí se dice tal cual.
-    on enter cuerpo_zona { needed = true }
-    on away cuerpo_zona for 2.6s { needed = false }
+    on enter cuerpo_zona { needed = true; wanted = true }
+    //  180 ms de espera antes de salir: pasar por encima no es preguntar la
+    //  hora. Y 300 de gracia al irse, porque el hueco entre ella y la nota es
+    //  real y no puede perderse al cruzarlo. Se va si se abre el panel.
+    zone box nota_zona { at: nota.x, cy_real; size: 104, 56; corner: 13; cursor: pointer; active: nota > 0.8 }
+    on hover cuerpo_zona for 180ms while not open { note = true }
+    on away nota_conj for 300ms { note = false }
+    on change open while open { note = false }
+    on press nota_zona { emit calendar }
+    //  Un solo reloj de gracia para todo lo que la necesita —el puntero, la
+    //  nota, la tarjeta—: 2,6 s desde que lo ÚLTIMO deja de necesitarla. Con un
+    //  `away` por zona, salir de ella hacia la nota ya contaba, y se hundía con
+    //  la hora en la mano.
+    fact wanted = false
+    on leave cuerpo_zona while not note and not open { wanted = false }
+    on change note while not note { wanted = false }
+    on change open while not open { wanted = false }
+    on still wanted for 2.6s while not wanted and not note and not open { needed = false }
     //  Se cierra al salir del conjunto, con 320 ms de gracia para un desvío.
     zone box conjunto { at: cx + card * 300, cy_real + card.h / 2 - 8; size: 200 + card.w + 80, 2 * r + 30 + card.h; corner: 30; active: open }
     on away conjunto for 320ms { open = false }

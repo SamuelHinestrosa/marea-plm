@@ -240,6 +240,31 @@ superficie no sabe dónde está el
 puntero —Wayland no lo dice, es la limitación S5 de pleamar—, así que en la
 esquina solo sigue al ratón cuando lo tiene encima.
 
+## La nota de la hora
+
+> «La nota se despliega desde detrás de la bolita, con la hora y la fecha. Un clic
+> en ella abre el calendario. 180 ms de espera antes de salir, 170–190 ms de
+> aparición y 300 ms de gracia al salir el puntero, porque el hueco entre bolita y
+> nota es real y no puede perderse al cruzarlo. Desaparece si se abre el panel.»
+
+![La nota saliendo de ella](evidencia/nota-de-la-hora.png)
+
+| Lo que dice el contrato | Lo medido |
+| --- | --- |
+| Sale de detrás de ella | Nace en su centro con ancho cero y se desliza hasta quedar a 14 px. Es una forma más de **su mismo cuerpo**: una sola sombra, un solo borde, y un cuello a mitad de camino |
+| 180 ms de espera | `on hover cuerpo_zona for 180ms` |
+| 170–190 ms de aparición | Muelle `~190ms` |
+| 300 ms de gracia | Medido: el puntero sale a los 3 000 ms y la nota se recoge a los 3 300 |
+| La hora y la fecha | `service clock { time; date }`: las trae el sistema, sin lógica, y despierta una vez por minuto |
+| Un clic abre el calendario | `emit calendar`, que la lógica oye |
+| Desaparece si se abre el panel | `follow nota = if(note and not open and face == eye …)` |
+
+**Y no se hunde con la hora en la mano.** En modo oculto había un `away` de 2,6 s
+sobre ella, y salir de ella *hacia la nota* ya contaba. Ahora hay un solo reloj
+de gracia para todo lo que la necesita —puntero, nota, tarjeta—, escrito con
+`on still`: 2,6 s desde que lo último deja de necesitarla. Medido: la nota se
+recoge a los 3 300 ms y ella empieza a hundirse a los 5 900.
+
 ## Medidas de la lámina
 
 De `design/concepts/2026-09-12-reposo-vivo/referencia-real-limpia.png`, que
@@ -296,5 +321,4 @@ Tres cosas, todas arregladas en pleamar en vez de esquivadas aquí:
 
 ## Lo siguiente
 
-- La nota de la hora, que nace por detrás de ella.
 - Los avisos como oleaje: la tarjeta que aterriza como gota y vuelve a serlo.
