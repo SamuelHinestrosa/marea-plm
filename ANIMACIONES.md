@@ -636,8 +636,49 @@ latido: comprobado con el ratón de mentira, `viva.1` de 1 a 0 y otra vez a 1,
 Mientras se puede deshacer, la mecha ocupa el sitio del pie: es más urgente que
 un enlace a «Historial».
 
-**Lo que falta de la bandeja:** descartar —que no manda gota, porque lo
-descartado no vuelve—, la fila propia en ámbar de un urgente, y el Remanso.
+### Deslizar: hecho o descartado
+
+![Deslizar](evidencia/deslizar.png)
+
+> «"Marcar leído" o deslizar la fila, que descubre "Hecho" y "1 h"… Descartar no
+> manda gota: lo descartado no vuelve.»
+
+La fila sigue al dedo, y al soltar decide: pasados 92 px se va por donde iba, y
+si no vuelve sola con su muelle. Hacia la derecha, **Hecho**, y una gota vuelve
+volando a ella. Hacia la izquierda, **Descartar**, y **no vuelve nada**: eso es
+lo que las distingue, y es lo que dice el contrato.
+
+Medido: deslizando a la izquierda, `viva` se apaga y la cuenta de su gota **se
+queda donde estaba**; a la derecha, se apaga y la cuenta **baja**, porque la
+gota llegó.
+
+Lo que se descubre va en el hueco que la fila deja, no siguiéndola: puesto sobre
+ella quedaba debajo y no se veía nunca. Y un toque —soltar donde se pulsó— es
+abrirlo, no marcarlo: `on press` no vale aquí, porque arrastrar empieza por
+pulsar y lo daría por hecho al primer píxel.
+
+### Un urgente no se agrupa
+
+![El urgente arriba](evidencia/urgente.png)
+
+> «Un urgente no se agrupa: fila propia, arriba y en ámbar. Abre la bandeja sin
+> quitar el teclado, y en ella una admiración en la cara, una gota de sudor y un
+> salto corto.»
+
+El sitio de cada fila es «cuántas vivas van antes que yo», y un urgente va antes
+que todas: el suyo pasa de 2,94 a 0 y las demás bajan. El ámbar le pisa el color
+de su categoría, porque lo que importa de esa fila ya no es de quién es, es que
+corre prisa.
+
+![La admiración](evidencia/cara-alerta.png)
+
+Y la cara se alarma: el ojo izquierdo se estira en el palo y el derecho se hace
+punto, los dos al medio —un «!» descentrado no es un «!»—, con el salto corto de
+Marea. **Una vez por episodio**, desde el primero hasta que no queda ninguno: un
+aviso que salta cada vez es un aviso que se acaba tapando con una ventana.
+
+**Lo que falta de la bandeja:** la gota de sudor, la gota ámbar que sube y se
+queda arriba mientras dure, y el Remanso entero.
 
 ## Medidas de la lámina
 

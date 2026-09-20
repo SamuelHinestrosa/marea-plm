@@ -127,6 +127,10 @@ on("ajustes", function() log("settings would open here") end)
 --  apunta: lo que se ve —la fila yéndose, la gota volviendo, la cuenta
 --  bajando— ya lo ha hecho la escena, sin esperar a esto.
 on("resolver", function(k) log("row marked as read", k) end)
+--  Lo descartado no vuelve: ni gota, ni deshacer, ni aviso a quien lo mandó
+--  hasta que se acabe el plazo. Aquí solo se apunta.
+on("descartar", function(k) log("row discarded", k) end)
+on("abrir_aviso", function(k) log("would open the notice where it lives", k) end)
 on("tray", function() log("the tray would open at the newest one") end)
 on("calendar", function() log("the calendar would open here") end)
 on("abrir", function(k) log("page", k) end)

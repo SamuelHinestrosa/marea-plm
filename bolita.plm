@@ -110,10 +110,22 @@ scene Marea {
     event abrir_bandeja
     event cerrar_bandeja
     event resolver ->                  // con cuál, de carga: la lógica la marca leída
+    event descartar ->                 // y esta se tira: no vuelve, ni manda gota
+    event abrir_aviso ->               // un toque: que la lógica lo abra donde viva
     //  «Deshacer» durante 5 s, con una mecha que se consume. Cinco segundos
     //  exactos y a ritmo constante no los da un muelle: los da un gesto, que es
     //  una línea de tiempo con su curva. `linear` es lo que hace que una mecha
     //  parezca una mecha y no algo que frena al final.
+    //  «Ha llegado algo urgente»: lo dice la lógica. La cara se alarma con una
+    //  admiración y un salto corto; los números son los del gesto `cupo` de
+    //  Marea, por 46/56.
+    event urge
+    gesture alarmarse reflex {
+        60ms in_quad   { sx: 1.08; sy: 0.90; body.y: 2.5 }
+        130ms out_quad { sx: 0.96; sy: 1.06; body.y: -3.3 }
+        110ms in_quad  { sx: 1.02; sy: 0.98 }
+        180ms
+    }
     fact deshacer = false
     fact ultima = 0                    // qué fila se resolvió, para devolverla
     event se_apago
@@ -123,6 +135,13 @@ scene Marea {
         10ms emit se_apago
     }
     on se_apago { deshacer = false }
+
+    //  Un urgente abre la bandeja sin quitar el teclado, y la cara se alarma:
+    //  una admiración y un salto corto. **Una vez por episodio**, desde el
+    //  primero hasta que no queda ninguno: un aviso que salta cada vez es un
+    //  aviso que se acaba tapando con una ventana.
+    on urge while face == eye { face = alerta; play alarmarse; emit abrir_bandeja }
+    on still hay_urgente for 1.6s while not hay_urgente and face == alerta { face = eye }
     //  De qué es cada fila. Lo pondría la lógica; aquí se nace con algo.
     prop tray = 0 ~240ms               // 0 dentro de ella, 1 tarjeta entera
     prop carril = 0 ~240ms             // las gotas: 0 en su hombro, 1 en el carril
@@ -131,19 +150,24 @@ scene Marea {
     repeat k in 1..6 {
         fact viva.$k = true
         fact catfila.$k = 1
+        //  Un urgente no se agrupa: fila propia, arriba y en ámbar.
+        fact urg.$k = false
         prop sube.$k = 0 ~lively
         prop fuera.$k = 0 ~220ms
         prop suelta.$k = 0 ~380ms
+        //  Lo que la ha arrastrado el dedo. Si no llega al umbral, vuelve sola.
+        prop tira.$k = 0 ~lively
         prop toca.$k = 0 ~140ms
         //  Cuántas vivas tiene encima: su sitio en la lista. Al resolver una,
         //  las de abajo suben a ocupar el hueco en vez de dejarlo ahí.
         prop hueco.$k = 0 ~calm
     }
-    follow hueco.1 = 0
-    follow hueco.2 = if(viva.1, 1, 0)
-    follow hueco.3 = if(viva.1, 1, 0) + if(viva.2, 1, 0)
-    follow hueco.4 = if(viva.1, 1, 0) + if(viva.2, 1, 0) + if(viva.3, 1, 0)
-    follow hueco.5 = if(viva.1, 1, 0) + if(viva.2, 1, 0) + if(viva.3, 1, 0) + if(viva.4, 1, 0)
+    follow hueco.1 = if(viva.2 and urg.2 and not urg.1, 1, 0) + if(viva.3 and urg.3 and not urg.1, 1, 0) + if(viva.4 and urg.4 and not urg.1, 1, 0) + if(viva.5 and urg.5 and not urg.1, 1, 0)
+    follow hueco.2 = if(viva.1 and (urg.1 or not urg.2), 1, 0) + if(viva.3 and urg.3 and not urg.2, 1, 0) + if(viva.4 and urg.4 and not urg.2, 1, 0) + if(viva.5 and urg.5 and not urg.2, 1, 0)
+    follow hueco.3 = if(viva.1 and (urg.1 or not urg.3), 1, 0) + if(viva.2 and (urg.2 or not urg.3), 1, 0) + if(viva.4 and urg.4 and not urg.3, 1, 0) + if(viva.5 and urg.5 and not urg.3, 1, 0)
+    follow hueco.4 = if(viva.1 and (urg.1 or not urg.4), 1, 0) + if(viva.2 and (urg.2 or not urg.4), 1, 0) + if(viva.3 and (urg.3 or not urg.4), 1, 0) + if(viva.5 and urg.5 and not urg.4, 1, 0)
+    follow hueco.5 = if(viva.1 and (urg.1 or not urg.5), 1, 0) + if(viva.2 and (urg.2 or not urg.5), 1, 0) + if(viva.3 and (urg.3 or not urg.5), 1, 0) + if(viva.4 and (urg.4 or not urg.5), 1, 0)
+    follow hay_urgente = if(viva.1 and urg.1, 1, 0) + if(viva.2 and urg.2, 1, 0) + if(viva.3 and urg.3, 1, 0) + if(viva.4 and urg.4, 1, 0) + if(viva.5 and urg.5, 1, 0)
     fact catfila.2 = 3
     fact catfila.3 = 2
     fact catfila.4 = 4
@@ -184,6 +208,9 @@ scene Marea {
         fact n.$k = 0
         fact last.$k = 0
     }
+    //  Si queda alguno urgente. Mientras lo haya, la cara sigue alarmada.
+    prop hay_urgente = 0 ~16ms
+
     //  Cuántos hay esperando, de todas las categorías: es lo que decide si al
     //  pasar por encima sale la hora o sale el abanico. Va en un `prop` porque
     //  un `let` no ve los hechos que declara un `repeat` —se resuelve antes—, y
@@ -244,13 +271,14 @@ scene Marea {
     //  ── lo que la cara puede ser ────────────────────────────────
     //  Un hecho con tipo: el compilador comprueba contra qué se compara, así
     //  que `face == lupa` no pasa de la primera lectura.
-    fact face: eye | count | camera | rec = eye
+    fact face: eye | count | camera | rec | alerta = eye
     fact left = 0                     // lo que queda de la cuenta
     fact taping = false               // el grabador corriendo DE VERDAD
 
     prop num = 0 ~260ms               // 0 cara, 1 número
     prop cam = 0 ~220ms               // 0 cara, 1 cámara
     prop dot = 0 ~260ms               // 0 cara, 1 disco
+    prop alarma = 0 ~180ms            // 0 cara, 1 admiración
     prop red = 0 ~200ms               // el rojo, que es otra cosa que el disco
     prop pop = 0 ~lively              // el rebote de la cuenta
 
@@ -260,6 +288,7 @@ scene Marea {
     follow num = if(face == count, 1, 0)
     follow cam = if(face == camera, 1, 0)
     follow dot = if(face == rec, 1, 0)
+    follow alarma = if(face == alerta, 1, 0)
     follow red = if(taping, 1, 0)
 
     // ── reposo vivo ──────────────────────────────────────────────
@@ -522,7 +551,7 @@ scene Marea {
         let l.h = g.h + (ojo.l - g.h) * cam
         let r.w = g.w + (24.6 - g.w) * cam
         let r.h = g.h + (17.3 - g.h) * cam
-        let sep = c.sep * (1 - cam)
+        let sep = c.sep * (1 - cam) * (1 - alarma)
 
         //  4. El disco de grabar: el ojo izquierdo, y solo él. El derecho sigue
         //  siendo un ojo y sigue al puntero, que es lo que la mantiene viva
@@ -530,13 +559,21 @@ scene Marea {
         let d.w = l.w + (9 - l.w) * dot
         let d.h = l.h + (9 - l.h) * dot
 
+        //  5. La admiración: el palo es el ojo izquierdo y el punto el derecho,
+        //  los dos centrados, porque un «!» descentrado no es un «!». Se van al
+        //  medio, y uno se estira mientras el otro se hace punto.
+        let a.w = d.w + (4.1 - d.w) * alarma
+        let a.h = d.h + (12.3 - d.h) * alarma
+        let a.rw = r.w + (4.1 - r.w) * alarma
+        let a.rh = r.h + (4.1 - r.h) * alarma
+
         let ojo.y = y + 2.5
         let l.x = x - sep
         let r.x = x + sep
         //  Redondo cuando es redondo: la mitad del lado corto sale pill de pie,
         //  pill tumbado, gota, objetivo y disco sin decirlo cinco veces. El cuerpo
         //  de la cámara es el único que se aparta, porque tiene esquina propia.
-        let l.corner = min(d.w, d.h) / 2
+        let l.corner = min(a.w, a.h) / 2
         let r.corner = min(r.w, r.h) / 2 + (4.9 - min(r.w, r.h) / 2) * cam
         //  Y el puente entre los dos: campana, como la del menisco. Máximo justo
         //  cuando se tocan —a mitad del viaje del nivel, y al juntarse en la gota—
@@ -553,8 +590,8 @@ scene Marea {
             //  lee como un nivel; y se van cuando la gota se abre.
             body {
                 color: mix(ink, #34373a, meter)
-                box { at: l.x, ojo.y; size: d.w, d.h; corner: l.corner; blend: ojo.fusion }
-                box { at: r.x, ojo.y; size: r.w, r.h; corner: r.corner; blend: ojo.fusion }
+                box { at: l.x, ojo.y - 2.8 * alarma; size: a.w, a.h; corner: l.corner; blend: ojo.fusion }
+                box { at: r.x, ojo.y + 6.2 * alarma; size: a.rw, a.rh; corner: r.corner; blend: ojo.fusion }
             }
 
             //  Lo lleno del nivel es **la misma pista**, pintada otra vez y
@@ -566,8 +603,8 @@ scene Marea {
                 body {
                     color: mix(mint, #6b7280, sonido.muted)
                     opacity: meter
-                    box { at: l.x, ojo.y; size: d.w, d.h; corner: l.corner; blend: ojo.fusion }
-                    box { at: r.x, ojo.y; size: r.w, r.h; corner: r.corner; blend: ojo.fusion }
+                    box { at: l.x, ojo.y - 2.8 * alarma; size: a.w, a.h; corner: l.corner; blend: ojo.fusion }
+                    box { at: r.x, ojo.y + 6.2 * alarma; size: a.rw, a.rh; corner: r.corner; blend: ojo.fusion }
                 }
             }
 
@@ -847,22 +884,35 @@ scene Marea {
         //  el oleaje, y por eso no entran todas de golpe como una lista.
         repeat k in 1..6 {
             let fy = ty0 + 76 + hueco.$k * 66 + (1 - sube.$k) * 26
-            let fx = tx0 + 232 + fuera.$k * 520
-            let color.$k = mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5)
+            //  Donde descansa, y donde está ahora. Lo que se descubre va en el
+            //  sitio de descanso —el hueco que deja— y no siguiéndola, o quedaría
+            //  debajo de ella y no se vería nunca.
+            let fx0 = tx0 + 232
+            let fx = fx0 + fuera.$k * 520 + tira.$k
+            //  El ámbar de un urgente pisa al color de su categoría: lo que
+            //  importa de esa fila ya no es de quién es, es que corre prisa.
+            let color.$k = mix(mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5), #e2b25a, if(urg.$k, 1, 0))
             group {
                 opacity: sube.$k * (1 - fuera.$k)
                 show: viva.$k
-                //  Debajo de la fila, lo que descubre al deslizarla: no está
-                //  hasta que la fila empieza a irse.
+                //  Lo que descubre al deslizarla, a un lado y al otro: hacia la
+                //  derecha, «Hecho»; hacia la izquierda, «Descartar». Y son dos
+                //  cosas distintas: lo hecho manda su gota de vuelta, **lo
+                //  descartado no**, porque lo descartado no vuelve.
                 group {
-                    opacity: clamp(fuera.$k * 6, 0, 1)
-                    box { at: fx - 150, fy; size: 150, 58; corner: 14; color: #1b2a22 }
-                    text "Hecho" { at: fx - 150, fy; anchor: center; size: 12; weight: 600; color: mint }
+                    opacity: clamp((tira.$k + fuera.$k * 520) / 40, 0, 1)
+                    box { at: fx0 - 160, fy; size: 130, 58; corner: 14; color: #1b2a22 }
+                    text "Hecho" { at: fx0 - 160, fy; anchor: center; size: 12; weight: 600; color: mint }
                 }
-                box { at: fx, fy; size: 456, 58; corner: 14; color: mix(#171717, #1d1d1e, toca.$k) }
+                group {
+                    opacity: clamp((0 - tira.$k - fuera.$k * 520) / 40, 0, 1)
+                    box { at: fx0 + 160, fy; size: 130, 58; corner: 14; color: #2a1b1b }
+                    text "Descartar" { at: fx0 + 160, fy; anchor: center; size: 12; weight: 600; color: #e0655a }
+                }
+                box { at: fx, fy; size: 456, 58; corner: 14; color: mix(mix(#171717, #1d1d1e, toca.$k), #241f16, if(urg.$k, 1, 0)) }
                 //  La barra de su categoría, a la izquierda: es de donde saldrá
                 //  la gota cuando se resuelva.
-                box { at: fx - 214, fy; size: 4, 34; corner: 2; color: color.$k }
+                box { at: fx - 214, fy; size: 4, if(urg.$k, 46, 34); corner: 2; color: color.$k }
                 text fila.$k.app { at: fx - 200, fy - 18; anchor: left center; size: 8.5; weight: 700; color: color.$k }
                 text fila.$k.que { at: fx - 200, fy - 1; anchor: left center; size: 12.5; weight: 500; width: 300; lines: 1; color: ink }
                 text fila.$k.mas { at: fx - 200, fy + 17; anchor: left center; size: 10.5; width: 300; lines: 1; color: #8b8f95 }
@@ -1355,13 +1405,33 @@ scene Marea {
     //  vuelve volando a ella. Al llegar, el número de su gota baja con un toque
     //  y ella da un trago. Descartar no manda gota: lo descartado no vuelve.
     repeat k in 1..6 {
-        on press filazona.$k while viva.$k {
+        //  Arrastrarla la sigue, y al soltar decide: pasado el umbral se va por
+        //  donde iba, y si no vuelve sola con su muelle.
+        on drag filazona.$k while viva.$k { tira.$k: drag.dx ~16ms }
+        on release filazona.$k while viva.$k and tira.$k > 92 {
+            tira.$k: 0 ~16ms
             fuera.$k: 1 ~220ms
             suelta.$k: 1 ~380ms
             deshacer = true
             ultima = k
             play arde
             emit resolver(k)
+        }
+        //  Descartar: se va por la izquierda y **no manda gota**.
+        on release filazona.$k while viva.$k and tira.$k < -92 {
+            tira.$k: 0 ~16ms
+            fuera.$k: -1 ~220ms
+            viva.$k = false
+            emit descartar(k)
+        }
+        //  Y si no llegó al umbral, vuelve sola. Un toque —soltar donde se
+        //  pulsó— es abrirlo, no marcarlo: `press` no vale para esto, porque
+        //  arrastrar empieza por pulsar y lo daría por hecho al primer píxel.
+        on release filazona.$k while viva.$k and tira.$k > -92 and tira.$k < 92 {
+            tira.$k: 0
+        }
+        on release filazona.$k while viva.$k and tira.$k > -4 and tira.$k < 4 {
+            emit abrir_aviso(k)
         }
         //  Cuando la gota llega a ella: la fila se apaga y ella da un trago.
         on still suelta.$k for 60ms while suelta.$k > 0.97 {
