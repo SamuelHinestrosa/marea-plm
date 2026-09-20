@@ -15,12 +15,30 @@
 import "comun/paleta.plm"
 
 scene Marea {
-    permissions { services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*" }
+    permissions {
+        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*"
+        //  Cambiar de red o de auricular no lo sabe hacer pleamar todavía (su
+        //  B15), así que lo hace la lógica con las herramientas del sistema.
+        run: "nmcli", "bluetoothctl"
+    }
     service clock as ahora { time: text = "--:--"; date: text }
     service audio as sonido { volume: number; muted: bool; input: number; input_muted: bool }
     service media as medios { playing: bool; title: text; artist: text }
     service network as red { online: bool; name: text; kind: text; strength: number }
     service brightness as pantalla { present: bool; level: number }
+
+    // ── las páginas del centro de control ────────────────────────
+    //  Pulsar una tarjeta abre su página, y **la página sale de la tarjeta**:
+    //  crece desde su sitio hasta llenar el panel. No es una pantalla que
+    //  sustituye a otra; es la misma tarjeta, abierta.
+    fact pagina: ninguna | wifi | bluetooth | concentracion = ninguna
+    prop pag = 0 ~240ms
+    follow pag = if(pagina == ninguna, 0, 1)
+    model redes max 8 { nombre: text; senal: number; puesta: bool }
+    model cacharros max 8 { nombre: text; puesta: bool }
+    event mirar ->                     // «mira qué hay»: la lógica lo averigua
+    event elegir_red ->
+    event elegir_cacharro ->
 
     surface {
         //  La superficie tiene que dar de sí para la tarjeta **y su sombra**: 18 px
@@ -926,6 +944,9 @@ scene Marea {
         move: 0, (1 - content) * 10
 
         let x0 = card.x - 178
+        //  Lo de la portada se va mientras la página crece: no hay dos cosas a
+        //  medias, y lo que queda debajo se ve por el hueco de la que sube.
+        let portada = 1 - clamp(pag * 1.6, 0, 1)
         let y0 = card.y - 182
 
         text "MAREA" { at: x0, y0; anchor: left center; size: 9; weight: 600; color: ink; opacity: 38% }
@@ -954,177 +975,276 @@ scene Marea {
         on press engranaje { emit ajustes }
         on press cerrar { open = false }
 
-        // ── los dos niveles ──────────────────────────────────────
-        //  Arrastrarlos los mueve de verdad: la escena dice a dónde va el dedo
-        //  y la lógica se lo pide al sistema. Aquí no se inventa el valor —lo
-        //  sigue leyendo el servicio—, así que subir el volumen con la tecla
-        //  mueve esta misma pista.
-        //  Todo lo de abajo, medido sobre la lámina y escrito desde el centro
-        //  de la tarjeta: la cabecera acaba en −150 y el contenido empieza en
-        //  −134. Antes la columna de la derecha empezaba en −165 y se le subía
-        //  encima a la cruz.
-        let niv.x = card.x - 93
-        let niv.y = card.y - 15
-        box { at: niv.x, niv.y; size: 170, 238; corner: 16; color: #1b1b1c }
-        repeat k in 0..2 {
-            let sx = niv.x - 38 + k * 76
-            let val = if(k == 0, brillo, nivel)
-            let mudo = if(k == 0, 0, if(sonido.muted, 1, 0))
-            let hay = if(k == 0, if(pantalla.present, 1, 0), 1)
-            let arriba = niv.y - 110
-            let alto = 150
-            group {
-                opacity: 25% + hay * 75%
-                //  La pista, y lo lleno desde abajo.
-                box { at: sx, arriba + alto / 2; size: 14, alto; corner: 7; color: #2a2b2c }
-                box { from: sx - 7, arriba + alto * (1 - val); size: 14, alto * val; corner: 7
-                      color: mix(mint, #6b7280, mudo) }
-                //  Y el tirador, que es lo que dice dónde estás.
-                ellipse { at: sx, arriba + alto * (1 - val); radius: 9; color: #f0ece4 }
-            }
-            //  El icono va DEBAJO, y con él el rótulo y el tanto por ciento.
-            let iy = niv.y + 62
-            group {
-                opacity: (25% + hay * 75%) * (1 - mudo * 0.45)
-                //  El sol del brillo: un disco y ocho rayos.
-                ellipse { at: sx, iy; radius: 4.5; color: ink; show: k == 0 }
-                repeat r in 0..8 {
-                    line { from: sx + 7.5 * cos(r * 45), iy + 7.5 * sin(r * 45)
-                           to: sx + 10.5 * cos(r * 45), iy + 10.5 * sin(r * 45)
-                           width: 1.6; color: ink; show: k == 0 }
-                }
-                //  El altavoz del volumen: cuerpo, bocina y dos ondas.
-                path { at: sx - 8, iy - 5; color: ink; show: k == 1
-                       move 0, 3; line 4, 3; line 9, 0; line 9, 11; line 4, 8; line 0, 8; close }
-                arc { at: sx + 3, iy; radius: 6; span: 110deg; width: 1.5; rotate: 90deg; color: ink; show: k == 1 }
-                arc { at: sx + 3, iy; radius: 9.5; span: 110deg; width: 1.5; rotate: 90deg; color: ink; show: k == 1 }
-            }
-            line { from: sx - 9, iy - 9; to: sx + 9, iy + 9; width: 1.8; color: #e0655a; opacity: mudo }
-            text "Brillo" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 0 }
-            text "Volumen" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 1 }
-            text "{val * 100, 0}%" { at: sx, iy + 42; anchor: center; size: 11.5; weight: 500; color: mint }
-            //  Arrastrar la pista, y pulsar el icono para silenciar.
-            zone box pista.$k { at: sx, arriba + alto / 2; size: 34, alto + 18; corner: 17; cursor: pointer; active: content > 0.9 }
-            zone box icono.$k { at: sx, iy; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 }
-
-        }
-        //  La pista: donde sueltes el dedo, ahí va. Con `pointer.y`, que es
-        //  sobre la superficie, o sea las mismas coordenadas con las que está
-        //  dibujada la pista: así la cuenta se lee al lado del dibujo.
-        let dedo.0 = 1 - clamp((pointer.y - (card.y - 140)) / 150, 0, 1)
-        on drag pista.0 { emit mover_brillo(dedo.0) }
-        on press pista.0 { emit mover_brillo(dedo.0) }
-        on drag pista.1 { emit mover_volumen(dedo.0) }
-        on press pista.1 { emit mover_volumen(dedo.0) }
-        on press icono.1 { emit mute_salida }
-
-        // ── las tres de la lámina ────────────────────────────────
-        //  Cada tarjeta es una `row` de tres: el icono, lo que se lee, y el
-        //  interruptor o la flecha. Lo del medio pide el sitio que sobra
-        //  (`grow: 1`) y sus textos lo cogen de ancho, así que **aquí no hay un
-        //  solo ancho escrito a mano** y lo que no cabe se corta solo. Antes lo
-        //  ponía yo y por eso el nombre de la red se metía bajo el interruptor.
-        text titulo.1 = "Wi-Fi"
-        text titulo.2 = "Bluetooth"
-        text titulo.3 = "Concentración"
-        text sub.1 = ""
-        text sub.2 = "Auriculares"
-        text sub.3 = "25 min"
-        //  Los muelles y las zonas van FUERA del reparto: dentro de una `column`
-        //  todo lo que hay es un hijo, y un `prop` no ocupa sitio.
-        repeat k in 1..4 {
-            prop luz.$k = 0 ~140ms
-            zone box fila.$k { at: card.x + 90, card.y - 96 + (k - 1) * 74; size: 173, 66; corner: 14; cursor: pointer; active: content > 0.9 }
-            on enter fila.$k { luz.$k: 1 }
-            on leave fila.$k { luz.$k: 0 }
-            on press fila.$k { emit conmutar(k) }
-        }
-        column tarjetas {
-            at: card.x + 4, card.y - 129
-            gap: 8
-            repeat k in 1..4 {
-                row tarjeta {
-                    size: 173, 66
-                    gap: 6
-                    padding: 8
-                    //  La de Concentración va resaltada cuando está puesta: el
-                    //  fondo un punto más verde. Es el único borde del panel, y
-                    //  lo pinta la tarjeta, no el reparto.
-                    fill: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k * if(k == 3, 1, 0))
-                    corner: 14
-                    group {
-                        size: 20, 22
-                        //  Wi-Fi: tres arcos y el punto.
-                        repeat a in 1..4 {
-                            arc { at: 11, 14; radius: 3 + a * 3.4; span: 110deg; width: 1.8; color: ink
-                                  opacity: 40% + encendida.1 * 60%; show: k == 1 }
-                        }
-                        ellipse { at: 11, 15; radius: 1.8; color: ink; opacity: 40% + encendida.1 * 60%; show: k == 1 }
-                        //  Bluetooth: la runa, de un trazo.
-                        path { at: 6, 2; color: ink; stroke: 1.8; opacity: 40% + encendida.2 * 60%; show: k == 2
-                               move 0, 4; line 10, 14; line 5, 18; line 5, 0; line 10, 4; line 0, 14 }
-                        //  Concentración: la luna, que es un disco al que otro
-                        //  del color de la tarjeta le come un lado.
-                        ellipse { at: 11, 11; radius: 9; color: ink; opacity: 70%; show: k == 3 }
-                        ellipse { at: 16, 6; radius: 8.5; show: k == 3
-                                  color: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k) }
-                    }
-                    //  Lo que se lee, con el sitio que quede. Sin anchos.
-                    column { grow: 1; gap: 2
-                        text titulo.$k { size: 13; lines: 1; color: ink }
-                        text sub.$k { size: 11.5; lines: 1; color: #8b8f95; show: k != 1 }
-                        text red.name { size: 11.5; lines: 1; color: #8b8f95; show: k == 1 }
-                    }
-                    //  El interruptor, o la flecha de las que abren una página.
-                    //  La que abre una página solo lleva flecha, así que ocupa
-                    //  mucho menos y a su texto le queda más sitio.
-                    group {
-                        size: if(k < 3, 40, 12), 23
-                        box { from: 0, 0; size: 40, 23; corner: 11.5; color: mix(#2a2b2c, mint, encendida.$k); show: k < 3 }
-                        ellipse { at: 11.5 + 18 * encendida.$k, 11.5; radius: 8.5; color: #ffffff; show: k < 3 }
-                        path { at: 3, 6; color: ink; stroke: 1.6; opacity: 70%; show: k == 3
-                               move 0, 0; line 5, 5; line 0, 10 }
-                    }
-                }
-            }
-        }
-        //  El filo de menta de la que está puesta. Va aparte y con `stroke`
-        //  —solo el contorno— porque el fondo de una maquetación es un color y
-        //  no lleva borde; un `body` relleno encima tapaba la tarjeta entera.
-        box { at: card.x + 90, card.y + 52; size: 173, 66; corner: 14
-              stroke: 1; color: mint; opacity: encendida.3 }
-
-
-        // ── la línea y lo que suena ──────────────────────────────
-        line { from: x0, card.y + 121; to: card.x + 178, card.y + 121; width: 1; color: ink; opacity: 12% }
-        let by = card.y + 161
         group {
-            show: medios.playing
-            //  La portada, que aquí es un degradado: no hay carátula todavía.
-            body {
-                gradient: radial x0 + 28, by - 6 radius 44, #e8c9a8, #6f8f7d
-                box { at: x0 + 28, by; size: 56, 56; corner: 12 }
+            opacity: portada
+            // ── los dos niveles ──────────────────────────────────────
+            //  Arrastrarlos los mueve de verdad: la escena dice a dónde va el dedo
+            //  y la lógica se lo pide al sistema. Aquí no se inventa el valor —lo
+            //  sigue leyendo el servicio—, así que subir el volumen con la tecla
+            //  mueve esta misma pista.
+            //  Todo lo de abajo, medido sobre la lámina y escrito desde el centro
+            //  de la tarjeta: la cabecera acaba en −150 y el contenido empieza en
+            //  −134. Antes la columna de la derecha empezaba en −165 y se le subía
+            //  encima a la cruz.
+            let niv.x = card.x - 93
+            let niv.y = card.y - 15
+            box { at: niv.x, niv.y; size: 170, 238; corner: 16; color: #1b1b1c }
+            repeat k in 0..2 {
+                let sx = niv.x - 38 + k * 76
+                let val = if(k == 0, brillo, nivel)
+                let mudo = if(k == 0, 0, if(sonido.muted, 1, 0))
+                let hay = if(k == 0, if(pantalla.present, 1, 0), 1)
+                let arriba = niv.y - 110
+                let alto = 150
+                group {
+                    opacity: 25% + hay * 75%
+                    //  La pista, y lo lleno desde abajo.
+                    box { at: sx, arriba + alto / 2; size: 14, alto; corner: 7; color: #2a2b2c }
+                    box { from: sx - 7, arriba + alto * (1 - val); size: 14, alto * val; corner: 7
+                          color: mix(mint, #6b7280, mudo) }
+                    //  Y el tirador, que es lo que dice dónde estás.
+                    ellipse { at: sx, arriba + alto * (1 - val); radius: 9; color: #f0ece4 }
+                }
+                //  El icono va DEBAJO, y con él el rótulo y el tanto por ciento.
+                let iy = niv.y + 62
+                group {
+                    opacity: (25% + hay * 75%) * (1 - mudo * 0.45)
+                    //  El sol del brillo: un disco y ocho rayos.
+                    ellipse { at: sx, iy; radius: 4.5; color: ink; show: k == 0 }
+                    repeat r in 0..8 {
+                        line { from: sx + 7.5 * cos(r * 45), iy + 7.5 * sin(r * 45)
+                               to: sx + 10.5 * cos(r * 45), iy + 10.5 * sin(r * 45)
+                               width: 1.6; color: ink; show: k == 0 }
+                    }
+                    //  El altavoz del volumen: cuerpo, bocina y dos ondas.
+                    path { at: sx - 8, iy - 5; color: ink; show: k == 1
+                           move 0, 3; line 4, 3; line 9, 0; line 9, 11; line 4, 8; line 0, 8; close }
+                    arc { at: sx + 3, iy; radius: 6; span: 110deg; width: 1.5; rotate: 90deg; color: ink; show: k == 1 }
+                    arc { at: sx + 3, iy; radius: 9.5; span: 110deg; width: 1.5; rotate: 90deg; color: ink; show: k == 1 }
+                }
+                line { from: sx - 9, iy - 9; to: sx + 9, iy + 9; width: 1.8; color: #e0655a; opacity: mudo }
+                text "Brillo" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 0 }
+                text "Volumen" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 1 }
+                text "{val * 100, 0}%" { at: sx, iy + 42; anchor: center; size: 11.5; weight: 500; color: mint }
+                //  Arrastrar la pista, y pulsar el icono para silenciar.
+                zone box pista.$k { at: sx, arriba + alto / 2; size: 34, alto + 18; corner: 17; cursor: pointer; active: content > 0.9 }
+                zone box icono.$k { at: sx, iy; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 }
+
             }
-            text medios.title { at: x0 + 66, by - 9; anchor: left center; size: 12.5; width: 130; lines: 1; color: ink }
-            text medios.artist { at: x0 + 66, by + 10; anchor: left center; size: 11; width: 130; lines: 1; color: #8b8f95 }
-            //  Anterior, pausa y siguiente. La pausa va en su disco lleno.
-            let bx1 = card.x + 76
-            let bx3 = card.x + 156
-            path { at: bx1 - 6, by - 7; color: ink; move 12, 0; line 12, 14; line 0, 7; close }
-            box { at: bx1 - 8, by; size: 2.6, 14; corner: 1.3; color: ink }
-            ellipse { at: card.x + 116, by; radius: 19; color: #2a2b2c }
-            box { at: card.x + 112, by; size: 3.4, 14; corner: 1.7; color: ink }
-            box { at: card.x + 120, by; size: 3.4, 14; corner: 1.7; color: ink }
-            path { at: bx3 - 6, by - 7; color: ink; move 0, 0; line 12, 7; line 0, 14; close }
-            box { at: bx3 + 10, by; size: 2.6, 14; corner: 1.3; color: ink }
-            zone box antes { at: bx1, by; size: 34, 34; corner: 17; cursor: pointer; active: content > 0.9 }
-            zone box tocar { at: card.x + 116, by; size: 42, 42; corner: 21; cursor: pointer; active: content > 0.9 }
-            zone box luego { at: bx3, by; size: 34, 34; corner: 17; cursor: pointer; active: content > 0.9 }
-            on press antes { emit anterior }
-            on press tocar { emit tocar_pausa }
-            on press luego { emit siguiente }
+            //  La pista: donde sueltes el dedo, ahí va. Con `pointer.y`, que es
+            //  sobre la superficie, o sea las mismas coordenadas con las que está
+            //  dibujada la pista: así la cuenta se lee al lado del dibujo.
+            let dedo.0 = 1 - clamp((pointer.y - (card.y - 140)) / 150, 0, 1)
+            on drag pista.0 { emit mover_brillo(dedo.0) }
+            on press pista.0 { emit mover_brillo(dedo.0) }
+            on drag pista.1 { emit mover_volumen(dedo.0) }
+            on press pista.1 { emit mover_volumen(dedo.0) }
+            on press icono.1 { emit mute_salida }
+
+            // ── las tres de la lámina ────────────────────────────────
+            //  Cada tarjeta es una `row` de tres: el icono, lo que se lee, y el
+            //  interruptor o la flecha. Lo del medio pide el sitio que sobra
+            //  (`grow: 1`) y sus textos lo cogen de ancho, así que **aquí no hay un
+            //  solo ancho escrito a mano** y lo que no cabe se corta solo. Antes lo
+            //  ponía yo y por eso el nombre de la red se metía bajo el interruptor.
+            text titulo.1 = "Wi-Fi"
+            text titulo.2 = "Bluetooth"
+            text titulo.3 = "Concentración"
+            text sub.1 = ""
+            text sub.2 = "Auriculares"
+            text sub.3 = "25 min"
+            //  Los muelles y las zonas van FUERA del reparto: dentro de una `column`
+            //  todo lo que hay es un hijo, y un `prop` no ocupa sitio.
+            repeat k in 1..4 {
+                prop luz.$k = 0 ~140ms
+                zone box fila.$k { at: card.x + 90, card.y - 96 + (k - 1) * 74; size: 173, 66; corner: 14; cursor: pointer; active: content > 0.9 }
+                on enter fila.$k { luz.$k: 1 }
+                on leave fila.$k { luz.$k: 0 }
+                //  Pulsar la tarjeta abre su página. El interruptor de Wi-Fi y
+            //  Bluetooth sigue siendo del sistema; lo que aquí se abre es la lista.
+            on press fila.$k { emit conmutar(k); emit mirar(k) }
+            }
+            column tarjetas {
+                at: card.x + 4, card.y - 129
+                gap: 8
+                repeat k in 1..4 {
+                    row tarjeta {
+                        size: 173, 66
+                        gap: 6
+                        padding: 8
+                        //  La de Concentración va resaltada cuando está puesta: el
+                        //  fondo un punto más verde. Es el único borde del panel, y
+                        //  lo pinta la tarjeta, no el reparto.
+                        fill: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k * if(k == 3, 1, 0))
+                        corner: 14
+                        group {
+                            size: 20, 22
+                            //  Wi-Fi: tres arcos y el punto.
+                            repeat a in 1..4 {
+                                arc { at: 11, 14; radius: 3 + a * 3.4; span: 110deg; width: 1.8; color: ink
+                                      opacity: 40% + encendida.1 * 60%; show: k == 1 }
+                            }
+                            ellipse { at: 11, 15; radius: 1.8; color: ink; opacity: 40% + encendida.1 * 60%; show: k == 1 }
+                            //  Bluetooth: la runa, de un trazo.
+                            path { at: 6, 2; color: ink; stroke: 1.8; opacity: 40% + encendida.2 * 60%; show: k == 2
+                                   move 0, 4; line 10, 14; line 5, 18; line 5, 0; line 10, 4; line 0, 14 }
+                            //  Concentración: la luna, que es un disco al que otro
+                            //  del color de la tarjeta le come un lado.
+                            ellipse { at: 11, 11; radius: 9; color: ink; opacity: 70%; show: k == 3 }
+                            ellipse { at: 16, 6; radius: 8.5; show: k == 3
+                                      color: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k) }
+                        }
+                        //  Lo que se lee, con el sitio que quede. Sin anchos.
+                        column { grow: 1; gap: 2
+                            text titulo.$k { size: 13; lines: 1; color: ink }
+                            text sub.$k { size: 11.5; lines: 1; color: #8b8f95; show: k != 1 }
+                            text red.name { size: 11.5; lines: 1; color: #8b8f95; show: k == 1 }
+                        }
+                        //  El interruptor, o la flecha de las que abren una página.
+                        //  La que abre una página solo lleva flecha, así que ocupa
+                        //  mucho menos y a su texto le queda más sitio.
+                        group {
+                            size: if(k < 3, 40, 12), 23
+                            box { from: 0, 0; size: 40, 23; corner: 11.5; color: mix(#2a2b2c, mint, encendida.$k); show: k < 3 }
+                            ellipse { at: 11.5 + 18 * encendida.$k, 11.5; radius: 8.5; color: #ffffff; show: k < 3 }
+                            path { at: 3, 6; color: ink; stroke: 1.6; opacity: 70%; show: k == 3
+                                   move 0, 0; line 5, 5; line 0, 10 }
+                        }
+                    }
+                }
+            }
+            //  El filo de menta de la que está puesta. Va aparte y con `stroke`
+            //  —solo el contorno— porque el fondo de una maquetación es un color y
+            //  no lleva borde; un `body` relleno encima tapaba la tarjeta entera.
+            box { at: card.x + 90, card.y + 52; size: 173, 66; corner: 14
+                  stroke: 1; color: mint; opacity: encendida.3 }
+
+
         }
-        text "No suena nada" { at: card.x, by; anchor: center; size: 11.5; color: #8b8f95; show: not medios.playing }
+
+        // ── la página, que sale de su tarjeta ────────────────────
+        //  Crece desde el sitio de la tarjeta que se pulsó hasta llenar el
+        //  panel. Lo de debajo se va mientras tanto: no hay dos cosas a medias.
+        let pg.k = if(pagina == bluetooth, 2, 0) + if(pagina == concentracion, 3, 0) + if(pagina == wifi, 1, 0)
+        let pg.ox = card.x + 90
+        let pg.oy = card.y - 96 + (pg.k - 1) * 74
+        let pg.x = pg.ox + (card.x - pg.ox) * pag
+        let pg.y = pg.oy + (card.y + 26 - pg.oy) * pag
+        let pg.w = 173 + 183 * pag
+        let pg.h = 66 + 254 * pag
+        box { at: pg.x, pg.y; size: pg.w, pg.h; corner: 14; color: #1b1b1c; opacity: pag }
+
+        group {
+            opacity: clamp(pag * 3 - 2, 0, 1)
+            let px0 = card.x - 150
+            //  La cabecera de la página: hacia atrás, y de qué va.
+            path { at: card.x - 170, card.y - 122; color: ink; stroke: 1.8; opacity: 70%
+                   move 5, 0; line 0, 5; line 5, 10 }
+            text "Wi-Fi" { at: px0, card.y - 117; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == wifi }
+            text "Bluetooth" { at: px0, card.y - 117; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == bluetooth }
+            text "Concentración" { at: px0, card.y - 117; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == concentracion }
+            zone box atras { at: card.x - 166, card.y - 117; size: 34, 34; corner: 17; cursor: pointer; active: pag > 0.9 }
+            on press atras { pagina = ninguna }
+
+            //  Las redes que hay. Las trae la lógica de `nmcli`, porque pleamar
+            //  sabe leer la red pero no listarla ni cambiarla.
+            column lista_redes {
+                at: card.x - 170, card.y - 96
+                gap: 4
+                show: pagina == wifi
+                for r in redes {
+                    group {
+                        size: 340, 38
+                        box { from: 0, 0; size: 340, 38; corner: 10; color: mix(#202021, #1a241f, r.puesta) }
+                        //  La fuerza, con los mismos arcos de la tarjeta: cuantos
+                        //  más encendidos, mejor llega.
+                        repeat a in 1..4 {
+                            arc { at: 20, 22; radius: 3 + a * 3.2; span: 110deg; width: 1.7; color: ink
+                                  opacity: 20% + 80% * if(r.senal > (a - 1) * 0.25, 1, 0) }
+                        }
+                        ellipse { at: 20, 23; radius: 1.7; color: ink }
+                        text r.nombre { at: 42, 19; anchor: left center; size: 12; width: 240; lines: 1; color: ink }
+                        ellipse { at: 322, 19; radius: 4; color: mint; opacity: if(r.puesta, 100%, 0%) }
+                        zone box tocarla { from: 0, 0; size: 340, 38; corner: 10; cursor: pointer }
+                        on press tocarla { emit elegir_red(r.index) }
+                    }
+                }
+            }
+            text "Buscando redes…" { at: card.x, card.y + 20; anchor: center; size: 11.5; color: #8b8f95
+                                     show: pagina == wifi and redes.count < 1 }
+
+            //  Y los auriculares y demás, de `bluetoothctl`.
+            column lista_bt {
+                at: card.x - 170, card.y - 96
+                gap: 4
+                show: pagina == bluetooth
+                for c in cacharros {
+                    group {
+                        size: 340, 38
+                        box { from: 0, 0; size: 340, 38; corner: 10; color: mix(#202021, #1a241f, c.puesta) }
+                        path { at: 15, 11; color: ink; stroke: 1.7; opacity: 80%
+                               move 0, 4; line 10, 14; line 5, 18; line 5, 0; line 10, 4; line 0, 14 }
+                        text c.nombre { at: 42, 19; anchor: left center; size: 12; width: 240; lines: 1; color: ink }
+                        ellipse { at: 322, 19; radius: 4; color: mint; opacity: if(c.puesta, 100%, 0%) }
+                        zone box tocarlo { from: 0, 0; size: 340, 38; corner: 10; cursor: pointer }
+                        on press tocarlo { emit elegir_cacharro(c.index) }
+                    }
+                }
+            }
+            text "Nada emparejado" { at: card.x, card.y + 20; anchor: center; size: 11.5; color: #8b8f95
+                                     show: pagina == bluetooth and cacharros.count < 1 }
+
+            //  Concentración: lo que hace, dicho. No hay lista que traer.
+            group {
+                show: pagina == concentracion
+                text "Mientras dure, los avisos se guardan y no se enseñan." {
+                    at: card.x - 170, card.y - 86; anchor: left center; size: 12; width: 340; lines: 2; color: #8b8f95 }
+                repeat m in 0..3 {
+                    let mx = card.x - 156 + m * 114
+                    prop mluz.$m = 0 ~140ms
+                    box { at: mx, card.y - 20; size: 104, 44; corner: 12; color: mix(#202021, #262728, mluz.$m) }
+                    text "{25 + m * 20} min" { at: mx, card.y - 20; anchor: center; size: 12.5; color: ink }
+                    zone box mzona.$m { at: mx, card.y - 20; size: 104, 44; corner: 12; cursor: pointer; active: pagina == concentracion and pag > 0.9 }
+                    on enter mzona.$m { mluz.$m: 1 }
+                    on leave mzona.$m { mluz.$m: 0 }
+                }
+            }
+        }
+
+        group {
+            opacity: portada
+            // ── la línea y lo que suena ──────────────────────────────
+            line { from: x0, card.y + 121; to: card.x + 178, card.y + 121; width: 1; color: ink; opacity: 12% }
+            let by = card.y + 161
+            group {
+                show: medios.playing
+                //  La portada, que aquí es un degradado: no hay carátula todavía.
+                body {
+                    gradient: radial x0 + 28, by - 6 radius 44, #e8c9a8, #6f8f7d
+                    box { at: x0 + 28, by; size: 56, 56; corner: 12 }
+                }
+                text medios.title { at: x0 + 66, by - 9; anchor: left center; size: 12.5; width: 130; lines: 1; color: ink }
+                text medios.artist { at: x0 + 66, by + 10; anchor: left center; size: 11; width: 130; lines: 1; color: #8b8f95 }
+                //  Anterior, pausa y siguiente. La pausa va en su disco lleno.
+                let bx1 = card.x + 76
+                let bx3 = card.x + 156
+                path { at: bx1 - 6, by - 7; color: ink; move 12, 0; line 12, 14; line 0, 7; close }
+                box { at: bx1 - 8, by; size: 2.6, 14; corner: 1.3; color: ink }
+                ellipse { at: card.x + 116, by; radius: 19; color: #2a2b2c }
+                box { at: card.x + 112, by; size: 3.4, 14; corner: 1.7; color: ink }
+                box { at: card.x + 120, by; size: 3.4, 14; corner: 1.7; color: ink }
+                path { at: bx3 - 6, by - 7; color: ink; move 0, 0; line 12, 7; line 0, 14; close }
+                box { at: bx3 + 10, by; size: 2.6, 14; corner: 1.3; color: ink }
+                zone box antes { at: bx1, by; size: 34, 34; corner: 17; cursor: pointer; active: content > 0.9 }
+                zone box tocar { at: card.x + 116, by; size: 42, 42; corner: 21; cursor: pointer; active: content > 0.9 }
+                zone box luego { at: bx3, by; size: 34, 34; corner: 17; cursor: pointer; active: content > 0.9 }
+                on press antes { emit anterior }
+                on press tocar { emit tocar_pausa }
+                on press luego { emit siguiente }
+            }
+            text "No suena nada" { at: card.x, by; anchor: center; size: 11.5; color: #8b8f95; show: not medios.playing }
+        }
+
     }
 
 
