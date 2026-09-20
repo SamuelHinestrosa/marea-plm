@@ -227,6 +227,15 @@ scene Marea {
     follow hueco.4 = if(viva.1 and (urg.1 or not urg.4), 1, 0) + if(viva.2 and (urg.2 or not urg.4), 1, 0) + if(viva.3 and (urg.3 or not urg.4), 1, 0) + if(viva.5 and urg.5 and not urg.4, 1, 0)
     follow hueco.5 = if(viva.1 and (urg.1 or not urg.5), 1, 0) + if(viva.2 and (urg.2 or not urg.5), 1, 0) + if(viva.3 and (urg.3 or not urg.5), 1, 0) + if(viva.4 and (urg.4 or not urg.5), 1, 0)
     follow hay_urgente = if(viva.1 and urg.1, 1, 0) + if(viva.2 and urg.2, 1, 0) + if(viva.3 and urg.3, 1, 0) + if(viva.4 and urg.4, 1, 0) + if(viva.5 and urg.5, 1, 0)
+    //  De qué categoría es lo urgente que hay vivo: es lo que hace que SU gota
+    //  suba al alto del hombro y se ponga ámbar mientras dure. Va en props
+    //  porque un `let` no ve los hechos que declara un `repeat`.
+    repeat k in 1..5 {
+        prop urgente.$k = 0 ~16ms
+        follow urgente.$k = clamp(if(viva.1 and urg.1 and catfila.1 == k, 1, 0) + if(viva.2 and urg.2 and catfila.2 == k, 1, 0) + if(viva.3 and urg.3 and catfila.3 == k, 1, 0) + if(viva.4 and urg.4 and catfila.4 == k, 1, 0) + if(viva.5 and urg.5 and catfila.5 == k, 1, 0), 0, 1)
+    }
+    prop urg.hay = 0 ~16ms
+    follow urg.hay = urgente.1 + urgente.2 + urgente.3 + urgente.4
     fact catfila.2 = 3
     fact catfila.3 = 2
     fact catfila.4 = 4
@@ -992,7 +1001,11 @@ scene Marea {
     repeat k in 1..5 {
         prop sitio.$k = 0 ~calm
         prop hay.$k = 0 ~240ms
-        follow sitio.$k = if(n.1 > 0 and last.1 > last.$k, 1, 0) + if(n.2 > 0 and last.2 > last.$k, 1, 0) + if(n.3 > 0 and last.3 > last.$k, 1, 0) + if(n.4 > 0 and last.4 > last.$k, 1, 0)
+        //  «La gota ámbar sube y se queda arriba mientras dure»: la de la
+        //  categoría que tiene algo urgente se va al sitio 0 —lo alto del
+        //  hombro— y las demás bajan uno para dejárselo. Al resolverlo, cada
+        //  una vuelve a su sitio por recencia, sin que nadie las recoloque.
+        follow sitio.$k = (1 - urgente.$k) * (if(n.1 > 0 and last.1 > last.$k, 1, 0) + if(n.2 > 0 and last.2 > last.$k, 1, 0) + if(n.3 > 0 and last.3 > last.$k, 1, 0) + if(n.4 > 0 and last.4 > last.$k, 1, 0) + clamp(urg.hay - urgente.$k, 0, 1))
         //  En Remanso las gotas del hombro se recogen: ahí abajo son perlas.
         follow hay.$k = if(n.$k > 0 and not open, 1, 0) * (1 - calma) * (1 - resumen)
         //  Del hombro al abanico **por el arco**: lo que se anima es el ángulo,
@@ -1005,7 +1018,9 @@ scene Marea {
         let radio.$k = 31.7 + 10.3 * abanico
         let gx.$k = cx + radio.$k * cos(ang.$k)
         let gy.$k = cy_real + radio.$k * sin(ang.$k)
-        let color.$k = mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5)
+        //  Y en ámbar mientras dure, como su fila en la bandeja: lo que importa
+        //  de esa gota ya no es de quién es, es que corre prisa.
+        let color.$k = mix(mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5), #e2b25a, urgente.$k)
         group {
             pivot: gx.$k, gy.$k
             scale: hay.$k * (1 + late.$k), hay.$k * (1 + late.$k)
@@ -1264,6 +1279,26 @@ scene Marea {
     //  Y la zona de gracia —ella y el menú— va DEBAJO de las filas, como todas
     //  las demás: declarada después se quedaba con sus clics. Van cinco.
     zone box menu_conj { at: cx + 60, menu.cy; size: 300, menu.h + 90; corner: 24; active: menu > 0.01 }
+
+    // ── la gota de sudor ─────────────────────────────────────────
+    //  «En ella una admiración en la cara, una gota de sudor y un salto corto.»
+    //  Aparece con la admiración, resbala un poco y se va: es una reacción, no
+    //  un estado, y por eso no dura lo que dure la urgencia —eso es lo que hace
+    //  la gota ámbar del hombro—. Va a su izquierda porque a la derecha le sale
+    //  la bandeja, que es lo que el urgente acaba de abrir.
+    prop sudor = 0 ~180ms
+    prop resbala = 0 ~900ms
+    on change face == alerta while face == alerta {
+        sudor: 1
+        resbala: 0 ~16ms
+        resbala: 1 ~900ms after 60ms
+        sudor: 0 ~300ms after 1100ms
+    }
+    //  Una gota de verdad: la punta arriba y el cuerpo gordo abajo, que es lo
+    //  que la hace leerse como una gota y no como un óvalo.
+    path { at: cx - 19, cy_real - 18 + resbala * 9; color: #bfe6f2; opacity: sudor * 88%
+           move 0, -5.5; curve 3.6, 1.6 via 3.6, -2.2; curve 0, 5.4 via 3.6, 4.4
+           curve -3.6, 1.6 via -3.6, 4.4; curve 0, -5.5 via -3.6, -2.2; close }
 
     // ── el armario ───────────────────────────────────────────────
     //  Las piezas son SVG: se dibujan en un editor, se sueltan en `armario/` y
@@ -1826,6 +1861,10 @@ scene Marea {
     on notice while not remanso and fase == 0 and out > 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; marca = marca + 1; needed = true; wanted = true; play startle; entra: 1 ~220ms }
     on notice while not remanso and fase == 0 and out <= 0.9 { cual = cat; fase = 1; cuantos = 1; seq = seq + 1; miseq = seq; needed = true; wanted = true; play startle; entra: 1 ~220ms after 560ms }
     on change out > 0.9 while fase == 1 { marca = marca + 1 }
+    //  Y el respingo **cuando ya se la ve**. Hundida, el gesto se lo daba
+    //  debajo del agua —620 ms de viaje— y al asomar ya se había acabado: la
+    //  sorpresa de un aviso que llega no se la ve nunca si llega hundida.
+    on change out > 0.9 while fase == 1 and out > 0.9 { play startle }
     //  Otro mientras aún se está leyendo: se apila, y la lectura vuelve a
     //  empezar. Ni un bote más: el gesto ya está puesto, y una mascota que pega
     //  un bote por cada mensaje de un grupo se acaba apagando.
@@ -1844,6 +1883,11 @@ scene Marea {
     //  3,2 s para leer una; 4,2 si son varias, que es lo que dice el contrato.
     //  Son dos reglas porque el `for` de una regla es un tiempo escrito y no una
     //  cuenta; aquí no estorba, y dicho dos veces se lee bien.
+    //  Y si se abre el oleaje, la tarjeta que llega **se va**: lo que dice ya
+    //  está dentro, y dejarla encima es la misma noticia dos veces —es justo
+    //  lo que se veía al abrirla un urgente—. No desaparece: sale volando a su
+    //  gota, que es el viaje que tenía que hacer de todas formas.
+    on change bandeja while bandeja and fase == 1 { fase = 2 }
     on still marca for 3.2s while fase == 1 and not sobre and cuantos < 2 { fase = 2 }
     on still marca for 4.2s while fase == 1 and not sobre and cuantos > 1 { fase = 2 }
     //  Y vuelan juntas, cada una un poco después de la anterior.
@@ -1867,6 +1911,14 @@ scene Marea {
     //  Llegar no abre nada: se abre pulsándola a ella, o una gota.
     on abrir_bandeja { bandeja = true }
     on cerrar_bandeja { bandeja = false }
+    //  Y si se abrió SOLA —un urgente— y nadie se acerca, se cierra sola. El
+    //  `away` de su zona de gracia solo cuenta para quien estuvo dentro, así
+    //  que una bandeja que nadie llegó a visitar se quedaba abierta para
+    //  siempre: es lo que pasó al acabar la demostración.
+    fact visitada = false
+    on enter bandeja_conj { visitada = true }
+    on leave bandeja_conj { visitada = false }
+    on still bandeja for 7s while bandeja and not visitada { emit cerrar_bandeja }
     follow tray = if(bandeja, 1, 0)
     //  Las gotas se van al carril en cuanto la bandeja empieza a salir.
     follow carril = if(bandeja, 1, 0)

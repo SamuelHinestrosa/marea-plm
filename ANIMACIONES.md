@@ -753,8 +753,40 @@ nunca; en cuanto llegaron dos de Telegram seguidos, salieron de colores
 distintos. Es exactamente para lo que sirve enchufar una cosa a datos que no has
 elegido tú.
 
-**Lo que falta de la bandeja:** la gota de sudor y la gota ámbar que sube y se
-queda arriba mientras dure.
+### El sudor, la gota que sube, y lo que sobraba
+
+![El urgente: sudor, gota ámbar arriba y la bandeja sin la tarjeta encima](evidencia/urgente-sudor.png)
+
+> «Un urgente no se agrupa: fila propia, arriba y en ámbar. Abre la bandeja sin
+> quitar el teclado, y en ella una admiración en la cara, **una gota de sudor y
+> un salto corto**; **la gota ámbar sube y se queda arriba mientras dure**.»
+
+- **La gota de sudor** sale con la admiración, resbala 9 px y se va: **1 266 ms**
+  medidos. Es una reacción, no un estado —lo que dura lo que dure la urgencia es
+  la otra— y va a su izquierda, porque a la derecha le acaba de salir la bandeja.
+- **La gota ámbar sube y se queda.** La de la categoría que tiene algo urgente se
+  va al sitio 0 —lo alto del hombro— y las demás bajan uno para dejárselo;
+  medido: **416 ms** en llegar, y de ámbar mientras dure, igual que su fila.
+  Al resolverlo, cada una vuelve a su sitio por recencia sin que nadie las
+  recoloque: el sitio de una gota siempre ha sido «cuántas hay más recientes que
+  yo», y ahora es eso mismo con el urgente por delante.
+- **Y el respingo, cuando ya se la ve.** Estaba puesto desde el principio, pero
+  si el aviso llegaba con ella hundida el gesto se lo daba **debajo del agua**
+  —620 ms de viaje— y al asomar ya se había acabado. Ahora salta al salir.
+
+Dos cosas más que se vieron al verlo entero y no en capturas sueltas:
+
+- **La tarjeta pequeña se quedaba encima de la bandeja**, diciendo lo mismo que
+  su primera fila. Ahora, al abrirse el oleaje, se va: no desaparece, **sale
+  volando a su gota**, que es el viaje que tenía que hacer igualmente. Medido:
+  **367 ms** desde que abre la bandeja.
+- **Y la bandeja que se abría sola se quedaba abierta para siempre.** `away`
+  solo cuenta para quien estuvo dentro, así que una bandeja que abrió un urgente
+  y que nadie llegó a visitar no se cerraba nunca. Ahora, si a los **7 s** nadie
+  se ha acercado, se cierra sola; si estás encima, no.
+
+**Lo que falta de la bandeja:** nada de esto. Queda la llegada con ella dormida,
+que necesita el estado de dormir.
 
 ## El Remanso
 
@@ -1193,5 +1225,4 @@ Dieciocho, todas arregladas en pleamar en vez de esquivadas aquí:
   automático y la llegada de un aviso con ella dormida. Con eso se cierra
   también el único hueco del Remanso —«el sueño automático queda suspendido
   mientras dure»—, que hoy no se puede ni incumplir.
-- De la bandeja: la gota de sudor del urgente y la gota ámbar que sube y se
-  queda arriba mientras dure.
+- De la bandeja ya no queda nada: el sudor y la gota ámbar están puestos.
