@@ -34,9 +34,9 @@ scene Marea {
     // ── dónde vive ───────────────────────────────────────────────
     //  En reposo vive arriba y centrada; al abrirse se aparta a la izquierda para
     //  presentar la tarjeta, que es como está en la lámina del centro de control.
-    let cx = 120 + (1 - card) * 240
+    let cx = 120 + (1 - max(card, tray)) * 240
     //  Abierta, baja a la altura de la cabecera de la tarjeta, como en la lámina.
-    let cy = 46 + card * 46
+    let cy = 46 + max(card, tray) * 46
     let r = 23                        // la mitad de los 46 px de la lámina
 
     // ── lo que la mueve ──────────────────────────────────────────
@@ -84,6 +84,58 @@ scene Marea {
     fact marca = 0                     // cada vez que la lectura vuelve a empezar
     fact seq = 0                       // para saber cuál es el más reciente
     fact cuantos = 1                   // cuántas trae la ráfaga
+    // ── la bandeja ───────────────────────────────────────────────
+    //  «Todo llega, tú decides». Llegar no la abre: se abre pulsándola a ella,
+    //  la vista previa, una gota o la tarjeta que llega.
+    fact bandeja = false
+    event abrir_bandeja
+    event cerrar_bandeja
+    event resolver ->                  // con cuál, de carga: la lógica la marca leída
+    //  De qué es cada fila. Lo pondría la lógica; aquí se nace con algo.
+    prop tray = 0 ~240ms               // 0 dentro de ella, 1 tarjeta entera
+    prop carril = 0 ~240ms             // las gotas: 0 en su hombro, 1 en el carril
+    //  Cada fila llega un poco después que la de arriba: eso es el oleaje.
+    //  Y al resolverla, se va a la derecha y suelta una gota que vuelve.
+    repeat k in 1..6 {
+        fact viva.$k = true
+        fact catfila.$k = 1
+        prop sube.$k = 0 ~lively
+        prop fuera.$k = 0 ~220ms
+        prop suelta.$k = 0 ~380ms
+        prop toca.$k = 0 ~140ms
+        //  Cuántas vivas tiene encima: su sitio en la lista. Al resolver una,
+        //  las de abajo suben a ocupar el hueco en vez de dejarlo ahí.
+        prop hueco.$k = 0 ~calm
+    }
+    follow hueco.1 = 0
+    follow hueco.2 = if(viva.1, 1, 0)
+    follow hueco.3 = if(viva.1, 1, 0) + if(viva.2, 1, 0)
+    follow hueco.4 = if(viva.1, 1, 0) + if(viva.2, 1, 0) + if(viva.3, 1, 0)
+    follow hueco.5 = if(viva.1, 1, 0) + if(viva.2, 1, 0) + if(viva.3, 1, 0) + if(viva.4, 1, 0)
+    fact catfila.2 = 3
+    fact catfila.3 = 2
+    fact catfila.4 = 4
+    fact catfila.5 = 1
+    text fila.1.app = "TELEGRAM"
+    text fila.2.app = "CALENDARIO"
+    text fila.3.app = "CORREO"
+    text fila.4.app = "SISTEMA"
+    text fila.5.app = "TELEGRAM"
+    text fila.1.que = "Ana Ruiz"
+    text fila.2.que = "Revisión de diseño"
+    text fila.3.que = "Factura de septiembre"
+    text fila.4.que = "Copia de seguridad hecha"
+    text fila.5.que = "Grupo de la obra"
+    text fila.1.mas = "¿Comemos hoy? Tengo mesa a las dos"
+    text fila.2.mas = "en 10 minutos · sala grande"
+    text fila.3.mas = "vence el 30"
+    text fila.4.mas = "412 ficheros, 2,1 GB"
+    text fila.5.mas = "6 mensajes sin leer"
+    text fila.1.hora = "ahora"
+    text fila.2.hora = "2 min"
+    text fila.3.hora = "1 h"
+    text fila.4.hora = "3 h"
+    text fila.5.hora = "ayer"
     prop entra = 0 ~220ms              // la tarjeta, entrando
     //  Una por tarjeta del montón: vuelan juntas pero no a la vez.
     repeat j in 0..3 { prop vuela.$j = 0 ~280ms }
@@ -246,7 +298,8 @@ scene Marea {
     //  se le veía el ojo cortado por abajo. Asoma 29 de 46, que son casi dos
     //  tercios, y se le ve la cara. Es una desviación del contrato a propósito.
     let sube = if(hidden, (1 - out) * 40, 0)
-    let cy_real = cy + body.y - sube - away * 84
+    //  Y al abrir la bandeja sube 5 px, que es lo que dice el contrato.
+    let cy_real = cy + body.y - sube - away * 84 - 5 * tray
 
     //  El cuello: mínimo en reposo y máximo a mitad de la separación, que es una
     //  campana. Al final no queda nada y el hilo se rompe solo.
@@ -329,6 +382,16 @@ scene Marea {
         //  ancho cero y se desliza a la derecha hasta quedar a 14 px, con su
         //  cuello a mitad de camino. Es parte del mismo cuerpo, así que la
         //  sombra es una sola y el borde también.
+        //  La bandeja **brota de ella**: no es una tarjeta que aparece al lado,
+        //  es su propio cuerpo estirado. Va en este mismo `body`, así que
+        //  comparten silueta, sombra y filo, y entre las dos hay un cuello que
+        //  nadie dibuja: sale de fundirlas, como el del borde del agua.
+        box bandeja_caja {
+            at: tray.x, tray.y
+            size: tray.w, tray.h
+            corner: 22 * tray
+            blend: 30 * 4 * tray * (1 - tray) + 24 * tray
+        }
         box nota_caja {
             at: nota.x, cy_real
             size: 104 * clamp(nota * 1.6, 0, 1), 56 * clamp(nota * 2.4, 0, 1)
@@ -557,6 +620,10 @@ scene Marea {
             text number(n.$k, 0) { at: gx.$k, gy.$k + 0.5; anchor: center; size: 8.5; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 1, 0) }
             text "9+" { at: gx.$k, gy.$k + 0.5; anchor: center; size: 7.5; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 0, 1) }
         }
+        //  Pulsar una gota abre el oleaje: es de las cuatro maneras que dice el
+        //  contrato, y la más directa —ya estás mirando ahí—.
+        zone box gotazona.$k { at: gx.$k, gy.$k; size: 24, 24; corner: 12; cursor: pointer; active: hay.$k > 0.5 and not bandeja and not open }
+        on press gotazona.$k { emit abrir_bandeja }
         //  La gota donde cae algo late una vez, y su número con ella. Nada en bucle.
         on landed while cual == k { n.$k = n.$k + cuantos; last.$k = max(last.$k, miseq); impulse late.$k 5 }
         on direct while cat == k { n.$k = n.$k + 1; last.$k = seq; impulse late.$k 5 }
@@ -612,6 +679,99 @@ scene Marea {
         show: cuantos > 3
     }
 
+
+    // ── la bandeja: el oleaje ────────────────────────────────────
+    //  Su sitio y su tamaño. La forma la pone su cuerpo, más arriba; aquí van
+    //  las medidas y lo que lleva escrito.
+    let tray.w = 520 * tray
+    let tray.h = 460 * tray
+    //  Pegada a ella, no al lado: se solapan 17 px, y con eso el fundido hace
+    //  un cuello de verdad. Con el hueco de 40 que lleva la otra tarjeta no
+    //  había nada que fundir y se quedaban en dos cosas juntas.
+    let tray.x = cx + 6 + tray.w / 2
+    let tray.y = cy_real + tray.h / 2 - 8
+
+    //  La zona de gracia va DEBAJO de las filas: la pulsación es de la zona de
+    //  más arriba, y declarada al final se quedaba con el clic de cada fila.
+    //  Se cierra al salir del conjunto —ella y la bandeja—, con los mismos
+    //  320 ms que la nota: el hueco entre las dos es real.
+    zone box bandeja_conj { at: cx + tray.w / 2, cy_real + tray.h / 2 - 8; size: 2 * r + 40 + tray.w, 2 * r + 40 + tray.h; corner: 30; active: bandeja }
+    on away bandeja_conj for 320ms { emit cerrar_bandeja }
+
+    group {
+        opacity: clamp(tray * 2.6 - 1.6, 0, 1)
+        let tx0 = tray.x - 232
+        let ty0 = tray.y - 198
+
+        text "OLEAJE" { at: tx0, ty0; anchor: left center; size: 9.5; weight: 600; color: ink; opacity: 35% }
+        text "Ahora" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink }
+
+        //  El carril: las gotas se van de su hombro a la cabecera de la
+        //  bandeja, y ahí se quedan como pastillas con su cuenta. El viaje es
+        //  por el arco —lo que se anima es el ángulo—, así que salen rodeándola
+        //  y no atajando por dentro.
+        repeat k in 1..5 {
+            let ang = -24 + 26 * sitio.$k
+            let gx = cx + 31.7 * cos(ang)
+            let gy = cy_real + 31.7 * sin(ang)
+            let rx = tray.x + 78 + (k - 1) * 40
+            let ry = ty0 + 14
+            let px = gx + (rx - gx) * carril
+            let py = gy + (ry - gy) * (1 - (1 - carril) * (1 - carril))
+            group {
+                opacity: hay.$k
+                ellipse { at: px, py; radius: 7 + 4 * carril; color: mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5) }
+                text number(n.$k, 0) { at: px, py + 0.5; anchor: center; size: 8.5 + 2 * carril; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 1, 0) }
+            }
+        }
+
+        //  Las filas. Cada una llega un poco después que la de arriba: eso es
+        //  el oleaje, y por eso no entran todas de golpe como una lista.
+        repeat k in 1..6 {
+            let fy = ty0 + 76 + hueco.$k * 66 + (1 - sube.$k) * 26
+            let fx = tx0 + 232 + fuera.$k * 520
+            let color.$k = mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5)
+            group {
+                opacity: sube.$k * (1 - fuera.$k)
+                show: viva.$k
+                //  Debajo de la fila, lo que descubre al deslizarla: no está
+                //  hasta que la fila empieza a irse.
+                group {
+                    opacity: clamp(fuera.$k * 6, 0, 1)
+                    box { at: fx - 150, fy; size: 150, 58; corner: 14; color: #1b2a22 }
+                    text "Hecho" { at: fx - 150, fy; anchor: center; size: 12; weight: 600; color: mint }
+                }
+                box { at: fx, fy; size: 456, 58; corner: 14; color: mix(#171717, #1d1d1e, toca.$k) }
+                //  La barra de su categoría, a la izquierda: es de donde saldrá
+                //  la gota cuando se resuelva.
+                box { at: fx - 214, fy; size: 4, 34; corner: 2; color: color.$k }
+                text fila.$k.app { at: fx - 200, fy - 18; anchor: left center; size: 8.5; weight: 700; color: color.$k }
+                text fila.$k.que { at: fx - 200, fy - 1; anchor: left center; size: 12.5; weight: 500; width: 300; lines: 1; color: ink }
+                text fila.$k.mas { at: fx - 200, fy + 17; anchor: left center; size: 10.5; width: 300; lines: 1; color: #8b8f95 }
+                text fila.$k.hora { at: fx + 208, fy - 18; anchor: right center; size: 9.5; color: #8b8f95 }
+            }
+            zone box filazona.$k { at: fx, fy; size: 456, 58; corner: 14; cursor: pointer; active: tray > 0.9 and viva.$k }
+            on enter filazona.$k { toca.$k: 1 }
+            on leave filazona.$k { toca.$k: 0 }
+            on press filazona.$k { emit resolver(k) }
+
+            //  Y la gota que vuelve. Nace PEGADA a la barra de color de su fila
+            //  —fundida con ella— y se despega al salir: el pellizco no se
+            //  dibuja, sale de las distancias, como el del borde del agua.
+            let vx = fx - 214 + (cx + 31.7 * cos(-24) - fx + 214) * suelta.$k
+            let vy = fy + (cy_real + 31.7 * sin(-24) - fy) * (1 - (1 - suelta.$k) * (1 - suelta.$k))
+            body {
+                color: color.$k
+                opacity: clamp(suelta.$k * 8, 0, 1) * (1 - clamp(suelta.$k * 8 - 7, 0, 1))
+                box { at: fx - 214, fy; size: 4, 34 * (1 - suelta.$k); corner: 2; blend: 14 * 4 * suelta.$k * (1 - suelta.$k) }
+                ellipse { at: vx, vy; radius: 4 + 3 * suelta.$k; blend: 14 * 4 * suelta.$k * (1 - suelta.$k) }
+            }
+        }
+
+        //  El pie: lo que ha llegado, y sus ajustes.
+        text "Historial" { at: tx0, tray.y + 198; anchor: left center; size: 11.5; color: #8b8f95 }
+        text "Ajustes" { at: tray.x + 232, tray.y + 198; anchor: right center; size: 11.5; color: #8b8f95 }
+    }
 
     // ── la tarjeta ───────────────────────────────────────────────
     //  Crece desde la bolita: nace en su sitio y se estira hasta su tamaño.
@@ -832,7 +992,8 @@ scene Marea {
     zone box aviso_zona { at: av.x0, cy_real + 7; size: 250, 58; corner: 14; cursor: pointer; active: fase == 1 }
     on enter aviso_zona { sobre = true }
     on leave aviso_zona { sobre = false; marca = marca + 1 }
-    on press aviso_zona { emit tray }
+    //  Y la propia tarjeta que llega: pulsarla abre el oleaje.
+    on press aviso_zona { emit tray; emit abrir_bandeja }
     //  3,2 s para leer una; 4,2 si son varias, que es lo que dice el contrato.
     //  Son dos reglas porque el `for` de una regla es un tiempo escrito y no una
     //  cuenta; aquí no estorba, y dicho dos veces se lee bien.
@@ -853,6 +1014,55 @@ scene Marea {
         vuela.1: 0 ~16ms after 40ms
         vuela.2: 0 ~16ms after 40ms
         play gulp
+    }
+
+    // ── abrir y cerrar el oleaje ─────────────────────────────────
+    //  Llegar no abre nada: se abre pulsándola a ella, o una gota.
+    on abrir_bandeja { bandeja = true }
+    on cerrar_bandeja { bandeja = false }
+    follow tray = if(bandeja, 1, 0)
+    //  Las gotas se van al carril en cuanto la bandeja empieza a salir.
+    follow carril = if(bandeja, 1, 0)
+    //  Y las filas llegan una tras otra, 35 ms entre cada una. Al cerrar se van
+    //  al revés —de abajo arriba—, que es como se vacía algo de verdad.
+    on change bandeja while bandeja {
+        sube.1: 1 after 60ms
+        sube.2: 1 after 95ms
+        sube.3: 1 after 130ms
+        sube.4: 1 after 165ms
+        sube.5: 1 after 200ms
+    }
+    on change bandeja while not bandeja {
+        sube.5: 0 ~120ms
+        sube.4: 0 ~120ms after 35ms
+        sube.3: 0 ~120ms after 70ms
+        sube.2: 0 ~120ms after 105ms
+        sube.1: 0 ~120ms after 140ms
+    }
+    //  Resolver una: se va a la derecha y suelta una gota de su color que
+    //  vuelve volando a ella. Al llegar, el número de su gota baja con un toque
+    //  y ella da un trago. Descartar no manda gota: lo descartado no vuelve.
+    repeat k in 1..6 {
+        on press filazona.$k while viva.$k {
+            fuera.$k: 1 ~220ms
+            suelta.$k: 1 ~380ms
+            emit resolver(k)
+        }
+        //  Cuando la gota llega a ella: la fila se apaga y ella da un trago.
+        on still suelta.$k for 60ms while suelta.$k > 0.97 {
+            viva.$k = false
+            suelta.$k: 0 ~16ms
+            fuera.$k: 0 ~16ms
+            play gulp
+        }
+        //  Y la cuenta de SU categoría baja con un toque. Una regla por pareja
+        //  de fila y categoría: las escribe el `repeat`, no yo.
+        repeat c in 1..5 {
+            on still suelta.$k for 60ms while suelta.$k > 0.97 and catfila.$k == c and n.$c > 0 {
+                n.$c = n.$c - 1
+                impulse late.$c 4
+            }
+        }
     }
 
     // ── la cuenta atrás ──────────────────────────────────────────

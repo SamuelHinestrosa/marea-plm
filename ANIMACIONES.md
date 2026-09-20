@@ -371,8 +371,8 @@ sistema → sitios 2, 1 y 0.
 Y las de detrás no llevan su color hasta que vuelan: mientras esperan son papel
 apilado, y el color es de la que se está leyendo.
 
-**Lo que falta de esta parte:** la llegada con ella dormida, la vista previa en
-abanico y la bandeja entera.
+**Lo que falta de esta parte:** la llegada con ella dormida y la vista previa en
+abanico.
 
 ### Lo que esto destapó en pleamar
 
@@ -415,6 +415,57 @@ funciona donde está ofrecido, y apaga también la zona.
 
 **Y el servicio `audio` no tenía micrófono.** Solo daba la salida, y un panel de
 sonido enseña siempre los dos. Ahora `audio.input` y `audio.input_muted`.
+
+## La bandeja: el oleaje
+
+![La bandeja](evidencia/oleaje.png)
+
+**La tarjeta no aparece al lado: brota de ella.** Va en el mismo `body` que su
+cuerpo, así que comparten silueta, sombra y filo, y entre las dos hay un cuello
+que nadie dibuja —sale de fundirlas, como el del borde del agua—.
+
+![El cuello](evidencia/oleaje-cuello.png)
+
+Esto costó entenderlo: con el hueco de 40 px que lleva la otra tarjeta no había
+nada que fundir y se quedaban en dos cosas juntas. Se solapan 17 y entonces el
+fundido hace un cuello de verdad.
+
+### Abre Oleaje
+
+![Las filas llegando](evidencia/oleaje-brota.png)
+
+> «Ella sube 5 px, la tarjeta brota de ella, las gotas se van al carril —que
+> entra desde pequeño— y las filas llegan una tras otra. 240 ms; una fila cada
+> 35 ms.»
+
+| Lo que dice el contrato | Lo medido |
+| --- | --- |
+| Sube 5 px | Sí, con la tarjeta |
+| La tarjeta brota de ella | Un `blend` que es una campana al abrir y se queda en 24: cuello grueso mientras sale, fillet cuando está |
+| Las gotas se van al carril | De su hombro a la cabecera, **por el arco**: lo que se anima es el ángulo, así que salen rodeándola en vez de atajar por dentro |
+| Una fila cada 35 ms | 35, y cada una entra subiendo 26 px con un muelle vivo. Eso es el oleaje: no es una lista que aparece, es una que llega |
+| Al cerrar, 320 ms | Y se vacía **de abajo arriba**, que es como se vacía algo de verdad |
+
+### Resolver un grupo
+
+![Resolver](evidencia/oleaje-resolver.png)
+
+> «La fila se va a la derecha, una gota vuelve volando a ella, el número de su
+> gota baja con un toque.»
+
+La gota **nace pegada a la barra de color de su fila** y se despega al salir: el
+pellizco no se dibuja, sale de las distancias. Medido de un clic: la fila fuera
+en 220 ms, la gota en su hombro a los 380, y la cuenta de su categoría baja de 2
+a 1 con su latido.
+
+Y las de abajo **suben a ocupar el hueco**. Esto no sale gratis: en pleamar un
+modelo no tiene identidad todavía (su limitación G12), así que el sitio de cada
+fila es «cuántas vivas tengo encima», escrito fila por fila, y un muelle que lo
+sigue.
+
+**Lo que falta de la bandeja:** «Deshacer» durante 5 s con su mecha, descartar
+—que no manda gota, porque lo descartado no vuelve—, la fila propia en ámbar de
+un urgente, y el Remanso entero.
 
 ## Medidas de la lámina
 
