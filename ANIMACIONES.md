@@ -753,6 +753,18 @@ nunca; en cuanto llegaron dos de Telegram seguidos, salieron de colores
 distintos. Es exactamente para lo que sirve enchufar una cosa a datos que no has
 elegido tú.
 
+### Cerrar el oleaje: primero se pliega, luego vuelve
+
+Su sitio lo llevaba la geometría de la bandeja: al cerrarse, volvía **a la vez**
+que se plegaba, y dos cosas encima de la otra no se ven. Ahora es lo mismo que el
+centro de control —lo que se cierra va delante y ella detrás—: la bandeja acaba
+de plegarse a los **217 ms** y ella cruza su sitio a los **417**.
+
+Y **no se hunde con algo suyo abierto**. La gracia de hundirse miraba la hora y
+la tarjeta, pero no la bandeja, el buscador ni su menú: a los 2,6 s de soltarla
+se metía en el borde con el oleaje abierto, y quedaba la bandeja colgando de
+media bolita.
+
 ### El sudor, la gota que sube, y lo que sobraba
 
 ![El urgente: sudor, gota ámbar arriba y la bandeja sin la tarjeta encima](evidencia/urgente-sudor.png)

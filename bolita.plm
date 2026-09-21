@@ -72,7 +72,10 @@ scene Marea {
     //  la tarjeta se recoge primero y ella vuelve después, que es lo que hace
     //  que se vea el viaje en vez de que las dos cosas pasen encima de la otra.
     prop sitio = 0 ~290ms
-    let fuera = max(sitio, tray)
+    //  Y su sitio lo manda SOLO esto, no la geometría de lo que tenga abierto:
+    //  con la bandeja tirando de ella directamente, al cerrarse volvía a la vez
+    //  que se plegaba, y las dos cosas encima de la otra no se ven.
+    let fuera = sitio
     let cx = 120 + (1 - fuera) * 240
     //  Abierta, baja a la altura de la cabecera de la tarjeta, como en la lámina.
     //  Y el camino se comba: la altura va por el cuadrado, así que sale y entra
@@ -2257,7 +2260,12 @@ scene Marea {
     on enter bandeja_conj { visitada = true }
     on leave bandeja_conj { visitada = false }
     on still bandeja for 7s while bandeja and not visitada { emit cerrar_bandeja }
-    follow tray = if(bandeja, 1, 0)
+    //  Abrir: se aparta y la bandeja sale de ella, a la vez, que es lo que hace
+    //  que parezca que sale DE ella. Cerrar, en cambio, es en orden: primero se
+    //  recoge la bandeja, y **entonces** vuelve a su sitio. Es lo mismo que el
+    //  centro de control, y por lo mismo: verlo en dos tiempos es verlo.
+    on change bandeja while bandeja { sitio: 1 ~290ms; tray: 1 ~240ms }
+    on change bandeja while not bandeja { tray: 0 ~240ms; sitio: 0 ~vuelta after 190ms }
     //  Las gotas se van al carril en cuanto la bandeja empieza a salir.
     follow carril = if(bandeja, 1, 0)
     //  Y las filas llegan una tras otra, 35 ms entre cada una. Al cerrar se van
@@ -2426,7 +2434,10 @@ scene Marea {
     on leave cuerpo_zona while not note and not open { wanted = false }
     on change note while not note { wanted = false }
     on change open while not open { wanted = false }
-    on still wanted for 2.6s while not wanted and not note and not open { needed = false }
+    //  Y no se hunde con algo suyo abierto: la bandeja, el buscador o su menú
+    //  la necesitan igual que la tarjeta. Se hundía con el oleaje abierto —2,6 s
+    //  después de soltarla— y quedaba la bandeja colgando de media bolita.
+    on still wanted for 2.6s while not wanted and not note and not open and not bandeja and not busca and not menuab { needed = false }
     //  Y se duerme sola a los 45 s de que nada la necesite. En Remanso no: el
     //  sueño automático queda suspendido mientras dure, que es lo que dice el
     //  contrato —está concentrada, no ausente—.
