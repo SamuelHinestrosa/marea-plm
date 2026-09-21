@@ -432,3 +432,57 @@ on("sesion", function(k)
     log("session ·", orden)
     sys.call(orden)
 end)
+
+-- ── la bandeja del sistema ─────────────────────────────────────────
+--  Qué iconos hay lo dice pleamar; aquí se decide qué pasa al tocarlos. Un
+--  menú es un árbol, y a un submenú se ENTRA: `camino` es por dónde se ha ido
+--  bajando, y la primera fila vuelve. Así todo cabe en la misma página.
+local duena = nil                 -- de quién es el menú que se enseña
+local raiz, camino = {}, {}
+
+local function ensena(lista)
+    local filas = #camino > 0 and { { back = true, label = "‹  Volver" } } or {}
+    for _, it in ipairs(lista) do filas[#filas + 1] = it end
+    model.opciones = filas
+end
+
+if not sys.watch("tray", function(lista) model.iconos = lista end) then
+    log("this system has no tray")
+end
+
+on("bandeja_activa", function(i)
+    local it = model.iconos[i + 1]
+    if it then sys.call("tray.activate", it.key) end
+end)
+
+on("bandeja_menu", function(i)
+    local it = model.iconos[i + 1]
+    if it == nil then return end
+    model.opciones = {}
+    text["bandeja.titulo"] = it.title ~= "" and it.title or it.id
+    local bien, menu = pcall(sys.ask, "tray.menu", it.key)
+    if not bien or menu == nil or #menu == 0 then
+        --  No hay menú que leer: que lo enseñe ella, si sabe, y aquí no se
+        --  deja una página vacía haciendo de sala de espera.
+        pcall(sys.call, "tray.context", it.key)
+        fact.pagina = "ninguna"
+        return
+    end
+    duena, raiz, camino = it, menu, {}
+    ensena(menu)
+end)
+
+on("bandeja_elige", function(i)
+    local r = model.opciones[i + 1]
+    if r == nil or duena == nil then return end
+    if r.back then
+        table.remove(camino)
+        ensena(#camino > 0 and camino[#camino].children or raiz)
+    elseif r.children and #r.children > 0 then
+        camino[#camino + 1] = r
+        ensena(r.children)
+    else
+        sys.call("tray.menu_click", duena.key, r.id)
+        fact.pagina = "ninguna"
+    end
+end)

@@ -25,7 +25,7 @@ scene Marea {
         //  casa; la sesión, poder despedirse. Lo que NO está es
         //  `notifications`: el primero que lo pide se queda el sitio, y en esta
         //  máquina ese sitio es de Marea.
-        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*"
+        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*"
         //  Cambiar de red o de auricular no lo sabe hacer pleamar todavía (su
         //  B15), así que lo hace la lógica con las herramientas del sistema. Y
         //  `fd` busca los archivos y las carpetas.
@@ -41,7 +41,7 @@ scene Marea {
     //  Pulsar una tarjeta abre su página, y **la página sale de la tarjeta**:
     //  crece desde su sitio hasta llenar el panel. No es una pantalla que
     //  sustituye a otra; es la misma tarjeta, abierta.
-    fact pagina: ninguna | wifi | bluetooth | concentracion | armario | sonido | sesion = ninguna
+    fact pagina: ninguna | wifi | bluetooth | concentracion | armario | sonido | sesion | bandeja_sis = ninguna
     prop pag = 0 ~240ms
     follow pag = if(pagina == ninguna, 0, 1)
     model redes max 8 { nombre: text; senal: number; puesta: bool }
@@ -51,6 +51,23 @@ scene Marea {
     model salidas max 5 { nombre: text; puesta: bool }
     model micros max 4 { nombre: text; puesta: bool }
     event elegir_aparato ->
+    //  La bandeja del sistema: los iconos que dejan las aplicaciones que siguen
+    //  vivas sin ventana. Los trae pleamar —`tray`, que sabe convivir con otra
+    //  barra: si ya hay vigía, le pregunta a él— y aquí solo se dibujan. Un clic
+    //  es el de siempre; el derecho pide su menú, que es un árbol: a un submenú
+    //  se ENTRA, con una fila para volver, en vez de abrirse al lado.
+    model iconos max 8 { icon: image 22, 22; title: text }
+    model opciones max 16 {
+        label: text
+        separator: bool
+        enabled: bool = true
+        checked: number = -1            // -1: no es casilla · 0: vacía · 1: puesta
+        children: number                // cuántas lleva dentro: es un submenú
+    }
+    text bandeja.titulo = ""
+    event bandeja_activa ->             // (i): el clic de siempre
+    event bandeja_menu ->               // (i): quiere ver su menú
+    event bandeja_elige ->              // (i): esa fila del menú
     //  La sesión: bloquear, suspender, cerrar, reiniciar y apagar. Lo hace
     //  pleamar —`session.*`, que por debajo son `loginctl` y `systemctl`—, y
     //  las tres últimas piden confirmación aparte, que es lo que dice la
@@ -1961,6 +1978,30 @@ scene Marea {
         on press engranaje { emit ajustes }
         on press cerrar { open = false }
 
+        //  La bandeja del sistema vive donde en cualquier escritorio: arriba a la
+        //  derecha, en el hueco entre el título y el engranaje. No gasta un
+        //  píxel de alto, y lo que más se hace con ella —un clic para traer la
+        //  ventana de quien sea— sigue siendo UN clic. Pegada por la derecha,
+        //  así que crece hacia el título según se apunta gente.
+        component Icono(i: record) {
+            size: 28, 28
+            prop sube = 0 ~140ms
+            box toca { from: 0, 0; size: 28, 28; corner: 8; color: ink; opacity: sube * 12%
+                       cursor: pointer; active: content > 0.9 and pagina == ninguna }
+            image i.icon { at: 3, 3 - sube * 1.5; size: 22, 22 }
+            on enter toca { sube: 1 }
+            on leave toca { sube: 0 }
+            on press toca { emit bandeja_activa(i.index) }
+            on press right toca { emit bandeja_menu(i.index) }
+        }
+        row bandejita ~quick {
+            at: eng.x - 22, y0 + 14
+            anchor: right middle
+            gap: 4
+            opacity: portada
+            for i in iconos { Icono(i) }
+        }
+
         group {
             opacity: portada
             // ── los dos niveles ──────────────────────────────────────
@@ -2163,7 +2204,7 @@ scene Marea {
         let pg.k = if(pagina == bluetooth, 2, 0) + if(pagina == concentracion, 3, 0) + if(pagina == wifi, 1, 0) + if(pagina == sonido, 4, 0) + if(pagina == sesion, 5, 0)
         //  Las tres primeras salen de su tarjeta; el armario no tiene tarjeta
         //  —se entra por su menú—, así que crece desde el centro del panel.
-        let pg.suya = if(pagina == armario, 0, 1)
+        let pg.suya = if(pagina == armario or pagina == bandeja_sis, 0, 1)
         let pg.ox = card.x + 111 * pg.suya
         let pg.oy = card.top + 231 + (-126 + (pg.k - 1) * 66) * pg.suya
         let pg.x = pg.ox + (card.x - pg.ox) * pag
@@ -2183,6 +2224,7 @@ scene Marea {
             text "Concentración" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == concentracion }
             text "Su armario" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == armario }
             text "Sonido" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == sonido }
+            text bandeja.titulo { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; width: 400; lines: 1; color: ink; show: pagina == bandeja_sis }
             text "¿Hacemos una pausa?" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == sesion and confirma == ninguna }
             text "Confirmar" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == sesion and confirma != ninguna }
             zone box atras { at: card.x - 224, card.top + 88; size: 34, 34; corner: 17; cursor: pointer; active: pag > 0.9 }
@@ -2320,6 +2362,41 @@ scene Marea {
                 text "Nada que elegir" { at: card.x, card.top + 200; anchor: center; size: 11.5; color: #8b8f95
                                          show: salidas.count < 1 and micros.count < 1 }
             }
+
+            // ── el menú de un icono de la bandeja ────────────────
+            //  Es una página como las demás, y por eso cabe lo que en un
+            //  desplegable no: un menú de Telegram o de Steam son quince filas
+            //  con submenús. La lista se mueve con la rueda si no cabe, y a un
+            //  submenú se entra —la primera fila vuelve—, que es lo que deja
+            //  que todo pase en el mismo sitio sin abrir cajas al lado.
+            component Opcion(r: record, escoge: event) {
+                size: 456, 32 - r.separator * 22
+                prop luz = 0 ~140ms
+                box toca { from: 0, 0; size: 456, 32 - r.separator * 22; corner: 9; color: #262728; opacity: luz
+                           cursor: pointer; active: r.enabled and not r.separator and pagina == bandeja_sis and pag > 0.9 }
+                box { from: 8, 4; size: 440, 1; color: ink; opacity: r.separator * 12% }
+                text r.label { at: 14, 16; anchor: left center; size: 12.5; width: 390; lines: 1; color: ink
+                               opacity: (1 - r.separator) * (0.45 + r.enabled * 0.55) }
+                //  Casilla: llena si está puesta, el aro si es casilla y no lo está.
+                ellipse { at: 436, 16; radius: 3.5; color: mint; opacity: r.checked > 0.5 }
+                ellipse { at: 436, 16; radius: 3.5; stroke: 1.2; color: ink; opacity: if(r.checked > -0.5, 0.5, 0) }
+                path { at: 433, 11; color: ink; stroke: 1.6; opacity: if(r.children > 0, 0.6, 0)
+                       move 0, 0; line 5, 5; line 0, 10 }
+                on enter toca { luz: 1 }
+                on leave toca { luz: 0 }
+                on press toca { emit escoge(r.index) }
+            }
+            column lista_opciones ~quick {
+                at: card.x - 228, card.top + 112
+                view: 456, 286
+                show: pagina == bandeja_sis
+                for r in opciones { Opcion(r, escoge: bandeja_elige) }
+            }
+            text "Preguntándole su menú…" { at: card.x, card.top + 200; anchor: center; size: 11.5; color: #8b8f95
+                                            show: pagina == bandeja_sis and opciones.count < 1 }
+            //  La página la abre la escena, en el acto; la lógica la llena. Si
+            //  resulta que no hay menú que leer, es ella la que la cierra.
+            on bandeja_menu { pagina = bandeja_sis }
 
             // ── la sesión ────────────────────────────────────────
             //  Dos intenciones separadas, como pide la lámina: **hacer una
