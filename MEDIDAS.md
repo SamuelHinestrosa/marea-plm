@@ -15,6 +15,28 @@ Lee `/proc/<pid>/stat` dos veces separadas por N segundos para el tiempo de CPU,
 y `/proc/<pid>/status` y `smaps_rollup` para la memoria. El PSS es lo que de
 verdad ocupa: la memoria compartida, repartida entre quienes la comparten.
 
+## 21 de septiembre de 2026 · el centro de control entero
+
+Con el sonido y la sesión dentro, el panel a 520 × 510 y la superficie a
+820 × 680. Medido con la barra abierta y animando, en HDMI-A-1 a 60 Hz.
+
+| | CPU | RSS | PSS | frame |
+| --- | --- | --- | --- | --- |
+| marea-plm, animando | 8,6 % | 130,9 MB | 113,5 MB | 16,84 ms · p99 17,06 |
+
+Y el susto del día, que es lo que de verdad hay que apuntar. Con la cadena de la
+cara escrita `x + (k - x) * t` —cada eslabón nombrando al anterior **dos**
+veces— y quince eslabones, la misma escena medía **41,09 ms de frame (24 fps),
+100,6 % de CPU y 1 058 MB**. No era el runtime: la escena de ayer con el binario
+de hoy iba a 16,8 ms. Era que un `let` se sustituye donde se nombra, así que el
+árbol de la expresión **doblaba por eslabón**: 2¹⁵ nodos por propiedad,
+evaluados dos veces por frame.
+
+Se arregló en los dos sitios. En la escena, escribiendo los 48 eslabones como
+`x * (1 - t) + k * t`, que nombra `x` una vez. Y en pleamar, que ya no sustituye
+un `let` grande: lo calcula una vez por frame. Con eso, la escena que explotaba
+vuelve a **16,78 ms y 8,87 %** sin tocarle una línea.
+
 ## 20 de septiembre de 2026 · la bolita
 
 Solo la bolita: su cuerpo, su cara que respira, mira y parpadea, el aura y la
