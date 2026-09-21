@@ -888,7 +888,7 @@ scene Marea {
         //  Cuando manda otra cosa, el párpado deja de contar: una cámara no
         //  parpadea y un número tampoco.
         let manda = clamp(meter + num + cam + dot, 0, 1)
-        let parpado = lid * (1 - manda) + 1 * manda
+        let parpado = lid + (1 - lid) * manda
 
         //  1. El ojo, y el nivel tumbándolo. (Medido en «El nivel en la cara».)
         let o.w = 5 + 8 * meter
@@ -903,8 +903,8 @@ scene Marea {
         //  estaba detrás de ellos y los ojos se abren para enseñarlo.
         let junta = clamp(num * 2, 0, 1)
         let abre = clamp(num * 2 - 1, 0, 1)
-        let c.w = o.w * (1 - junta) + 9 * junta
-        let c.h = o.h * (1 - junta) + 9 * junta
+        let c.w = o.w + (9 - o.w) * junta
+        let c.h = o.h + (9 - o.h) * junta
         let c.sep = o.sep * (1 - junta)
         //  18 y no 30: el anillo se queda en algo más de media bolita. Con 30 casi
         //  la llenaba, y en 260 ms eso no es un diafragma, es un fogonazo.
@@ -917,8 +917,8 @@ scene Marea {
         let ojo.l = 10.7 - 5.4 * shut
         let l.w = g.w + (ojo.l - g.w) * cam
         let l.h = g.h + (ojo.l - g.h) * cam
-        let r.w = g.w * (1 - cam) + 24.6 * cam
-        let r.h = g.h * (1 - cam) + 17.3 * cam
+        let r.w = g.w + (24.6 - g.w) * cam
+        let r.h = g.h + (17.3 - g.h) * cam
         //  Buscando, los dos se van al centro: el aro se queda ahí y el mango
         //  sale de su borde, no de donde estaba un ojo.
         //  Candado, flecha circular y símbolo de encendido son UNA figura
@@ -929,27 +929,27 @@ scene Marea {
         //  4. El disco de grabar: el ojo izquierdo, y solo él. El derecho sigue
         //  siendo un ojo y sigue al puntero, que es lo que la mantiene viva
         //  mientras dura. El disco se queda donde estaba el ojo, no se centra.
-        let d.w = l.w * (1 - dot) + 9 * dot
-        let d.h = l.h * (1 - dot) + 9 * dot
+        let d.w = l.w + (9 - l.w) * dot
+        let d.h = l.h + (9 - l.h) * dot
 
         //  5. La admiración: el palo es el ojo izquierdo y el punto el derecho,
         //  los dos centrados, porque un «!» descentrado no es un «!». Se van al
         //  medio, y uno se estira mientras el otro se hace punto.
-        let a.w = d.w * (1 - alarma) + 4.1 * alarma
-        let a.h = d.h * (1 - alarma) + 12.3 * alarma
-        let a.rw = r.w * (1 - alarma) + 4.1 * alarma
-        let a.rh = r.h * (1 - alarma) + 4.1 * alarma
+        let a.w = d.w + (4.1 - d.w) * alarma
+        let a.h = d.h + (12.3 - d.h) * alarma
+        let a.rw = r.w + (4.1 - r.w) * alarma
+        let a.rh = r.h + (4.1 - r.h) * alarma
 
         //  6. En Remanso los ojos bajan a dos trazos relajados. No se cierran:
         //  sigue aquí, atenta. Cerrarlos sería dormir, que es otra cosa.
-        let z.w = a.w * (1 - calma) + 7.4 * calma
-        let z.h = a.h * (1 - calma) + 2.5 * calma
-        let z.rw = a.rw * (1 - calma) + 7.4 * calma
-        let z.rh = a.rh * (1 - calma) + 2.5 * calma
+        let z.w = a.w + (7.4 - a.w) * calma
+        let z.h = a.h + (2.5 - a.h) * calma
+        let z.rw = a.rw + (7.4 - a.rw) * calma
+        let z.rh = a.rh + (2.5 - a.rh) * calma
         //  Y el de al lado de la perla se abre redondo para mirarla. Solo ese:
         //  el otro sigue en su trazo, porque no ha pasado nada más.
-        let z.rw2 = z.rw * (1 - mirada) + 9.5 * mirada
-        let z.rh2 = z.rh * (1 - mirada) + 9.5 * mirada
+        let z.rw2 = z.rw + (9.5 - z.rw) * mirada
+        let z.rh2 = z.rh + (9.5 - z.rh) * mirada
 
         //  8. Buscando: los ojos se vuelven **una lupa**. El izquierdo se abre
         //  en el aro —un disco al que otro del color del cuerpo le come el
@@ -960,20 +960,20 @@ scene Marea {
         //  7. Dormida: dos rayitas. No es el trazo del Remanso —ahí sigue
         //  mirando, aquí no hay nadie—: son más finas y caen un poco, como un
         //  párpado que ya se ha rendido.
-        let s.w = z.w * (1 - sueno) + 7.8 * sueno
-        let s.h = z.h * (1 - sueno) + 1.5 * sueno
-        let s.rw = z.rw2 * (1 - sueno) + 7.8 * sueno
-        let s.rh = z.rh2 * (1 - sueno) + 1.5 * sueno
+        let s.w = z.w + (7.8 - z.w) * sueno
+        let s.h = z.h + (1.5 - z.h) * sueno
+        let s.rw = z.rw2 + (7.8 - z.rw2) * sueno
+        let s.rh = z.rh2 + (1.5 - z.rh2) * sueno
         //  Y dormida abre SOLO el derecho hacia la gota que se ha hundido en
         //  ella: 280 ms, abierto 700, y a seguir durmiendo. El izquierdo ni se
         //  entera, que es lo que hace que no parezca que se ha despertado.
-        let s.rw2 = s.rw * (1 - ojo.d) + 8.6 * ojo.d
-        let s.rh2 = s.rh * (1 - ojo.d) + 8.6 * ojo.d
+        let s.rw2 = s.rw + (8.6 - s.rw) * ojo.d
+        let s.rh2 = s.rh + (8.6 - s.rh) * ojo.d
         //  Y la lupa, al final de la cadena: el aro y el mango.
-        let u.w = s.w * (1 - lupa) + 17.4 * lupa
-        let u.h = s.h * (1 - lupa) + 17.4 * lupa
-        let u.rw = s.rw2 * (1 - lupa) + 4.4 * lupa
-        let u.rh = s.rh2 * (1 - lupa) + 11.6 * lupa
+        let u.w = s.w + (17.4 - s.w) * lupa
+        let u.h = s.h + (17.4 - s.h) * lupa
+        let u.rw = s.rw2 + (4.4 - s.rw2) * lupa
+        let u.rh = s.rh2 + (11.6 - s.rh2) * lupa
 
         //  9. Y los gestos de la sesión, que son cinco y siguen la lámina al
         //  pie de la letra: «una cápsula forma el arco del candado y la otra su
@@ -982,28 +982,28 @@ scene Marea {
         //  que sale», «los dos trazos curvos se juntan en una flecha circular»,
         //  «un ojo forma el aro abierto y el otro el trazo vertical». Cinco
         //  eslabones más de la misma cadena: la cara no se cambia, se dobla.
-        let k.w = u.w * (1 - candado) + 12.6 * candado
-        let k.h = u.h * (1 - candado) + 12.6 * candado
-        let k.rw = u.rw * (1 - candado) + 15.5 * candado
-        let k.rh = u.rh * (1 - candado) + 11.5 * candado
-        let p.w = k.w * (1 - parpados) + 8.8 * parpados
-        let p.h = k.h * (1 - parpados) + 2.6 * parpados
-        let p.rw = k.rw * (1 - parpados) + 8.8 * parpados
-        let p.rh = k.rh * (1 - parpados) + 2.6 * parpados
-        let q.w = p.w * (1 - puerta) + 12.6 * puerta
-        let q.h = p.h * (1 - puerta) + 16.4 * puerta
-        let q.rw = p.rw * (1 - puerta) + 8.4 * puerta
-        let q.rh = p.rh * (1 - puerta) + 2.4 * puerta
+        let k.w = u.w + (12.6 - u.w) * candado
+        let k.h = u.h + (12.6 - u.h) * candado
+        let k.rw = u.rw + (15.5 - u.rw) * candado
+        let k.rh = u.rh + (11.5 - u.rh) * candado
+        let p.w = k.w + (8.8 - k.w) * parpados
+        let p.h = k.h + (2.6 - k.h) * parpados
+        let p.rw = k.rw + (8.8 - k.rw) * parpados
+        let p.rh = k.rh + (2.6 - k.rh) * parpados
+        let q.w = p.w + (12.6 - p.w) * puerta
+        let q.h = p.h + (16.4 - p.h) * puerta
+        let q.rw = p.rw + (8.4 - p.rw) * puerta
+        let q.rh = p.rh + (2.4 - p.rh) * puerta
         //  Reiniciar deja el derecho en nada: la punta de la flecha es un
         //  camino aparte, porque una punta es un triángulo y no una cápsula.
-        let j.w = q.w * (1 - giro) + 16.4 * giro
-        let j.h = q.h * (1 - giro) + 16.4 * giro
-        let j.rw = q.rw * (1 - giro) + 0.1 * giro
-        let j.rh = q.rh * (1 - giro) + 0.1 * giro
-        let w.w = j.w * (1 - encendido) + 17 * encendido
-        let w.h = j.h * (1 - encendido) + 17 * encendido
-        let w.rw = j.rw * (1 - encendido) + 2.8 * encendido
-        let w.rh = j.rh * (1 - encendido) + 11 * encendido
+        let j.w = q.w + (16.4 - q.w) * giro
+        let j.h = q.h + (16.4 - q.h) * giro
+        let j.rw = q.rw + (0.1 - q.rw) * giro
+        let j.rh = q.rh + (0.1 - q.rh) * giro
+        let w.w = j.w + (17 - j.w) * encendido
+        let w.h = j.h + (17 - j.h) * encendido
+        let w.rw = j.rw + (2.8 - j.rw) * encendido
+        let w.rh = j.rh + (11 - j.rh) * encendido
         //  Y el final, que es el único gesto de toda la escena que se hace
         //  DESPUÉS de decidir: «el símbolo puede contraerse hasta un pequeño
         //  punto de luz y desaparecer». Se encoge entero, huecos incluidos, o
@@ -1182,7 +1182,7 @@ scene Marea {
     //  Dónde está su cara, dicho UNA vez: lo usan la cara y lo que se le pega.
     //  Escrito dos veces, unas gafas se quedan mirando a otro lado en cuanto
     //  alguien toca uno de los dos sitios.
-    let cara.dx = gaze.x * (1 - atenta) + 4 * atenta
+    let cara.dx = gaze.x + (4 - gaze.x) * atenta
     let cara.dy = gaze.y * (1 - atenta)
     let cara.baja = (1 - out) * 4.5 * if(hidden, 1, 0)
     Cara(cx, cy_real, cara.dx, cara.dy, cara.baja)
@@ -1434,7 +1434,7 @@ scene Marea {
         let atras = 2 - j
         let vuelo = vuela.$j
         let aw = (250 - atras * 22) + (8.3 - 250 + atras * 22) * vuelo
-        let ah = 44 * (1 - vuelo) + 8.3 * vuelo
+        let ah = 44 + (8.3 - 44) * vuelo
         let ax = av.x0 + av.dx * vuelo + (1 - entra) * 30
         let ay = cy_real + av.dy * (1 - (1 - vuelo) * (1 - vuelo)) + atras * 8 * (1 - vuelo)
         body {
