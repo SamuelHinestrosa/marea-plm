@@ -140,6 +140,10 @@ scene Marea {
     //  «Todo llega, tú decides». Llegar no la abre: se abre pulsándola a ella,
     //  la vista previa, una gota o la tarjeta que llega.
     fact bandeja = false
+    //  De qué categoría es lo que se enseña en el oleaje: 0 todas, o una sola.
+    //  Se pone al pulsar una gota, y se quita al abrirlo por cualquier otro
+    //  sitio —pulsarla a ella, la tarjeta que llega, un urgente—.
+    fact filtro = 0
     event abrir_bandeja
     event cerrar_bandeja
     event resolver ->                  // con cuál, de carga: la lógica la marca leída
@@ -302,7 +306,7 @@ scene Marea {
     //  Y «una vez por episodio» ya no puede colgar de la cara, porque la cara
     //  vuelve: lo lleva su propio hecho, que se limpia cuando no queda ninguno.
     fact alarmada = false
-    on urge while not remanso and not alarmada { alarmada = true; face = alerta; play alarmarse; emit abrir_bandeja }
+    on urge while not remanso and not alarmada { alarmada = true; face = alerta; play alarmarse; filtro = 0; emit abrir_bandeja }
     on still face for 1.6s while face == alerta { face = eye }
     //  En Remanso una urgencia permitida **no abre la bandeja ni roba el foco**:
     //  aparece una perla ámbar sobre la membrana y solo el ojo de al lado se
@@ -331,11 +335,17 @@ scene Marea {
         //  las de abajo suben a ocupar el hueco en vez de dejarlo ahí.
         prop hueco.$k = 0 ~calm
     }
-    follow hueco.1 = if(viva.2 and urg.2 and not urg.1, 1, 0) + if(viva.3 and urg.3 and not urg.1, 1, 0) + if(viva.4 and urg.4 and not urg.1, 1, 0) + if(viva.5 and urg.5 and not urg.1, 1, 0)
-    follow hueco.2 = if(viva.1 and (urg.1 or not urg.2), 1, 0) + if(viva.3 and urg.3 and not urg.2, 1, 0) + if(viva.4 and urg.4 and not urg.2, 1, 0) + if(viva.5 and urg.5 and not urg.2, 1, 0)
-    follow hueco.3 = if(viva.1 and (urg.1 or not urg.3), 1, 0) + if(viva.2 and (urg.2 or not urg.3), 1, 0) + if(viva.4 and urg.4 and not urg.3, 1, 0) + if(viva.5 and urg.5 and not urg.3, 1, 0)
-    follow hueco.4 = if(viva.1 and (urg.1 or not urg.4), 1, 0) + if(viva.2 and (urg.2 or not urg.4), 1, 0) + if(viva.3 and (urg.3 or not urg.4), 1, 0) + if(viva.5 and urg.5 and not urg.4, 1, 0)
-    follow hueco.5 = if(viva.1 and (urg.1 or not urg.5), 1, 0) + if(viva.2 and (urg.2 or not urg.5), 1, 0) + if(viva.3 and (urg.3 or not urg.5), 1, 0) + if(viva.4 and (urg.4 or not urg.5), 1, 0)
+    //  Qué filas salen: las vivas, y si hay filtro solo las suyas. Va en un
+    //  muelle de un frame porque un `let` no ve los hechos de un `repeat`.
+    repeat k in 1..6 {
+        prop sale.$k = 0 ~16ms
+        follow sale.$k = if(viva.$k and (filtro < 0.5 or catfila.$k == filtro), 1, 0)
+    }
+    follow hueco.1 = if(sale.2 > 0.5 and urg.2 and not urg.1, 1, 0) + if(sale.3 > 0.5 and urg.3 and not urg.1, 1, 0) + if(sale.4 > 0.5 and urg.4 and not urg.1, 1, 0) + if(sale.5 > 0.5 and urg.5 and not urg.1, 1, 0)
+    follow hueco.2 = if(sale.1 > 0.5 and (urg.1 or not urg.2), 1, 0) + if(sale.3 > 0.5 and urg.3 and not urg.2, 1, 0) + if(sale.4 > 0.5 and urg.4 and not urg.2, 1, 0) + if(sale.5 > 0.5 and urg.5 and not urg.2, 1, 0)
+    follow hueco.3 = if(sale.1 > 0.5 and (urg.1 or not urg.3), 1, 0) + if(sale.2 > 0.5 and (urg.2 or not urg.3), 1, 0) + if(sale.4 > 0.5 and urg.4 and not urg.3, 1, 0) + if(sale.5 > 0.5 and urg.5 and not urg.3, 1, 0)
+    follow hueco.4 = if(sale.1 > 0.5 and (urg.1 or not urg.4), 1, 0) + if(sale.2 > 0.5 and (urg.2 or not urg.4), 1, 0) + if(sale.3 > 0.5 and (urg.3 or not urg.4), 1, 0) + if(sale.5 > 0.5 and urg.5 and not urg.4, 1, 0)
+    follow hueco.5 = if(sale.1 > 0.5 and (urg.1 or not urg.5), 1, 0) + if(sale.2 > 0.5 and (urg.2 or not urg.5), 1, 0) + if(sale.3 > 0.5 and (urg.3 or not urg.5), 1, 0) + if(sale.4 > 0.5 and (urg.4 or not urg.5), 1, 0)
     follow hay_urgente = if(viva.1 and urg.1, 1, 0) + if(viva.2 and urg.2, 1, 0) + if(viva.3 and urg.3, 1, 0) + if(viva.4 and urg.4, 1, 0) + if(viva.5 and urg.5, 1, 0)
     //  De qué categoría es lo urgente que hay vivo: es lo que hace que SU gota
     //  suba al alto del hombro y se ponga ámbar mientras dure. Va en props
@@ -1172,11 +1182,19 @@ scene Marea {
     repeat k in 1..5 {
         prop sitio.$k = 0 ~calm
         prop hay.$k = 0 ~240ms
+        //  Acercarse a una gota la menea como lo que es: un poco de agua. No es
+        //  un resalte que se enciende, es un empujón a un muelle poco frenado,
+        //  así que se aplasta, rebota y se queda quieta sola.
+        prop toca.gota.$k = 0 ~chapoteo
         //  «La gota ámbar sube y se queda arriba mientras dure»: la de la
         //  categoría que tiene algo urgente se va al sitio 0 —lo alto del
         //  hombro— y las demás bajan uno para dejárselo. Al resolverlo, cada
         //  una vuelve a su sitio por recencia, sin que nadie las recoloque.
-        follow sitio.$k = (1 - urgente.$k) * (if(n.1 > 0 and last.1 > last.$k, 1, 0) + if(n.2 > 0 and last.2 > last.$k, 1, 0) + if(n.3 > 0 and last.3 > last.$k, 1, 0) + if(n.4 > 0 and last.4 > last.$k, 1, 0) + clamp(urg.hay - urgente.$k, 0, 1))
+        //  Y el que tiene algo urgente va delante. Las demás cuentan cuántas
+        //  hay más recientes **sin contar la urgente**, y le suman su sitio:
+        //  contándola dos veces quedaba un hueco en el abanico y la de arriba
+        //  se veía despegada de las otras.
+        follow sitio.$k = (1 - urgente.$k) * (if(n.1 > 0 and last.1 > last.$k, 1, 0) * (1 - urgente.1) + if(n.2 > 0 and last.2 > last.$k, 1, 0) * (1 - urgente.2) + if(n.3 > 0 and last.3 > last.$k, 1, 0) * (1 - urgente.3) + if(n.4 > 0 and last.4 > last.$k, 1, 0) * (1 - urgente.4) + clamp(urg.hay, 0, 1))
         //  En Remanso las gotas del hombro se recogen: ahí abajo son perlas.
         follow hay.$k = if(n.$k > 0 and not open, 1, 0) * (1 - calma) * (1 - resumen)
         //  Del hombro al abanico **por el arco**: lo que se anima es el ángulo,
@@ -1196,9 +1214,18 @@ scene Marea {
         //  Y en ámbar mientras dure, como su fila en la bandeja: lo que importa
         //  de esa gota ya no es de quién es, es que corre prisa.
         let color.$k = mix(mix(mix(mix(azul, lila, k > 1.5), verde, k > 2.5), ambar, k > 3.5), #e2b25a, urgente.$k)
+        //  El latido va en las dos a la vez —crece entera—; el meneo de
+        //  acercarse va al revés en cada eje, que es lo que hace que parezca
+        //  agua y no un globo: se aplasta por un lado mientras se estira por el
+        //  otro, y el muelle poco frenado la deja temblando un momento.
+        //  Engorda un poco y se menea: 5 % a las dos y 12 % al revés en cada
+        //  eje. El empujón va a un muelle poco frenado —el del chapoteo del
+        //  agua—, así que rebota un par de veces y se queda quieta sola.
+        let ancha.$k = hay.$k * (1 + late.$k + toca.gota.$k * 0.17)
+        let alta.$k = hay.$k * (1 + late.$k - toca.gota.$k * 0.07)
         group {
             pivot: gx.$k, gy.$k
-            scale: hay.$k * (1 + late.$k), hay.$k * (1 + late.$k)
+            scale: ancha.$k, alta.$k
             opacity: hay.$k
             ellipse { at: gx.$k, gy.$k; radius: 7 + 3 * abanico; color: color.$k }
             //  Recogida enseña su cuenta; abierta, el icono de su categoría.
@@ -1228,7 +1255,10 @@ scene Marea {
         //  Pulsar una gota abre el oleaje: es de las cuatro maneras que dice el
         //  contrato, y la más directa —ya estás mirando ahí—.
         zone box gotazona.$k { at: gx.$k, gy.$k; size: 24, 24; corner: 12; cursor: pointer; active: hay.$k > 0.5 and not bandeja and not open }
-        on press gotazona.$k { cat = k; emit abrir_bandeja }
+        on enter gotazona.$k { impulse toca.gota.$k 9 }
+        //  Y pulsarla abre el oleaje **con lo suyo**: si preguntas por la gota
+        //  azul, lo que quieres ver son los mensajes, no todo lo que hay.
+        on press gotazona.$k { cat = k; filtro = k; emit abrir_bandeja }
         //  La gota donde cae algo late una vez, y su número con ella. Nada en bucle.
         on landed while cual == k { n.$k = n.$k + cuantos; last.$k = max(last.$k, miseq); impulse late.$k 5 }
         on direct while cat == k { n.$k = n.$k + 1; last.$k = seq; impulse late.$k 5 }
@@ -1334,7 +1364,27 @@ scene Marea {
         let ty0 = tray.y - 198
 
         text "OLEAJE" { at: tx0, ty0; anchor: left center; size: 9.5; weight: 600; color: ink; opacity: 35% }
-        text "Ahora" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink }
+        // ── la cabecera, por columnas ────────────────────────────
+        //  El título a la izquierda, el carril de pastillas en medio y «Ver
+        //  todo» a la derecha. Los tres sitios salen de UNA cuenta, desde el
+        //  borde derecho hacia dentro, así que no hay manera de que se monten:
+        //  a mano, la cuarta pastilla caía justo encima del botón.
+        let cab.der = tray.x + 232
+        let cab.boton = cab.der - 39
+        let cab.carril = cab.boton - 39 - 22
+        //  Y de qué es lo que se enseña: «Ahora» es todo, y con filtro, el
+        //  nombre de su categoría. Preguntaste por la gota azul; contesta la
+        //  pregunta que hiciste.
+        text "Ahora" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink; show: filtro < 0.5 }
+        text "Mensajes" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink; show: filtro == 1 }
+        text "Trabajo" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink; show: filtro == 2 }
+        text "Calendario" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink; show: filtro == 3 }
+        text "Sistema" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink; show: filtro == 4 }
+        //  Y cómo volver a verlo todo, que si no es un callejón sin salida.
+        box { at: cab.boton, ty0 + 24; size: 78, 26; corner: 13; color: #202021; opacity: if(filtro > 0.5, 1, 0) }
+        text "Ver todo" { at: cab.boton, ty0 + 24; anchor: center; size: 11.5; color: #8b8f95; show: filtro > 0.5 }
+        zone box vertodo { at: cab.boton, ty0 + 24; size: 78, 26; corner: 13; cursor: pointer; active: tray > 0.9 and filtro > 0.5 }
+        on press vertodo { filtro = 0 }
 
         //  El carril: las gotas se van de su hombro a la cabecera de la
         //  bandeja, y ahí se quedan como pastillas con su cuenta. El viaje es
@@ -1344,8 +1394,11 @@ scene Marea {
             let ang = -24 + 26 * sitio.$k
             let gx = cx + 31.7 * cos(ang)
             let gy = cy_real + 31.7 * sin(ang)
-            let rx = tray.x + 78 + (k - 1) * 40
-            let ry = ty0 + 14
+            //  Pegadas al final del carril y en su orden —el mismo que en su
+            //  hombro—, no por el número de su categoría: si falta una, las
+            //  demás se juntan en vez de dejar su hueco.
+            let rx = cab.carril - sitio.$k * 40
+            let ry = ty0 + 24
             let px = gx + (rx - gx) * carril
             let py = gy + (ry - gy) * (1 - (1 - carril) * (1 - carril))
             group {
@@ -1375,7 +1428,7 @@ scene Marea {
             let color.$k = mix(mix(mix(mix(azul, lila, catfila.$k > 1.5), verde, catfila.$k > 2.5), ambar, catfila.$k > 3.5), #e2b25a, if(urg.$k, 1, 0))
             group {
                 opacity: sube.$k * (1 - fuera.$k)
-                show: viva.$k
+                show: sale.$k > 0.5
                 //  Lo que descubre al deslizarla, a un lado y al otro: hacia la
                 //  derecha, «Hecho»; hacia la izquierda, «Descartar». Y son dos
                 //  cosas distintas: lo hecho manda su gota de vuelta, **lo
@@ -1399,7 +1452,7 @@ scene Marea {
                 text fila.$k.mas { at: fx - 200, fy + 17; anchor: left center; size: 10.5; width: 300; lines: 1; color: #8b8f95 }
                 text fila.$k.hora { at: fx + 208, fy - 18; anchor: right center; size: 9.5; color: #8b8f95 }
             }
-            zone box filazona.$k { at: fx, fy; size: 456, 58; corner: 14; cursor: pointer; active: tray > 0.9 and viva.$k }
+            zone box filazona.$k { at: fx, fy; size: 456, 58; corner: 14; cursor: pointer; active: tray > 0.9 and sale.$k > 0.5 }
             on enter filazona.$k { toca.$k: 1 }
             on leave filazona.$k { toca.$k: 0 }
             on press filazona.$k { emit resolver(k) }
@@ -2220,7 +2273,7 @@ scene Marea {
     on enter aviso_zona { sobre = true }
     on leave aviso_zona { sobre = false; marca = marca + 1 }
     //  Y la propia tarjeta que llega: pulsarla abre el oleaje.
-    on press aviso_zona { emit tray; emit abrir_bandeja }
+    on press aviso_zona { filtro = 0; emit tray; emit abrir_bandeja }
     //  3,2 s para leer una; 4,2 si son varias, que es lo que dice el contrato.
     //  Son dos reglas porque el `for` de una regla es un tiempo escrito y no una
     //  cuenta; aquí no estorba, y dicho dos veces se lee bien.

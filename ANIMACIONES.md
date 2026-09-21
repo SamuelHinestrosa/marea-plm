@@ -753,6 +753,34 @@ nunca; en cuanto llegaron dos de Telegram seguidos, salieron de colores
 distintos. Es exactamente para lo que sirve enchufar una cosa a datos que no has
 elegido tú.
 
+### Las gotas: repartidas, con agua, y cada una abre lo suyo
+
+Tres cosas que solo se ven teniendo gotas de verdad delante:
+
+**El abanico tenía un hueco.** La gota del urgente sube al sitio 0 y las demás
+bajan uno para dejárselo… pero además la contaban como «una más reciente que
+yo», así que sumaban dos sitios y quedaba un agujero entre la de arriba y las
+otras. Ahora la cuenta de recencia **excluye a la urgente** y le suma su sitio
+una sola vez.
+
+**Acercarse a una gota la menea.** No es un resalte que se enciende: es un
+empujón a un muelle poco frenado —el mismo `chapoteo` del agua del borde—, y la
+gota engorda un 5 % y se aplasta un 12 % al revés en cada eje. Rebota un par de
+veces y se queda quieta sola. Es lo que la hace leerse como agua y no como un
+botón redondo.
+
+**Y pulsar una gota abre el oleaje con lo suyo.** Si preguntas por la gota azul,
+lo que quieres ver son los mensajes, no todo lo que hay: la cabecera pasa de
+«Ahora» al nombre de su categoría, se enseñan solo sus filas, y aparece un «Ver
+todo» para salir —sin él sería un callejón—. Abrirlo por cualquier otro sitio
+—pulsarla a ella, la tarjeta que llega, un urgente— lo abre entero.
+
+**La cabecera, por columnas.** El título a la izquierda, el carril de pastillas
+en medio y «Ver todo» a la derecha, y los tres sitios salen de **una cuenta
+desde el borde derecho hacia dentro**: a mano, la cuarta pastilla caía justo
+encima del botón. Y las pastillas se colocan por **su orden**, no por el número
+de su categoría, así que si falta una se juntan en vez de dejar su hueco.
+
 ### Cerrar el oleaje: primero se pliega, luego vuelve
 
 Su sitio lo llevaba la geometría de la bandeja: al cerrarse, volvía **a la vez**
