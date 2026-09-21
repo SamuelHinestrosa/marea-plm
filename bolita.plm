@@ -29,7 +29,7 @@ scene Marea {
         //  Cambiar de red o de auricular no lo sabe hacer pleamar todavía (su
         //  B15), así que lo hace la lógica con las herramientas del sistema. Y
         //  `fd` busca los archivos y las carpetas.
-        run: "nmcli", "bluetoothctl", "fd", "xdg-open"
+        run: "nmcli", "bluetoothctl", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir"
     }
     service clock as ahora { time: text = "--:--"; date: text }
     service audio as sonido { volume: number; muted: bool; input: number; input_muted: bool }
@@ -636,7 +636,16 @@ scene Marea {
     //  Marea, por 46/56; el último sube más que allí porque esta superficie no
     //  se esconde: aquí es ella la que tiene que quedar fuera del todo.
     event snap                         // alguien pide una foto
-    event gone                         // ya no está en el encuadre
+    event gone ->                      // ya no está en el encuadre: la lógica congela AHORA
+    //  Qué se fotografía. Las tres entran por teclado —`pleamar --decir bolita
+    //  "emit foto_region"`— y hacen lo mismo hasta que hay foto: lo que cambia
+    //  es de dónde sale el recorte.
+    fact ambito: region | pantalla | ventana = region
+    event foto_region                  // Impr · SUPER+C
+    event foto_pantalla                // MAYÚS+Impr
+    event foto_ventana                 // CTRL+Impr
+    event congelado                    // la lógica: ya tengo el frame, puedes volver
+    event foto_cancelada               // Esc al encuadrar: no hay foto, y no dispara
     prop away = 0 ~quick               // 1 mientras espera arriba, fuera de la vista
 
     gesture retire state {
@@ -648,7 +657,12 @@ scene Marea {
     }
     //  Sale igual para dos cosas, y al llegar arriba hace una u otra.
     fact para: foto | rincon = foto
-    on snap { para = foto; play retire }
+    on foto_region { ambito = region; emit snap }
+    on foto_pantalla { ambito = pantalla; emit snap }
+    on foto_ventana { ambito = ventana; emit snap }
+    //  Y lo que hubiera abierto se recoge: un panel a medio cerrar en la foto
+    //  es lo único que ella puede estropear.
+    on snap { para = foto; open = false; pagina = ninguna; bandeja = false; busca = false; menuab = false; play retire }
 
     //  El disparo. El obturador es una pose y el clic un gesto: cierra en 80,
     //  aguanta, abre en 170 —los tiempos de Marea— y devuelve la cara. Y un
@@ -670,11 +684,20 @@ scene Marea {
     //  capa: están medidos en Marea, con 90 salía un fantasma suyo en la foto.
     //  Y vuelve cayendo con un muelle vivo, que rebota un pelo al aterrizar:
     //  no «aparece» con la cámara puesta, regresa.
+    //
+    //  Vuelve cuando la lógica dice que el frame YA está congelado, no a los
+    //  220 ms de reloj: congelar dos monitores tarda lo que tarde, y volver
+    //  antes era salir en la foto. Lo que se encuadra después es esa foto —se
+    //  recorta de ella, no del escritorio vivo—, así que mientras eliges ya
+    //  puede estar delante: nada de lo que haga entra en una imagen que ya existe.
     on gone while para == foto {
         away: 1 ~16ms
         face = camera
-        away: 0 ~lively after 220ms
     }
+    on congelado { away: 0 ~lively }
+    on foto_cancelada { away: 0 ~lively; face = eye }
+    //  Y si la lógica no contestase, no se queda arriba para siempre.
+    on still away for 2.5s while away > 0.5 and para == foto { away: 0 ~lively; face = eye }
 
     //  Hundida asoma algo menos de la mitad; separada cuelga a su propia altura.
     //  Cuánto se mete. El contrato dice «algo menos de la mitad», y con eso el

@@ -620,3 +620,78 @@ on("bandeja_elige", function(i)
         fact.pagina = "ninguna"
     end
 end)
+
+-- ── la fotografía ──────────────────────────────────────────────────
+--  Todo el diseño descansa en una decisión que viene de Marea: no se encuadra
+--  el escritorio vivo, se encuadra uno CONGELADO. Ella sale del encuadre, se
+--  hace una foto de todo, y de esa foto es de donde se recorta. Así un menú que
+--  se cierra al primer clic, un vídeo que sigue andando o un aviso que llega a
+--  media selección no pueden estropear nada: lo que sale ya estaba hecho.
+--
+--  La escena avisa con `gone` cuando ella ya no está; aquí se congela, se le
+--  dice `congelado` para que vuelva —hecha cámara—, se averigua el recorte
+--  según lo que se pidió, y `shoot` es el clic del obturador.
+local FOTOS = casa .. "/Imágenes/Marea"
+local MARCO = (sys.ask("env", "XDG_RUNTIME_DIR") or "/tmp") .. "/marea-plm-marco.png"
+run("mkdir", { "-p", FOTOS })
+
+--  Los monitores: dónde empieza el plano —`grim` lo fotografía entero y su
+--  esquina es la del monitor más arriba a la izquierda— y cuál tiene el foco.
+local function monitores(txt)
+    local minx, miny, foco = 0, 0, nil
+    for bloque in (txt .. "\n\n"):gmatch("(Monitor .-)\n\n") do
+        local w, h, x, y = bloque:match("(%d+)x(%d+)@[%d%.]+ at (%-?%d+)x(%-?%d+)")
+        if w then
+            x, y = tonumber(x), tonumber(y)
+            minx, miny = math.min(minx, x), math.min(miny, y)
+            if bloque:find("focused: yes") then foco = { x = x, y = y, w = tonumber(w), h = tonumber(h) } end
+        end
+    end
+    return minx, miny, foco
+end
+
+local function guardar(x, y, w, h)
+    if w == nil or w < 2 or h < 2 then emit("foto_cancelada"); return end
+    local destino = FOTOS .. "/marea-" .. os.date("%Y%m%d-%H%M%S") .. ".png"
+    run("magick", { MARCO, "-crop", string.format("%dx%d+%d+%d", w, h, x, y), "+repage", destino }, function(_, cod)
+        if cod ~= 0 then log("photo · could not be cropped"); emit("foto_cancelada"); return end
+        emit("shoot")
+        --  Al portapapeles también. `wl-copy` se queda de fondo sirviendo lo
+        --  copiado, así que no se espera a lo que escriba.
+        run("wl-copy", { "--type", "image/png" }, nil, { stdin = destino, output = false })
+        log("photo ·", destino)
+    end)
+end
+
+on("gone", function()
+    if fact.para ~= "foto" then return end
+    local ambito = fact.ambito
+    --  Un respiro para que el compositor retire lo que se estaba cerrando.
+    after(140, function()
+        --  La ventana activa se pregunta ANTES de congelar: es la que había.
+        run("hyprctl", { "activewindow" }, function(ventana)
+            run("hyprctl", { "monitors" }, function(mons)
+                local minx, miny, foco = monitores(mons or "")
+                run("grim", { MARCO }, function(_, cod)
+                    if cod ~= 0 then log("photo · grim could not freeze the screen"); emit("foto_cancelada"); return end
+                    emit("congelado")
+                    if ambito == "pantalla" and foco then
+                        guardar(foco.x - minx, foco.y - miny, foco.w, foco.h)
+                    elseif ambito == "ventana" then
+                        local ax, ay = (ventana or ""):match("at: (%-?%d+),(%-?%d+)")
+                        local aw, ah = (ventana or ""):match("size: (%d+),(%d+)")
+                        if ax then guardar(tonumber(ax) - minx, tonumber(ay) - miny, tonumber(aw), tonumber(ah))
+                        else emit("foto_cancelada") end
+                    else
+                        --  `slurp` da «X,Y AnxAl» en el plano entero; Esc sale sin nada.
+                        run("slurp", {}, function(sel, c2)
+                            local x, y, w, h = (sel or ""):match("(%-?%d+),(%-?%d+) (%d+)x(%d+)")
+                            if c2 ~= 0 or x == nil then emit("foto_cancelada"); return end
+                            guardar(tonumber(x) - minx, tonumber(y) - miny, tonumber(w), tonumber(h))
+                        end)
+                    end
+                end)
+            end)
+        end)
+    end)
+end)
