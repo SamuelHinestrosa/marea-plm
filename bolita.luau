@@ -240,6 +240,7 @@ local function buscar()
                     nombre = nombre,
                     clase = (carpeta and "Carpeta" or "Archivo") .. (donde ~= "" and " · " .. donde or ""),
                     icono = carpeta and "folder" or "text-x-generic",
+                    ruta = limpia,
                 }
             end
         end
@@ -261,7 +262,9 @@ on("abrir_hallazgo", function(i)
         log("abriendo", h.nombre)
         sys.call("apps.launch", h.exec)
     else
-        log("abriendo", h.nombre, "(archivo)")
+        --  A quien sepa abrirlo: eso lo decide el escritorio, no esta barra.
+        log("abriendo", h.ruta or h.nombre)
+        if h.ruta then run("xdg-open", { h.ruta }, function() end) end
     end
     text.consulta = ""
 end)
