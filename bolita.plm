@@ -888,7 +888,7 @@ scene Marea {
         //  Cuando manda otra cosa, el párpado deja de contar: una cámara no
         //  parpadea y un número tampoco.
         let manda = clamp(meter + num + cam + dot, 0, 1)
-        let parpado = lid + (1 - lid) * manda
+        let parpado = lid * (1 - manda) + 1 * manda
 
         //  1. El ojo, y el nivel tumbándolo. (Medido en «El nivel en la cara».)
         let o.w = 5 + 8 * meter
@@ -903,8 +903,8 @@ scene Marea {
         //  estaba detrás de ellos y los ojos se abren para enseñarlo.
         let junta = clamp(num * 2, 0, 1)
         let abre = clamp(num * 2 - 1, 0, 1)
-        let c.w = o.w + (9 - o.w) * junta
-        let c.h = o.h + (9 - o.h) * junta
+        let c.w = o.w * (1 - junta) + 9 * junta
+        let c.h = o.h * (1 - junta) + 9 * junta
         let c.sep = o.sep * (1 - junta)
         //  18 y no 30: el anillo se queda en algo más de media bolita. Con 30 casi
         //  la llenaba, y en 260 ms eso no es un diafragma, es un fogonazo.
@@ -917,8 +917,8 @@ scene Marea {
         let ojo.l = 10.7 - 5.4 * shut
         let l.w = g.w + (ojo.l - g.w) * cam
         let l.h = g.h + (ojo.l - g.h) * cam
-        let r.w = g.w + (24.6 - g.w) * cam
-        let r.h = g.h + (17.3 - g.h) * cam
+        let r.w = g.w * (1 - cam) + 24.6 * cam
+        let r.h = g.h * (1 - cam) + 17.3 * cam
         //  Buscando, los dos se van al centro: el aro se queda ahí y el mango
         //  sale de su borde, no de donde estaba un ojo.
         //  Candado, flecha circular y símbolo de encendido son UNA figura
@@ -929,27 +929,27 @@ scene Marea {
         //  4. El disco de grabar: el ojo izquierdo, y solo él. El derecho sigue
         //  siendo un ojo y sigue al puntero, que es lo que la mantiene viva
         //  mientras dura. El disco se queda donde estaba el ojo, no se centra.
-        let d.w = l.w + (9 - l.w) * dot
-        let d.h = l.h + (9 - l.h) * dot
+        let d.w = l.w * (1 - dot) + 9 * dot
+        let d.h = l.h * (1 - dot) + 9 * dot
 
         //  5. La admiración: el palo es el ojo izquierdo y el punto el derecho,
         //  los dos centrados, porque un «!» descentrado no es un «!». Se van al
         //  medio, y uno se estira mientras el otro se hace punto.
-        let a.w = d.w + (4.1 - d.w) * alarma
-        let a.h = d.h + (12.3 - d.h) * alarma
-        let a.rw = r.w + (4.1 - r.w) * alarma
-        let a.rh = r.h + (4.1 - r.h) * alarma
+        let a.w = d.w * (1 - alarma) + 4.1 * alarma
+        let a.h = d.h * (1 - alarma) + 12.3 * alarma
+        let a.rw = r.w * (1 - alarma) + 4.1 * alarma
+        let a.rh = r.h * (1 - alarma) + 4.1 * alarma
 
         //  6. En Remanso los ojos bajan a dos trazos relajados. No se cierran:
         //  sigue aquí, atenta. Cerrarlos sería dormir, que es otra cosa.
-        let z.w = a.w + (7.4 - a.w) * calma
-        let z.h = a.h + (2.5 - a.h) * calma
-        let z.rw = a.rw + (7.4 - a.rw) * calma
-        let z.rh = a.rh + (2.5 - a.rh) * calma
+        let z.w = a.w * (1 - calma) + 7.4 * calma
+        let z.h = a.h * (1 - calma) + 2.5 * calma
+        let z.rw = a.rw * (1 - calma) + 7.4 * calma
+        let z.rh = a.rh * (1 - calma) + 2.5 * calma
         //  Y el de al lado de la perla se abre redondo para mirarla. Solo ese:
         //  el otro sigue en su trazo, porque no ha pasado nada más.
-        let z.rw2 = z.rw + (9.5 - z.rw) * mirada
-        let z.rh2 = z.rh + (9.5 - z.rh) * mirada
+        let z.rw2 = z.rw * (1 - mirada) + 9.5 * mirada
+        let z.rh2 = z.rh * (1 - mirada) + 9.5 * mirada
 
         //  8. Buscando: los ojos se vuelven **una lupa**. El izquierdo se abre
         //  en el aro —un disco al que otro del color del cuerpo le come el
@@ -960,20 +960,20 @@ scene Marea {
         //  7. Dormida: dos rayitas. No es el trazo del Remanso —ahí sigue
         //  mirando, aquí no hay nadie—: son más finas y caen un poco, como un
         //  párpado que ya se ha rendido.
-        let s.w = z.w + (7.8 - z.w) * sueno
-        let s.h = z.h + (1.5 - z.h) * sueno
-        let s.rw = z.rw2 + (7.8 - z.rw2) * sueno
-        let s.rh = z.rh2 + (1.5 - z.rh2) * sueno
+        let s.w = z.w * (1 - sueno) + 7.8 * sueno
+        let s.h = z.h * (1 - sueno) + 1.5 * sueno
+        let s.rw = z.rw2 * (1 - sueno) + 7.8 * sueno
+        let s.rh = z.rh2 * (1 - sueno) + 1.5 * sueno
         //  Y dormida abre SOLO el derecho hacia la gota que se ha hundido en
         //  ella: 280 ms, abierto 700, y a seguir durmiendo. El izquierdo ni se
         //  entera, que es lo que hace que no parezca que se ha despertado.
-        let s.rw2 = s.rw + (8.6 - s.rw) * ojo.d
-        let s.rh2 = s.rh + (8.6 - s.rh) * ojo.d
+        let s.rw2 = s.rw * (1 - ojo.d) + 8.6 * ojo.d
+        let s.rh2 = s.rh * (1 - ojo.d) + 8.6 * ojo.d
         //  Y la lupa, al final de la cadena: el aro y el mango.
-        let u.w = s.w + (17.4 - s.w) * lupa
-        let u.h = s.h + (17.4 - s.h) * lupa
-        let u.rw = s.rw2 + (4.4 - s.rw2) * lupa
-        let u.rh = s.rh2 + (11.6 - s.rh2) * lupa
+        let u.w = s.w * (1 - lupa) + 17.4 * lupa
+        let u.h = s.h * (1 - lupa) + 17.4 * lupa
+        let u.rw = s.rw2 * (1 - lupa) + 4.4 * lupa
+        let u.rh = s.rh2 * (1 - lupa) + 11.6 * lupa
 
         //  9. Y los gestos de la sesión, que son cinco y siguen la lámina al
         //  pie de la letra: «una cápsula forma el arco del candado y la otra su
@@ -982,28 +982,28 @@ scene Marea {
         //  que sale», «los dos trazos curvos se juntan en una flecha circular»,
         //  «un ojo forma el aro abierto y el otro el trazo vertical». Cinco
         //  eslabones más de la misma cadena: la cara no se cambia, se dobla.
-        let k.w = u.w + (12.6 - u.w) * candado
-        let k.h = u.h + (12.6 - u.h) * candado
-        let k.rw = u.rw + (15.5 - u.rw) * candado
-        let k.rh = u.rh + (11.5 - u.rh) * candado
-        let p.w = k.w + (8.8 - k.w) * parpados
-        let p.h = k.h + (2.6 - k.h) * parpados
-        let p.rw = k.rw + (8.8 - k.rw) * parpados
-        let p.rh = k.rh + (2.6 - k.rh) * parpados
-        let q.w = p.w + (12.6 - p.w) * puerta
-        let q.h = p.h + (16.4 - p.h) * puerta
-        let q.rw = p.rw + (8.4 - p.rw) * puerta
-        let q.rh = p.rh + (2.4 - p.rh) * puerta
+        let k.w = u.w * (1 - candado) + 12.6 * candado
+        let k.h = u.h * (1 - candado) + 12.6 * candado
+        let k.rw = u.rw * (1 - candado) + 15.5 * candado
+        let k.rh = u.rh * (1 - candado) + 11.5 * candado
+        let p.w = k.w * (1 - parpados) + 8.8 * parpados
+        let p.h = k.h * (1 - parpados) + 2.6 * parpados
+        let p.rw = k.rw * (1 - parpados) + 8.8 * parpados
+        let p.rh = k.rh * (1 - parpados) + 2.6 * parpados
+        let q.w = p.w * (1 - puerta) + 12.6 * puerta
+        let q.h = p.h * (1 - puerta) + 16.4 * puerta
+        let q.rw = p.rw * (1 - puerta) + 8.4 * puerta
+        let q.rh = p.rh * (1 - puerta) + 2.4 * puerta
         //  Reiniciar deja el derecho en nada: la punta de la flecha es un
         //  camino aparte, porque una punta es un triángulo y no una cápsula.
-        let j.w = q.w + (16.4 - q.w) * giro
-        let j.h = q.h + (16.4 - q.h) * giro
-        let j.rw = q.rw + (0.1 - q.rw) * giro
-        let j.rh = q.rh + (0.1 - q.rh) * giro
-        let w.w = j.w + (17 - j.w) * encendido
-        let w.h = j.h + (17 - j.h) * encendido
-        let w.rw = j.rw + (2.8 - j.rw) * encendido
-        let w.rh = j.rh + (11 - j.rh) * encendido
+        let j.w = q.w * (1 - giro) + 16.4 * giro
+        let j.h = q.h * (1 - giro) + 16.4 * giro
+        let j.rw = q.rw * (1 - giro) + 0.1 * giro
+        let j.rh = q.rh * (1 - giro) + 0.1 * giro
+        let w.w = j.w * (1 - encendido) + 17 * encendido
+        let w.h = j.h * (1 - encendido) + 17 * encendido
+        let w.rw = j.rw * (1 - encendido) + 2.8 * encendido
+        let w.rh = j.rh * (1 - encendido) + 11 * encendido
         //  Y el final, que es el único gesto de toda la escena que se hace
         //  DESPUÉS de decidir: «el símbolo puede contraerse hasta un pequeño
         //  punto de luz y desaparecer». Se encoge entero, huecos incluidos, o
@@ -1434,7 +1434,7 @@ scene Marea {
         let atras = 2 - j
         let vuelo = vuela.$j
         let aw = (250 - atras * 22) + (8.3 - 250 + atras * 22) * vuelo
-        let ah = 44 + (8.3 - 44) * vuelo
+        let ah = 44 * (1 - vuelo) + 8.3 * vuelo
         let ax = av.x0 + av.dx * vuelo + (1 - entra) * 30
         let ay = cy_real + av.dy * (1 - (1 - vuelo) * (1 - vuelo)) + atras * 8 * (1 - vuelo)
         body {
@@ -1906,8 +1906,8 @@ scene Marea {
     //  niveles son **brillo y volumen**, con su icono DEBAJO de la pista, el
     //  rótulo y el tanto por ciento en menta. Lo de las seis y la órbita es del
     //  ControlCenter de ahora, que ya no es esta lámina.
-    let card.w = 390 * card
-    let card.h = 572 * card
+    let card.w = 520 * card
+    let card.h = 510 * card
     //  Pegada a ella, no al lado: se solapan 17 px y con eso el fundido hace un
     //  cuello. Es lo mismo que la bandeja, y por la misma razón: la tarjeta no
     //  aparece al lado, sale de ella.
@@ -1929,7 +1929,7 @@ scene Marea {
         opacity: content
         move: 0, (1 - content) * 10
 
-        let x0 = card.x - 178
+        let x0 = card.x - 228
         //  Lo de la portada se va mientras la página crece: no hay dos cosas a
         //  medias, y lo que queda debajo se ve por el hueco de la que sube.
         let portada = 1 - clamp(pag * 1.6, 0, 1)
@@ -1940,8 +1940,8 @@ scene Marea {
         //  El engranaje y la cruz, arriba a la derecha.
         prop eng.luz = 0 ~140ms
         prop cruz.luz = 0 ~140ms
-        let eng.x = card.x + 118
-        let cruz.x = card.x + 154
+        let eng.x = card.x + 168
+        let cruz.x = card.x + 204
         group {
             opacity: 55% + eng.luz * 45%
             arc { at: eng.x, y0 + 14; radius: 7; span: 300deg; width: 1.8; color: ink }
@@ -1972,20 +1972,20 @@ scene Marea {
             //  de la tarjeta: la cabecera acaba en −150 y el contenido empieza en
             //  −134. Antes la columna de la derecha empezaba en −165 y se le subía
             //  encima a la cruz.
-            let niv.x = card.x - 93
+            let niv.x = card.x - 123
             //  La caja de los niveles llega hasta donde llegan las tarjetas:
             //  con cinco, la de antes se quedaba a media altura y el panel
             //  parecía cojo. Y las pistas crecen con ella, que es lo que la
             //  lámina pide: los deslizadores son el protagonista.
-            let niv.y = card.top + 277
-            box { at: niv.x, niv.y; size: 170, 362; corner: 16; color: #1b1b1c }
+            let niv.y = card.top + 237
+            box { at: niv.x, niv.y; size: 210, 322; corner: 16; color: #1b1b1c }
             repeat k in 0..2 {
-                let sx = niv.x - 38 + k * 76
+                let sx = niv.x - 45 + k * 90
                 let val = if(k == 0, brillo, nivel)
                 let mudo = if(k == 0, 0, if(sonido.muted, 1, 0))
                 let hay = if(k == 0, if(pantalla.present, 1, 0), 1)
-                let arriba = niv.y - 147
-                let alto = 250
+                let arriba = niv.y - 137
+                let alto = 200
                 group {
                     opacity: 25% + hay * 75%
                     //  La pista, y lo lleno desde abajo.
@@ -1996,7 +1996,7 @@ scene Marea {
                     ellipse { at: sx, arriba + alto * (1 - val); radius: 9; color: #f0ece4 }
                 }
                 //  El icono va DEBAJO, y con él el rótulo y el tanto por ciento.
-                let iy = niv.y + 125
+                let iy = niv.y + 93
                 group {
                     opacity: (25% + hay * 75%) * (1 - mudo * 0.45)
                     //  El sol del brillo: un disco y ocho rayos.
@@ -2024,7 +2024,7 @@ scene Marea {
             //  La pista: donde sueltes el dedo, ahí va. Con `pointer.y`, que es
             //  sobre la superficie, o sea las mismas coordenadas con las que está
             //  dibujada la pista: así la cuenta se lee al lado del dibujo.
-            let dedo.0 = 1 - clamp((pointer.y - (card.top + 130)) / 250, 0, 1)
+            let dedo.0 = 1 - clamp((pointer.y - (card.top + 100)) / 200, 0, 1)
             on drag pista.0 { emit mover_brillo(dedo.0) }
             on press pista.0 { emit mover_brillo(dedo.0) }
             on drag pista.1 { emit mover_volumen(dedo.0) }
@@ -2051,13 +2051,13 @@ scene Marea {
             //  todo lo que hay es un hijo, y un `prop` no ocupa sitio.
             repeat k in 1..6 {
                 prop luz.$k = 0 ~140ms
-                zone box fila.$k { at: card.x + 90, card.top + 109 + (k - 1) * 74; size: 173, 66; corner: 14; cursor: pointer; active: content > 0.9 }
+                zone box fila.$k { at: card.x + 111, card.top + 105 + (k - 1) * 66; size: 234, 58; corner: 14; cursor: pointer; active: content > 0.9 }
                 //  El interruptor tiene su propia zona, ENCIMA de la de la
                 //  tarjeta: pulsarlo enciende o apaga, y pulsar el resto abre la
                 //  página. Antes el cuerpo se llevaba las dos cosas y el
                 //  interruptor no hacía nada, así que con la Wi-Fi apagada no
                 //  había manera de volver a ponerla desde aquí.
-                zone box interruptor.$k { at: card.x + 146, card.top + 109 + (k - 1) * 74; size: 52, 44; corner: 20; cursor: pointer; active: content > 0.9 and k < 3 }
+                zone box interruptor.$k { at: card.x + 196, card.top + 105 + (k - 1) * 66; size: 52, 44; corner: 20; cursor: pointer; active: content > 0.9 and k < 3 }
                 on enter fila.$k { luz.$k: 1 }
                 on leave fila.$k { luz.$k: 0 }
                 on press interruptor.$k { emit conmutar(k) }
@@ -2078,11 +2078,11 @@ scene Marea {
             on press fila.4 { pagina = sonido }
             on press fila.5 { pagina = sesion }
             column tarjetas {
-                at: card.x + 4, card.top + 76
+                at: card.x - 6, card.top + 76
                 gap: 8
                 repeat k in 1..6 {
                     row tarjeta {
-                        size: 173, 66
+                        size: 234, 58
                         gap: 6
                         padding: 8
                         //  Centrados a lo alto. Por defecto un reparto alinea a
@@ -2150,7 +2150,7 @@ scene Marea {
             //  El filo de menta de la que está puesta. Va aparte y con `stroke`
             //  —solo el contorno— porque el fondo de una maquetación es un color y
             //  no lleva borde; un `body` relleno encima tapaba la tarjeta entera.
-            box { at: card.x + 90, card.top + 257; size: 173, 66; corner: 14
+            box { at: card.x + 111, card.top + 237; size: 234, 58; corner: 14
                   stroke: 1; color: mint; opacity: encendida.3 }
 
 
@@ -2164,19 +2164,19 @@ scene Marea {
         //  Las tres primeras salen de su tarjeta; el armario no tiene tarjeta
         //  —se entra por su menú—, así que crece desde el centro del panel.
         let pg.suya = if(pagina == armario, 0, 1)
-        let pg.ox = card.x + 90 * pg.suya
-        let pg.oy = card.top + 231 + (-96 + (pg.k - 1) * 74) * pg.suya
+        let pg.ox = card.x + 111 * pg.suya
+        let pg.oy = card.top + 231 + (-126 + (pg.k - 1) * 66) * pg.suya
         let pg.x = pg.ox + (card.x - pg.ox) * pag
         let pg.y = pg.oy + (card.top + 231 - pg.oy) * pag
-        let pg.w = 173 + 183 * pag
-        let pg.h = 66 + 254 * pag
+        let pg.w = 234 + 222 * pag
+        let pg.h = 58 + 292 * pag
         box { at: pg.x, pg.y; size: pg.w, pg.h; corner: 14; color: #1b1b1c; opacity: pag }
 
         group {
             opacity: clamp(pag * 3 - 2, 0, 1)
-            let px0 = card.x - 150
+            let px0 = card.x - 208
             //  La cabecera de la página: hacia atrás, y de qué va.
-            path { at: card.x - 170, card.top + 83; color: ink; stroke: 1.8; opacity: 70%
+            path { at: card.x - 228, card.top + 83; color: ink; stroke: 1.8; opacity: 70%
                    move 5, 0; line 0, 5; line 5, 10 }
             text "Wi-Fi" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == wifi }
             text "Bluetooth" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == bluetooth }
@@ -2185,7 +2185,7 @@ scene Marea {
             text "Sonido" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == sonido }
             text "¿Hacemos una pausa?" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == sesion and confirma == ninguna }
             text "Confirmar" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == sesion and confirma != ninguna }
-            zone box atras { at: card.x - 166, card.top + 88; size: 34, 34; corner: 17; cursor: pointer; active: pag > 0.9 }
+            zone box atras { at: card.x - 224, card.top + 88; size: 34, 34; corner: 17; cursor: pointer; active: pag > 0.9 }
             //  Un paso atrás es UN paso: desde la pregunta se vuelve a la
             //  lista, no al centro de control. Las guardas leen el frame
             //  anterior, así que las dos no se pisan.
@@ -2198,12 +2198,12 @@ scene Marea {
             //  de «este es el puesto» y el número que se manda al elegirla— es
             //  igual, así que se escribe una vez.
             component Fila(f: record, escoge: event, icono: number = 1, senal: number = 0, desde: number = 0) {
-                size: 340, 38
+                size: 456, 38
                 prop luz = 0 ~140ms
                 let puesta = if(f.puesta, 1, 0)
                 let tinta = mix(#8b8f95, mint, puesta)
-                zone box toca { from: 0, 0; size: 340, 38; corner: 10; cursor: pointer }
-                box { from: 0, 0; size: 340, 38; corner: 10
+                zone box toca { from: 0, 0; size: 456, 38; corner: 10; cursor: pointer }
+                box { from: 0, 0; size: 456, 38; corner: 10
                       color: mix(mix(#202021, #262728, luz), #1a241f, puesta) }
                 //  1 · la red, con su fuerza en arcos: cuantos más encendidos,
                 //  mejor llega.
@@ -2228,9 +2228,9 @@ scene Marea {
                     arc { at: 20, 17; radius: 6.4; span: 180deg; width: 1.5; color: tinta }
                     box { at: 20, 27.5; size: 1.5, 3.5; color: tinta }
                 }
-                text f.nombre { at: 42, 19; anchor: left center; size: 12; width: 270; lines: 1
+                text f.nombre { at: 42, 19; anchor: left center; size: 12; width: 386; lines: 1
                                 color: mix(#dfe1e3, #f6f6f5, luz) }
-                ellipse { at: 322, 19; radius: 4; color: mint; opacity: puesta * 100% }
+                ellipse { at: 438, 19; radius: 4; color: mint; opacity: puesta * 100% }
                 on enter toca { luz: 1 }
                 on leave toca { luz: 0 }
                 on press toca { emit escoge(f.index + desde) }
@@ -2239,7 +2239,7 @@ scene Marea {
             //  Las redes que hay. Las trae la lógica de `nmcli`, porque pleamar
             //  sabe leer la red pero no listarla ni cambiarla.
             column lista_redes {
-                at: card.x - 170, card.top + 109
+                at: card.x - 228, card.top + 109
                 gap: 4
                 show: pagina == wifi
                 for r in redes { Fila(r, escoge: elegir_red, icono: 1, senal: r.senal) }
@@ -2249,7 +2249,7 @@ scene Marea {
 
             //  Y los auriculares y demás, de `bluetoothctl`.
             column lista_bt {
-                at: card.x - 170, card.top + 109
+                at: card.x - 228, card.top + 109
                 gap: 4
                 show: pagina == bluetooth
                 for c in cacharros { Fila(c, escoge: elegir_cacharro, icono: 2) }
@@ -2264,9 +2264,9 @@ scene Marea {
             group {
                 show: pagina == armario
                 text "Cada pieza persigue a su manera: el gorro se apoya, las gafas van pegadas y la taza acompaña." {
-                    at: card.x - 170, card.top + 121; anchor: left center; size: 11.5; width: 340; lines: 2; color: #8b8f95 }
+                    at: card.x - 228, card.top + 121; anchor: left center; size: 11.5; width: 456; lines: 2; color: #8b8f95 }
                 repeat a in 1..4 {
-                    let ax = card.x - 114 + (a - 1) * 114
+                    let ax = card.x - 146 + (a - 1) * 146
                     prop aluz.$a = 0 ~140ms
                     box { at: ax, card.top + 191; size: 104, 96; corner: 14
                           color: mix(#202021, #262728, aluz.$a) }
@@ -2278,15 +2278,15 @@ scene Marea {
                     on enter azona.$a { aluz.$a: 1 }
                     on leave azona.$a { aluz.$a: 0 }
                 }
-                figure gorro  { at: card.x - 114, card.top + 177; size: 62, 46 }
+                figure gorro  { at: card.x - 146, card.top + 177; size: 62, 46 }
                 figure gafas  { at: card.x,       card.top + 177; size: 54, 25 }
-                figure taza   { at: card.x + 114, card.top + 177; size: 40, 40 }
-                text "Gorro"  { at: card.x - 114, card.top + 221; anchor: center; size: 12; color: ink }
+                figure taza   { at: card.x + 146, card.top + 177; size: 40, 40 }
+                text "Gorro"  { at: card.x - 146, card.top + 221; anchor: center; size: 12; color: ink }
                 text "Gafas"  { at: card.x,       card.top + 221; anchor: center; size: 12; color: ink }
-                text "Taza"   { at: card.x + 114, card.top + 221; anchor: center; size: 12; color: ink }
-                text "se apoya"  { at: card.x - 114, card.top + 235; anchor: center; size: 10; color: #8b8f95 }
+                text "Taza"   { at: card.x + 146, card.top + 221; anchor: center; size: 12; color: ink }
+                text "se apoya"  { at: card.x - 146, card.top + 235; anchor: center; size: 10; color: #8b8f95 }
                 text "pegadas"   { at: card.x,       card.top + 235; anchor: center; size: 10; color: #8b8f95 }
-                text "acompaña"  { at: card.x + 114, card.top + 235; anchor: center; size: 10; color: #8b8f95 }
+                text "acompaña"  { at: card.x + 146, card.top + 235; anchor: center; size: 10; color: #8b8f95 }
                 on press azona.1 { toggle viste.gorro }
                 on press azona.2 { toggle viste.gafas }
                 on press azona.3 { toggle viste.taza }
@@ -2303,17 +2303,17 @@ scene Marea {
             //  ni una línea que sepa de PipeWire.
             group {
                 show: pagina == sonido
-                text "SALIDA" { at: card.x - 170, card.top + 118; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
+                text "SALIDA" { at: card.x - 228, card.top + 118; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
                 column lista_salidas {
-                    at: card.x - 170, card.top + 132
+                    at: card.x - 228, card.top + 132
                     gap: 4
                     for a in salidas { Fila(a, escoge: elegir_aparato, icono: 3) }
                 }
                 //  La entrada va justo debajo de lo que ocupe la salida, no en
                 //  un sitio fijo: con dos altavoces quedaba un agujero en medio.
-                text "ENTRADA" { at: card.x - 170, card.top + 150 + lista_salidas.height; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
+                text "ENTRADA" { at: card.x - 228, card.top + 150 + lista_salidas.height; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
                 column lista_micros {
-                    at: card.x - 170, card.top + 164 + lista_salidas.height
+                    at: card.x - 228, card.top + 164 + lista_salidas.height
                     gap: 4
                     for a in micros { Fila(a, escoge: elegir_aparato, icono: 4, desde: salidas.count) }
                 }
@@ -2332,55 +2332,55 @@ scene Marea {
                 opacity: 1 - preg
                 move: -22 * preg, 0
                 repeat b in 0..2 {
-                    let bx = card.x - 88 + b * 176
+                    let bx = card.x - 117 + b * 234
                     prop pausa.$b = 0 ~140ms
-                    box { at: bx, card.top + 150; size: 168, 70; corner: 14
+                    box { at: bx, card.top + 150; size: 222, 70; corner: 14
                           color: mix(#202021, #1e2a25, pausa.$b) }
-                    box { at: bx, card.top + 150; size: 168, 70; corner: 14; stroke: 1; color: mint; opacity: pausa.$b }
-                    zone box pzona.$b { at: bx, card.top + 150; size: 168, 70; corner: 14; cursor: pointer
+                    box { at: bx, card.top + 150; size: 222, 70; corner: 14; stroke: 1; color: mint; opacity: pausa.$b }
+                    zone box pzona.$b { at: bx, card.top + 150; size: 222, 70; corner: 14; cursor: pointer
                                         active: pagina == sesion and confirma == ninguna and pag > 0.9 }
                     on enter pzona.$b { pausa.$b: 1 }
                     on leave pzona.$b { pausa.$b: 0 }
                 }
                 //  El candado de bloquear: el cuerpo y su arco.
-                box { at: card.x - 132, card.top + 152; size: 15, 12; corner: 3; color: ink }
-                arc { at: card.x - 132, card.top + 142; radius: 5; span: 180deg; width: 1.8; color: ink }
-                text "Bloquear" { at: card.x - 112, card.top + 142; anchor: left center; size: 13; color: ink }
-                text "Proteger la sesión" { at: card.x - 112, card.top + 160; anchor: left center; size: 11; color: #8b8f95 }
+                box { at: card.x - 161, card.top + 152; size: 15, 12; corner: 3; color: ink }
+                arc { at: card.x - 161, card.top + 142; radius: 5; span: 180deg; width: 1.8; color: ink }
+                text "Bloquear" { at: card.x - 141, card.top + 142; anchor: left center; size: 13; color: ink }
+                text "Proteger la sesión" { at: card.x - 141, card.top + 160; anchor: left center; size: 11; color: #8b8f95 }
                 //  Y la luna de suspender, la misma del Remanso.
-                ellipse { at: card.x + 46, card.top + 150; radius: 8.6; color: ink }
-                ellipse { at: card.x + 50.5, card.top + 145.5; radius: 7.4; color: mix(#202021, #1e2a25, pausa.1) }
-                text "Suspender" { at: card.x + 64, card.top + 142; anchor: left center; size: 13; color: ink }
-                text "Poner en reposo" { at: card.x + 64, card.top + 160; anchor: left center; size: 11; color: #8b8f95 }
+                ellipse { at: card.x + 75, card.top + 150; radius: 8.6; color: ink }
+                ellipse { at: card.x + 79.5, card.top + 145.5; radius: 7.4; color: mix(#202021, #1e2a25, pausa.1) }
+                text "Suspender" { at: card.x + 93, card.top + 142; anchor: left center; size: 13; color: ink }
+                text "Poner en reposo" { at: card.x + 93, card.top + 160; anchor: left center; size: 11; color: #8b8f95 }
 
-                line { from: card.x - 172, card.top + 200; to: card.x + 172, card.top + 200; width: 1; color: ink; opacity: 12% }
-                text "Al terminar" { at: card.x - 170, card.top + 220; anchor: left center; size: 11; weight: 600; color: #8b8f95 }
+                line { from: card.x - 228, card.top + 200; to: card.x + 228, card.top + 200; width: 1; color: ink; opacity: 12% }
+                text "Al terminar" { at: card.x - 228, card.top + 220; anchor: left center; size: 11; weight: 600; color: #8b8f95 }
 
                 //  Las tres que no se deshacen. Cada una con su flecha, y la de
                 //  apagar en coral: el color distingue lo que no vuelve.
                 repeat f in 0..3 {
                     let fy = card.top + 252 + f * 46
                     prop fin.$f = 0 ~140ms
-                    box { at: card.x, fy; size: 344, 42; corner: 11; color: #202021; opacity: fin.$f * 80% }
-                    path { at: card.x + 158, fy - 5; color: mix(#8b8f95, ink, fin.$f); stroke: 1.6
+                    box { at: card.x, fy; size: 456, 42; corner: 11; color: #202021; opacity: fin.$f * 80% }
+                    path { at: card.x + 212, fy - 5; color: mix(#8b8f95, ink, fin.$f); stroke: 1.6
                            move 0, 0; line 5, 5; line 0, 10 }
-                    zone box fzona.$f { at: card.x, fy; size: 344, 42; corner: 11; cursor: pointer
+                    zone box fzona.$f { at: card.x, fy; size: 456, 42; corner: 11; cursor: pointer
                                         active: pagina == sesion and confirma == ninguna and pag > 0.9 }
                     on enter fzona.$f { fin.$f: 1 }
                     on leave fzona.$f { fin.$f: 0 }
                 }
                 //  Cerrar sesión: una puerta y la flecha que sale.
-                box { at: card.x - 150, card.top + 252; size: 11, 15; corner: 2; stroke: 1.6; color: ink }
-                path { at: card.x - 140, card.top + 247; color: ink; stroke: 1.6; move 0, 0; line 5, 5; line 0, 10 }
-                text "Cerrar sesión" { at: card.x - 126, card.top + 252; anchor: left center; size: 12.5; color: ink }
+                box { at: card.x - 208, card.top + 252; size: 11, 15; corner: 2; stroke: 1.6; color: ink }
+                path { at: card.x - 198, card.top + 247; color: ink; stroke: 1.6; move 0, 0; line 5, 5; line 0, 10 }
+                text "Cerrar sesión" { at: card.x - 184, card.top + 252; anchor: left center; size: 12.5; color: ink }
                 //  Reiniciar: la flecha que da la vuelta.
-                arc { at: card.x - 150, card.top + 298; radius: 7; span: 280deg; width: 1.7; rotate: 20deg; color: ink }
-                path { at: card.x - 146, card.top + 289; color: ink; stroke: 1.6; move 0, 0; line 4, 3; line 0, 6 }
-                text "Reiniciar" { at: card.x - 126, card.top + 298; anchor: left center; size: 12.5; color: ink }
+                arc { at: card.x - 208, card.top + 298; radius: 7; span: 280deg; width: 1.7; rotate: 20deg; color: ink }
+                path { at: card.x - 204, card.top + 289; color: ink; stroke: 1.6; move 0, 0; line 4, 3; line 0, 6 }
+                text "Reiniciar" { at: card.x - 184, card.top + 298; anchor: left center; size: 12.5; color: ink }
                 //  Apagar: el símbolo de encendido, y en coral.
-                arc { at: card.x - 150, card.top + 344; radius: 7; span: 280deg; width: 1.7; rotate: 180deg; color: #e0655a }
-                box { at: card.x - 150, card.top + 336; size: 1.7, 7; corner: 0.9; color: #e0655a }
-                text "Apagar" { at: card.x - 126, card.top + 344; anchor: left center; size: 12.5; color: #e0655a }
+                arc { at: card.x - 208, card.top + 344; radius: 7; span: 280deg; width: 1.7; rotate: 180deg; color: #e0655a }
+                box { at: card.x - 208, card.top + 336; size: 1.7, 7; corner: 0.9; color: #e0655a }
+                text "Apagar" { at: card.x - 184, card.top + 344; anchor: left center; size: 12.5; color: #e0655a }
 
                 text "Esc para volver" { at: card.x, card.top + 400; anchor: center; size: 11; color: #8b8f95; opacity: 70% }
             }
@@ -2394,24 +2394,24 @@ scene Marea {
                 show: pagina == sesion and preg > 0.01
                 opacity: preg
                 move: 26 * (1 - preg), 0
-                text "¿Cerrar la sesión?" { at: card.x - 170, card.top + 146; anchor: left center; size: 19; weight: 500; color: ink; show: confirma == salir }
-                text "¿Reiniciar el equipo?" { at: card.x - 170, card.top + 146; anchor: left center; size: 19; weight: 500; color: ink; show: confirma == reinicio }
-                text "¿Apagar el equipo?" { at: card.x - 170, card.top + 146; anchor: left center; size: 19; weight: 500; color: ink; show: confirma == apagado }
-                text "Se cerrarán las aplicaciones." { at: card.x - 170, card.top + 186; anchor: left center; size: 12; color: #8b8f95 }
-                text "Guarda tus cambios antes de continuar." { at: card.x - 170, card.top + 208; anchor: left center; size: 12; color: #8b8f95 }
+                text "¿Cerrar la sesión?" { at: card.x - 228, card.top + 146; anchor: left center; size: 19; weight: 500; color: ink; show: confirma == salir }
+                text "¿Reiniciar el equipo?" { at: card.x - 228, card.top + 146; anchor: left center; size: 19; weight: 500; color: ink; show: confirma == reinicio }
+                text "¿Apagar el equipo?" { at: card.x - 228, card.top + 146; anchor: left center; size: 19; weight: 500; color: ink; show: confirma == apagado }
+                text "Se cerrarán las aplicaciones." { at: card.x - 228, card.top + 186; anchor: left center; size: 12; color: #8b8f95 }
+                text "Guarda tus cambios antes de continuar." { at: card.x - 228, card.top + 208; anchor: left center; size: 12; color: #8b8f95 }
 
                 prop vol.luz = 0 ~140ms
                 prop haz.luz = 0 ~140ms
-                box { at: card.x - 92, card.top + 264; size: 150, 44; corner: 11; color: mix(#1b1b1c, #232425, vol.luz) }
-                box { at: card.x - 92, card.top + 264; size: 150, 44; corner: 11; stroke: 1.4; color: mint }
-                text "Volver" { at: card.x - 92, card.top + 264; anchor: center; size: 13; color: ink }
-                box { at: card.x + 76, card.top + 264; size: 170, 44; corner: 11; color: mix(#e0655a, #f0796a, haz.luz) }
-                text "Cerrar sesión" { at: card.x + 76, card.top + 264; anchor: center; size: 13; weight: 600; color: #200705; show: confirma == salir }
-                text "Reiniciar" { at: card.x + 76, card.top + 264; anchor: center; size: 13; weight: 600; color: #200705; show: confirma == reinicio }
-                text "Apagar equipo" { at: card.x + 76, card.top + 264; anchor: center; size: 13; weight: 600; color: #200705; show: confirma == apagado }
-                zone box volver { at: card.x - 92, card.top + 264; size: 150, 44; corner: 11; cursor: pointer
+                box { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; color: mix(#1b1b1c, #232425, vol.luz) }
+                box { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; stroke: 1.4; color: mint }
+                text "Volver" { at: card.x - 128, card.top + 264; anchor: center; size: 13; color: ink }
+                box { at: card.x + 118, card.top + 264; size: 220, 44; corner: 11; color: mix(#e0655a, #f0796a, haz.luz) }
+                text "Cerrar sesión" { at: card.x + 118, card.top + 264; anchor: center; size: 13; weight: 600; color: #200705; show: confirma == salir }
+                text "Reiniciar" { at: card.x + 118, card.top + 264; anchor: center; size: 13; weight: 600; color: #200705; show: confirma == reinicio }
+                text "Apagar equipo" { at: card.x + 118, card.top + 264; anchor: center; size: 13; weight: 600; color: #200705; show: confirma == apagado }
+                zone box volver { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; cursor: pointer
                                   active: pagina == sesion and confirma != ninguna and pag > 0.9 }
-                zone box hazlo { at: card.x + 76, card.top + 264; size: 170, 44; corner: 11; cursor: pointer
+                zone box hazlo { at: card.x + 118, card.top + 264; size: 220, 44; corner: 11; cursor: pointer
                                  active: pagina == sesion and confirma != ninguna and pag > 0.9 and armado }
                 on enter volver { vol.luz: 1 }
                 on leave volver { vol.luz: 0 }
@@ -2485,13 +2485,13 @@ scene Marea {
             group {
                 show: pagina == concentracion
                 text "Mientras dure, los avisos se guardan y no se enseñan." {
-                    at: card.x - 170, card.top + 119; anchor: left center; size: 12; width: 340; lines: 2; color: #8b8f95 }
+                    at: card.x - 228, card.top + 119; anchor: left center; size: 12; width: 456; lines: 2; color: #8b8f95 }
                 repeat m in 0..3 {
-                    let mx = card.x - 116 + m * 116
+                    let mx = card.x - 158 + m * 158
                     prop mluz.$m = 0 ~140ms
-                    box { at: mx, card.top + 185; size: 108, 44; corner: 12; color: mix(#202021, #262728, mluz.$m) }
+                    box { at: mx, card.top + 185; size: 140, 44; corner: 12; color: mix(#202021, #262728, mluz.$m) }
                     text "{25 + m * 20} min" { at: mx, card.top + 185; anchor: center; size: 12.5; color: ink }
-                    zone box mzona.$m { at: mx, card.top + 185; size: 108, 44; corner: 12; cursor: pointer; active: pagina == concentracion and pag > 0.9 }
+                    zone box mzona.$m { at: mx, card.top + 185; size: 140, 44; corner: 12; cursor: pointer; active: pagina == concentracion and pag > 0.9 }
                     on enter mzona.$m { mluz.$m: 1 }
                     on leave mzona.$m { mluz.$m: 0 }
                     //  Y aquí se entra en el Remanso: eliges cuánto, y lo
@@ -2507,8 +2507,8 @@ scene Marea {
         group {
             opacity: portada
             // ── la línea y lo que suena ──────────────────────────────
-            line { from: x0, card.top + 478; to: card.x + 178, card.top + 478; width: 1; color: ink; opacity: 12% }
-            let by = card.top + 518
+            line { from: x0, card.top + 424; to: card.x + 228, card.top + 424; width: 1; color: ink; opacity: 12% }
+            let by = card.top + 466
             group {
                 show: medios.playing
                 //  La portada, que aquí es un degradado: no hay carátula todavía.
@@ -2519,17 +2519,17 @@ scene Marea {
                 text medios.title { at: x0 + 66, by - 9; anchor: left center; size: 12.5; width: 130; lines: 1; color: ink }
                 text medios.artist { at: x0 + 66, by + 10; anchor: left center; size: 11; width: 130; lines: 1; color: #8b8f95 }
                 //  Anterior, pausa y siguiente. La pausa va en su disco lleno.
-                let bx1 = card.x + 76
-                let bx3 = card.x + 156
+                let bx1 = card.x + 126
+                let bx3 = card.x + 206
                 path { at: bx1 - 6, by - 7; color: ink; move 12, 0; line 12, 14; line 0, 7; close }
                 box { at: bx1 - 8, by; size: 2.6, 14; corner: 1.3; color: ink }
-                ellipse { at: card.x + 116, by; radius: 19; color: #2a2b2c }
-                box { at: card.x + 112, by; size: 3.4, 14; corner: 1.7; color: ink }
-                box { at: card.x + 120, by; size: 3.4, 14; corner: 1.7; color: ink }
+                ellipse { at: card.x + 166, by; radius: 19; color: #2a2b2c }
+                box { at: card.x + 162, by; size: 3.4, 14; corner: 1.7; color: ink }
+                box { at: card.x + 170, by; size: 3.4, 14; corner: 1.7; color: ink }
                 path { at: bx3 - 6, by - 7; color: ink; move 0, 0; line 12, 7; line 0, 14; close }
                 box { at: bx3 + 10, by; size: 2.6, 14; corner: 1.3; color: ink }
                 zone box antes { at: bx1, by; size: 34, 34; corner: 17; cursor: pointer; active: content > 0.9 }
-                zone box tocar { at: card.x + 116, by; size: 42, 42; corner: 21; cursor: pointer; active: content > 0.9 }
+                zone box tocar { at: card.x + 166, by; size: 42, 42; corner: 21; cursor: pointer; active: content > 0.9 }
                 zone box luego { at: bx3, by; size: 34, 34; corner: 17; cursor: pointer; active: content > 0.9 }
                 on press antes { emit anterior }
                 on press tocar { emit tocar_pausa }
