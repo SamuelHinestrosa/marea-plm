@@ -534,6 +534,10 @@ on("submit:clave", function(valor)
     if fact.bloqueada ~= true or fact.comprobando == true then return end
     if valor == nil or valor == "" then return end
     fact.comprobando = true
+    --  Pase lo que pase con la comprobación, «comprobando» no se queda puesto:
+    --  con él puesto no se puede volver a intentar, y una pantalla de bloqueo
+    --  que no deja intentarlo otra vez es una pantalla de bloqueo rota.
+    after(8000, function() fact.comprobando = false end)
     local bien, vale = pcall(sys.ask, "auth.check", valor)
     text.clave = ""
     fact.comprobando = false
