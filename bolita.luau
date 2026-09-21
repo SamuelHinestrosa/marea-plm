@@ -695,3 +695,57 @@ on("gone", function()
         end)
     end)
 end)
+
+-- ── la grabación ───────────────────────────────────────────────────
+--  Lo difícil ya lo aprendió Marea, y aquí se copia tal cual:
+--  · La cuenta atrás ocurre ANTES de arrancar el grabador: tres segundos para
+--    apartar el ratón, y ninguno en el vídeo porque todavía no hay vídeo.
+--  · Frecuencia constante (`-r 60 -D`). Sin ella `wf-recorder` solo emite un
+--    frame cuando algo cambia y el reloj del vídeo deja de ser el de verdad.
+--  · Parar es SIGINT y nunca matar: un MP4 escribe su índice al final, y sin
+--    índice no lo abre nadie. Por eso la grabación no se da por acabada al
+--    pulsar «Detener», sino cuando el grabador HA SALIDO.
+local VIDEOS = casa .. "/Vídeos/Marea"
+run("xdg-user-dir", { "VIDEOS" }, function(d)
+    if d and d ~= "" then VIDEOS = d .. "/Marea" end
+    run("mkdir", { "-p", VIDEOS })
+end)
+local nvenc = false
+run("test", { "-e", "/proc/driver/nvidia/version" }, function(_, cod) nvenc = cod == 0 end)
+
+local grabador, video = nil, nil
+
+on("fact:face", function(cara)
+    if cara ~= "rec" or grabador ~= nil then return end
+    run("hyprctl", { "monitors" }, function(mons)
+        if fact.face ~= "rec" then return end          -- se arrepintió en la cuenta
+        local monitor = nil
+        for bloque in ((mons or "") .. "\n\n"):gmatch("(Monitor .-)\n\n") do
+            if bloque:find("focused: yes") then monitor = bloque:match("Monitor (%S+)") end
+        end
+        video = VIDEOS .. "/marea-" .. os.date("%Y%m%d-%H%M%S") .. ".mp4"
+        local args = { "-f", video }
+        local codec = nvenc and { "-c", "h264_nvenc", "-p", "preset=p5", "-p", "rc=vbr", "-p", "cq=23" }
+                            or { "-c", "libx264", "-p", "preset=veryfast", "-p", "crf=23" }
+        for _, a in ipairs(codec) do args[#args + 1] = a end
+        for _, a in ipairs({ "-r", "60", "-D" }) do args[#args + 1] = a end
+        if monitor then args[#args + 1] = "-o"; args[#args + 1] = monitor end
+        local este
+        este = spawn("wf-recorder", args, function() end, function(_, codigo)
+            --  Ahora sí ha acabado, con su índice escrito.
+            if grabador == este then grabador = nil end
+            fact.taping = false
+            log("recording · saved", video, "· exit", codigo)
+            --  Si se fue por su cuenta —no pudo arrancar—, que ella no se quede
+            --  en la esquina grabando nada.
+            if fact.face == "rec" then emit("stop") end
+        end)
+        grabador = este
+        --  «Corriendo de verdad»: si a los 400 ms sigue vivo, el rojo es suyo.
+        after(400, function() if grabador == este then fact.taping = true end end)
+    end)
+end)
+
+on("stop", function()
+    if grabador ~= nil then kill(grabador, "int") end
+end)

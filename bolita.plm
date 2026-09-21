@@ -29,7 +29,7 @@ scene Marea {
         //  Cambiar de red o de auricular no lo sabe hacer pleamar todavía (su
         //  B15), así que lo hace la lógica con las herramientas del sistema. Y
         //  `fd` busca los archivos y las carpetas.
-        run: "nmcli", "bluetoothctl", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir"
+        run: "nmcli", "bluetoothctl", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test"
     }
     service clock as ahora { time: text = "--:--"; date: text }
     service audio as sonido { volume: number; muted: bool; input: number; input_muted: bool }
@@ -2932,7 +2932,8 @@ scene Marea {
     //  medio no hay ningún frame donde esté en los dos sitios o en ninguno
     //  mientras se la mira.
     event record
-    event stop
+    event stop ->                      // y la lógica le pide al grabador que acabe
+    event grabar_alternar              // SUPER+MAYÚS+C: empieza, o para lo que haya
     fact corner = false
     //  Cuál de las cuatro. El contrato dice que se elige la que caiga FUERA de
     //  lo grabado; quien sabe qué se está grabando es la lógica, así que aquí
@@ -2951,11 +2952,13 @@ scene Marea {
         corner = true
         face = count
     }
-    //  El grabador lo arranca la lógica, y es ella quien dice `taping`. Aquí
-    //  no hay grabador, así que hace de él una espera: 300 ms con la cara de
-    //  grabar puesta. Lo importante es que son DOS hechos: el disco llega con
-    //  la cara, y el rojo con el grabador.
-    on still face for 300ms while face == rec { taping = true }
+    //  El grabador lo arranca la lógica al ver la cara de grabar, y es ella
+    //  quien dice `taping` cuando corre DE VERDAD. Son dos hechos a propósito:
+    //  el disco llega con la cara, y el rojo con el grabador.
+    //  La misma tecla empieza y para. Las guardas leen el frame anterior, así
+    //  que las dos reglas no se pisan.
+    on grabar_alternar while face == eye { emit record }
+    on grabar_alternar while face == count or face == rec { emit stop }
     on stop {
         taping = false
         corner = false
