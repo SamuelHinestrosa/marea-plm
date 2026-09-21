@@ -1,0 +1,41 @@
+#!/bin/sh
+# marea-plm: arrancarla y hablarle desde fuera. Es lo que usan los atajos de
+# teclado del compositor, y lo que en Marea era `./marea foto region`.
+#
+#   marea arrancar [opciones de pleamar]   la pone en marcha (autoarranque)
+#   marea parar                            la cierra
+#   marea estado                           si está, y qué dice de sí misma
+#   marea <suceso>                         le dice algo: buscar, bloquear,
+#                                          foto_region, foto_pantalla,
+#                                          foto_ventana, grabar_alternar…
+AQUI="$(cd "$(dirname "$0")" && pwd)"
+PLEAMAR="${PLEAMAR:-$HOME/Proyectos/pleamar/target/release/pleamar}"
+ESTADO="${XDG_STATE_HOME:-$HOME/.local/state}/marea-plm"
+
+case "${1:-}" in
+    arrancar)
+        shift
+        mkdir -p "$ESTADO"
+        cd "$AQUI" || exit 1
+        # El log de la vez anterior se guarda una vez y no más: que no crezca
+        # para siempre, pero que lo de ayer se pueda mirar.
+        [ -f "$ESTADO/marea.log" ] && mv -f "$ESTADO/marea.log" "$ESTADO/marea.log.1"
+        exec "$PLEAMAR" --escena bolita.plm --sin-hud "$@" > "$ESTADO/marea.log" 2>&1
+        ;;
+    parar)
+        exec "$PLEAMAR" --decir bolita quit
+        ;;
+    estado)
+        if "$PLEAMAR" --decir bolita "get open" > /dev/null 2>&1; then
+            echo "en marcha · log en $ESTADO/marea.log"
+        else
+            echo "parada"; exit 1
+        fi
+        ;;
+    ""|-h|--help|ayuda)
+        sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+        ;;
+    *)
+        exec "$PLEAMAR" --decir bolita "emit $1"
+        ;;
+esac

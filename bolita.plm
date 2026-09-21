@@ -25,11 +25,11 @@ scene Marea {
         //  casa; la sesión, poder despedirse. Lo que NO está es
         //  `notifications`: el primero que lo pide se queda el sitio, y en esta
         //  máquina ese sitio es de Marea.
-        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*", "auth"
+        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*", "auth", "files", "files.write"
         //  Cambiar de red o de auricular no lo sabe hacer pleamar todavía (su
         //  B15), así que lo hace la lógica con las herramientas del sistema. Y
         //  `fd` busca los archivos y las carpetas.
-        run: "nmcli", "bluetoothctl", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test"
+        run: "nmcli", "bluetoothctl", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl"
     }
     service clock as ahora { time: text = "--:--"; date: text }
     service audio as sonido { volume: number; muted: bool; input: number; input_muted: bool }
@@ -118,7 +118,7 @@ scene Marea {
         size: 820, 680
         anchor: top
         margin: 0
-        screens: "HDMI-A-1"
+        screens: "DP-3"
         //  Teclado solo mientras el menú esté abierto, y a petición: se pide al
         //  pulsar y se devuelve al cerrarlo. «El clic da foco de teclado, pero
         //  no los deja pegados a la pantalla.»
@@ -3132,7 +3132,7 @@ scene Marea {
         //  pedía cuatro superficies —era la limitación S13 de pleamar—.
         anchor: rincon
         level: overlay
-        screens: "HDMI-A-1"
+        screens: "DP-3"
         //  Abierta mientras quede algo de ella dentro: así sale deslizándose
         //  en vez de desaparecer con la ventana.
         open: tuck > 0.01

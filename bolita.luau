@@ -526,7 +526,11 @@ on("abrir", function(k) log("page", k) end)
 --  pregunta si la contraseña es la buena. Quién entra lo decide PAM, y tarda a
 --  propósito cuando no lo es: mientras, la escena sigue viva y dice que lo está
 --  comprobando.
-fact.con_salida = (sys.ask("env", "MAREA_EN_PRUEBAS") or "") ~= ""
+--  La salida de emergencia es cosa suya, no del modo pruebas: `MAREA_EN_PRUEBAS`
+--  hace que apagar y reiniciar solo se apunten, y eso no tiene por qué ir junto
+--  a que el bloqueo se abra con Esc. Los primeros bloqueos de verdad llevan la
+--  salida; cuando se quite la variable, deja de haberla.
+fact.con_salida = (sys.ask("env", "MAREA_BLOQUEO_CON_SALIDA") or "") ~= "" or (sys.ask("env", "MAREA_EN_PRUEBAS") or "") ~= ""
 --  Un texto no lo puede tocar una regla, así que vaciar la caja es cosa de
 --  aquí: al echarse el cerrojo y al quitarse, que no quede nada escrito.
 on("fact:bloqueada", function() text.clave = "" end)
@@ -712,11 +716,16 @@ run("xdg-user-dir", { "VIDEOS" }, function(d)
 end)
 local nvenc = false
 run("test", { "-e", "/proc/driver/nvidia/version" }, function(_, cod) nvenc = cod == 0 end)
+--  Con el sonido del sistema —lo que suena, no el micrófono, que no se abre—,
+--  que es como grababa Marea. Se pregunta al ir a grabar, porque la salida
+--  puesta puede haber cambiado desde que arrancó.
 
 local grabador, video = nil, nil
 
 on("fact:face", function(cara)
     if cara ~= "rec" or grabador ~= nil then return end
+    run("pactl", { "get-default-sink" }, function(salida_de_sonido, cod_sonido)
+    if cod_sonido ~= 0 or salida_de_sonido == "" then salida_de_sonido = nil end
     run("hyprctl", { "monitors" }, function(mons)
         if fact.face ~= "rec" then return end          -- se arrepintió en la cuenta
         local monitor = nil
@@ -730,6 +739,10 @@ on("fact:face", function(cara)
         for _, a in ipairs(codec) do args[#args + 1] = a end
         for _, a in ipairs({ "-r", "60", "-D" }) do args[#args + 1] = a end
         if monitor then args[#args + 1] = "-o"; args[#args + 1] = monitor end
+        --  `--audio=APARATO` con el valor pegado: así lo documenta `wf-recorder`,
+        --  y separado lo toma en silencio por «el aparato por defecto», que es
+        --  el micrófono.
+        if salida_de_sonido then args[#args + 1] = "--audio=" .. salida_de_sonido .. ".monitor" end
         local este
         este = spawn("wf-recorder", args, function() end, function(_, codigo)
             --  Ahora sí ha acabado, con su índice escrito.
@@ -744,8 +757,41 @@ on("fact:face", function(cara)
         --  «Corriendo de verdad»: si a los 400 ms sigue vivo, el rojo es suyo.
         after(400, function() if grabador == este then fact.taping = true end end)
     end)
+    end)
 end)
 
 on("stop", function()
     if grabador ~= nil then kill(grabador, "int") end
+end)
+
+-- ── el fondo de escritorio ─────────────────────────────────────────
+--  Quien lo pinta no es ella: es `swaybg`, y esa es la razón de que el fondo
+--  siga puesto cuando ella no está. Si lo dibujara Marea, cerrarla dejaría el
+--  escritorio en negro, que es empeorar algo que funcionaba. Aquí solo se mira
+--  al arrancar si hay alguien pintándolo; si no —un inicio de sesión—, se pone
+--  el que esté guardado.
+--
+--  Dos cosas aprendidas en Marea, las dos de `swaybg`: UNA sola llamada con
+--  todas las pantallas —levantarlo dos veces deja al segundo sin la primera
+--  imagen—, y se guarda la RUTA, no una copia del fichero de nadie.
+local ajustes = {}
+do
+    local bien, leido = pcall(sys.ask, "files.read", "ajustes.json", "json")
+    if bien and type(leido) == "table" then ajustes = leido end
+end
+local FONDO = ajustes.fondo or "/usr/share/wallpapers/cachyos-wallpapers/GreenFeathers.png"
+
+run("pgrep", { "-x", "swaybg" }, function(_, cod)
+    if cod == 0 then return end                        -- ya hay quien lo pinta
+    run("hyprctl", { "monitors" }, function(mons)
+        local args = {}
+        for nombre in (mons or ""):gmatch("Monitor (%S+)") do
+            for _, a in ipairs({ "-o", nombre, "-i", FONDO, "-m", "fill" }) do args[#args + 1] = a end
+        end
+        if #args == 0 then return end
+        --  Con `run` y sin recoger su salida: así no muere con ella, que es
+        --  justo lo que se quiere de un fondo.
+        run("swaybg", args, nil, { output = false })
+        log("wallpaper ·", FONDO)
+    end)
 end)
