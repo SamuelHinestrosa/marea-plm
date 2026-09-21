@@ -290,15 +290,24 @@ scene Marea {
     //  una admiración y un salto corto. **Una vez por episodio**, desde el
     //  primero hasta que no queda ninguno: un aviso que salta cada vez es un
     //  aviso que se acaba tapando con una ventana.
-    on urge while not remanso and face == eye { face = alerta; play alarmarse; emit abrir_bandeja }
+    //  La admiración es una REACCIÓN, no un estado: dura lo que dura el susto
+    //  y se va. Lo que se queda «mientras dure» es la gota ámbar del hombro,
+    //  que para eso sube. Antes la cara se quedaba alarmada hasta que no
+    //  quedara ningún urgente, y como un urgente sin resolver no se va solo,
+    //  se quedaba con el «!» puesto toda la tarde.
+    //
+    //  Y «una vez por episodio» ya no puede colgar de la cara, porque la cara
+    //  vuelve: lo lleva su propio hecho, que se limpia cuando no queda ninguno.
+    fact alarmada = false
+    on urge while not remanso and not alarmada { alarmada = true; face = alerta; play alarmarse; emit abrir_bandeja }
+    on still face for 1.6s while face == alerta { face = eye }
     //  En Remanso una urgencia permitida **no abre la bandeja ni roba el foco**:
     //  aparece una perla ámbar sobre la membrana y solo el ojo de al lado se
     //  vuelve redondo para mirarla. 1,1 s, y a lo suyo otra vez.
     //  Una vez por episodio, igual que la cara alarmada: lo que molesta de un
     //  aviso urgente no es el primero, es el cuarto.
     on urge while remanso and not mirado { mirado = true; mirada: 1; mirada: 0 ~260ms after 840ms }
-    on still hay_urgente for 1.6s while not hay_urgente and face == alerta { face = eye }
-    on still hay_urgente for 1.6s while not hay_urgente { mirado = false }
+    on still hay_urgente for 1.6s while not hay_urgente { mirado = false; alarmada = false }
     //  De qué es cada fila. Lo pondría la lógica; aquí se nace con algo.
     prop tray = 0 ~240ms               // 0 dentro de ella, 1 tarjeta entera
     prop carril = 0 ~240ms             // las gotas: 0 en su hombro, 1 en el carril
@@ -1173,7 +1182,11 @@ scene Marea {
         //  de él sigue siendo el suyo.
         //  Abiertas se separan algo más —30° en vez de 26— para que no se
         //  toquen, y el abanico queda centrado bajo ella.
-        let ang.$k = -24 + (26 + 4 * abanico) * sitio.$k + 69 * abanico
+        //  Y hundida, el abanico entero baja 30°: ahí arriba está el borde de la
+        //  pantalla, y la primera gota —que ahora es la del urgente, que sube
+        //  al sitio 0— se salía por él y no se veía. «Nada sobresale por encima
+        //  de su cabeza» vale también cuando la cabeza está medio metida.
+        let ang.$k = -24 + 30 * (1 - out) + (26 + 4 * abanico) * sitio.$k + 69 * abanico
         let radio.$k = 31.7 + 10.3 * abanico
         let gx.$k = cx + radio.$k * cos(ang.$k)
         let gy.$k = cy_real + radio.$k * sin(ang.$k)

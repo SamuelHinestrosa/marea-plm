@@ -764,6 +764,16 @@ elegido tú.
 - **La gota de sudor** sale con la admiración, resbala 9 px y se va: **1 266 ms**
   medidos. Es una reacción, no un estado —lo que dura lo que dure la urgencia es
   la otra— y va a su izquierda, porque a la derecha le acaba de salir la bandeja.
+- **La admiración es una reacción, no un estado.** Dura el susto —1 737 ms
+  medidos— y se va. Lo que se queda «mientras dure» es la gota ámbar, que para
+  eso sube. Estaba colgada de que no quedara ningún urgente, y como un urgente
+  sin resolver no se va solo, se quedaba con el «!» puesto toda la tarde. El
+  «una vez por episodio» tampoco puede colgar de la cara si la cara vuelve: lo
+  lleva su propio hecho, que se limpia cuando no queda ninguno.
+- **Y hundida, el abanico entero baja 30°.** Ahí arriba está el borde de la
+  pantalla, y la gota de arriba —que ahora es la del urgente— se salía por él.
+  «Nada sobresale por encima de su cabeza» vale también cuando la cabeza está
+  medio metida.
 - **La gota ámbar sube y se queda.** La de la categoría que tiene algo urgente se
   va al sitio 0 —lo alto del hombro— y las demás bajan uno para dejárselo;
   medido: **416 ms** en llegar, y de ámbar mientras dure, igual que su fila.
