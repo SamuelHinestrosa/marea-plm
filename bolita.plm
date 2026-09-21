@@ -82,7 +82,11 @@ scene Marea {
         //  La superficie tiene que dar de sí para la tarjeta **y su sombra**: 18 px
         //  de desplazamiento más 44 de difusión, por abajo y por los lados. Si no,
         //  la sombra se corta en seco contra el borde y se ve el recorte.
-        size: 820, 580
+        //  Y crece con la tarjeta: 572 de tarjeta colgados de `card.top` ≈ 38
+        //  son 610, más los 62 de la sombra. Cuando se queda corta, pleamar lo
+        //  dice —«a drawing is cut: it needs 36 px below»— en cuanto lleva tres
+        //  segundos así, que es lo que antes había que ver a ojo.
+        size: 820, 680
         anchor: top
         margin: 0
         screens: "HDMI-A-1"

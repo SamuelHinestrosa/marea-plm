@@ -1549,7 +1549,17 @@ Dieciocho, todas arregladas en pleamar en vez de esquivadas aquí:
    que estaba cerrada pero por delante—, y desde fuera parecía que la tarjeta no
    hacía nada. Es el pariente escondido de la regla de siempre: **el clic es de
    la última zona declarada**.
-21. **`--registrar` no decía qué nombres hay.** Un nombre que no existe se
+21. **Lo que se queda cortado contra el borde no se decía.** Una superficie no
+   crece con lo que lleva dentro, así que el centro de control, al ganar dos
+   tarjetas, acabó cortado en seco 36 px por abajo —y no era la primera vez—.
+   El aviso de la sombra no llegaba: solo mira los lados por los que la forma
+   flota dentro, y una forma cortada justamente no flota por ahí. Ahora se mira
+   también la forma, y con dos cuidados para no dar la lata: solo de lo que
+   **casi entero** cabía —el cuello de ella cuelga del borde de arriba a
+   propósito— y nunca de un borde al que la superficie esté pegada. Como esta
+   escena respira y no se queda quieta nunca, no espera al reposo: a los tres
+   segundos cortado, lo cuenta.
+22. **`--registrar` no decía qué nombres hay.** Un nombre que no existe se
    apuntaba como `?` toda la medición. Dentro de la copia de un componente los
    nombres llevan su marca (`px#Apoyado2`) y eso no se adivina: ahora lo dice al
    empezar, con los que se le parecen.
