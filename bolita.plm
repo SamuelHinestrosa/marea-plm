@@ -25,7 +25,7 @@ scene Marea {
         //  casa; la sesión, poder despedirse. Lo que NO está es
         //  `notifications`: el primero que lo pide se queda el sitio, y en esta
         //  máquina ese sitio es de Marea.
-        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*"
+        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*", "auth"
         //  Cambiar de red o de auricular no lo sabe hacer pleamar todavía (su
         //  B15), así que lo hace la lógica con las herramientas del sistema. Y
         //  `fd` busca los archivos y las carpetas.
@@ -72,6 +72,18 @@ scene Marea {
     //  pleamar —`session.*`, que por debajo son `loginctl` y `systemctl`—, y
     //  las tres últimas piden confirmación aparte, que es lo que dice la
     //  lámina: «la acción elegida necesita una nueva activación deliberada».
+    //  El bloqueo. Marea ES la pantalla de bloqueo: no avisa a otro para que
+    //  bloquee, echa ella el cerrojo (`kind: lock`, más abajo) y es el compositor
+    //  quien garantiza que mientras dure no se ve ni se toca nada más. Quién
+    //  entra no lo decide ella: se lo pregunta a PAM la lógica.
+    fact bloqueada = false
+    fact comprobando = false           // PAM se lo está pensando
+    fact con_salida = false            // los primeros bloqueos llevan Esc, y lo dicen
+    text clave = ""
+    event bloquear                     // SUPER+L, o la tarjeta: `--decir bolita "emit bloquear"`
+    event clave_mala                   // la lógica: no era esa
+    prop niega = 0 ~lively             // y ella dice que no con la cabeza
+    prop lock.luz = 0 ~220ms           // la caja, al tener el teclado
     fact confirma: ninguna | salir | reinicio | apagado = ninguna
     fact armado = false                // la pregunta, ya asentada
     //  El paso de la lista a la pregunta: «desplazamiento pequeño y opacidad»,
@@ -2532,7 +2544,7 @@ scene Marea {
             //  Bloquear y suspender se piden y ya está: no hay nada que
             //  confirmar en algo que se deshace con la contraseña o con una
             //  tecla. Las otras tres abren la pregunta.
-            on press pzona.0 { emit sesion(1); open = false; pagina = ninguna }
+            on press pzona.0 { open = false; pagina = ninguna; emit bloquear }
             on press pzona.1 { emit sesion(2); open = false; pagina = ninguna }
             on press fzona.0 { confirma = salir }
             on press fzona.1 { confirma = reinicio }
@@ -3016,6 +3028,73 @@ scene Marea {
     //  Asoma el 82 %: con algo más de la mitad el ojo rojo se pasaba el rato
     //  detrás del borde, que es justo lo único para lo que sirve este modo.
     //  46 × 0,82 − 23 = 14,7: a eso del ángulo queda su centro.
+    // ── la pantalla de bloqueo ───────────────────────────────────
+    //  «Una pantalla de bloqueo tiene un trabajo y medio. El trabajo es dejar
+    //  entrar a quien sabe la contraseña y a nadie más. El medio es no dar
+    //  miedo»: aparece de golpe, tapa lo que estabas haciendo y no tiene botón
+    //  de cancelar. Por eso está ella, con el candado en la cara —la misma que
+    //  ponía al señalar «Bloquear» hace un segundo—, para que lo que tapa el
+    //  escritorio sea la misma cosa que la tarjeta que acabas de usar y no un
+    //  desconocido pidiendo la contraseña.
+    //
+    //  El fondo es casi negro y quieto: ni la foto del escritorio, que le
+    //  enseñaría lo que hacías a quien pase, ni nada que se mueva.
+    on bloquear { bloqueada = true }
+    on change bloqueada while bloqueada { anticipa = bloquear; focus clave; lock.luz: 1 }
+    on change bloqueada while not bloqueada { anticipa = nada; lock.luz: 0 }
+    //  Cerrar el panel le quita la cara de candado; mientras dure, se la vuelve a poner.
+    on change anticipa while bloqueada and anticipa != bloquear { anticipa = bloquear }
+    on clave_mala { impulse niega 22 }
+    //  La salida de emergencia de los primeros bloqueos. Se dice en pantalla:
+    //  una que se abre con Esc sin decirlo no es una pantalla de bloqueo, es
+    //  un cartel.
+    on key Escape while bloqueada and con_salida { bloqueada = false }
+    //  Y el segundo cinturón de esos primeros bloqueos: si el teclado no
+    //  llegase —y entonces el Esc tampoco—, se abre sola al minuto. Un
+    //  bloqueador que se queda echado sin poder abrirse no tiene relevo en esta
+    //  máquina, así que mientras sea de prueba no se fía de una sola salida.
+    on still bloqueada for 60s while bloqueada and con_salida { bloqueada = false }
+
+    surface cerrojo {
+        kind: lock
+        size: 640, 440
+        open: bloqueada
+
+        box { from: -4000, -4000; size: 8640, 8440; color: #07080a }
+        //  Casi negro, pero no del todo por el centro: ella es de un gris muy
+        //  oscuro y sobre negro puro se perdería.
+        body {
+            gradient: radial 320, 236 radius 260, #14171a, #07080a
+            ellipse { at: 320, 236; radius: 260 }
+        }
+
+        text ahora.time { at: 320, 58; anchor: center; size: 68; weight: 300; color: #f6f6f5 }
+        text "{upper(ahora.date)}" { at: 320, 112; anchor: center; size: 12; weight: 600; color: #8b8f95 }
+
+        //  Ella, a un tamaño que se vea desde la puerta.
+        group {
+            pivot: 320, 214
+            scale: 2.1, 2.1
+            move: niega, 0
+            body {
+                color: coal
+                rim: 14%
+                ellipse { at: 320, 214; radius: 23 }
+            }
+            Cara(320, 214, 0, 0)
+        }
+
+        //  La caja. Tiene el teclado entero —es de `kind: lock`—, así que no
+        //  hay que pulsarla: se escribe y ya.
+        box { at: 320, 346; size: 300, 46; corner: 14; color: mix(#15171a, #1b1e22, lock.luz) }
+        box { at: 320, 346; size: 300, 46; corner: 14; stroke: 1.2; color: mix(mint, #e0655a, clamp(abs(niega) / 6, 0, 1)); opacity: 35% + lock.luz * 40% }
+        input clave { at: 188, 335; width: 264; size: 16; color: #f6f6f5; placeholder: "Contraseña"; secret: true }
+
+        text "Comprobando…" { at: 320, 392; anchor: center; size: 11.5; color: #8b8f95; show: comprobando }
+        text "Intro para entrar" { at: 320, 392; anchor: center; size: 11.5; color: #8b8f95; opacity: 60%; show: not comprobando and lock.held > 0.5 }
+        text "Esc para salir · bloqueo de prueba" { at: 320, 420; anchor: center; size: 11; color: mint; opacity: 80%; show: con_salida }
+    }
+
     surface rincon {
         //  Ancha para el panel que le sale al acercarse, con su sombra.
         size: 260, 120

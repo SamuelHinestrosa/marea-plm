@@ -521,6 +521,30 @@ on("abrir", function(k) log("page", k) end)
 --  nueva. El segundo es de aquí: con `MAREA_EN_PRUEBAS` puesta se apunta lo
 --  que se haría y no se hace, que es lo que deja ensayar el gesto entero sin
 --  quedarse sin máquina a mitad de la prueba.
+-- ── el bloqueo ────────────────────────────────────────────────────
+--  Marea echa el cerrojo ella —la escena, con `kind: lock`—; aquí solo se
+--  pregunta si la contraseña es la buena. Quién entra lo decide PAM, y tarda a
+--  propósito cuando no lo es: mientras, la escena sigue viva y dice que lo está
+--  comprobando.
+fact.con_salida = (sys.ask("env", "MAREA_EN_PRUEBAS") or "") ~= ""
+--  Un texto no lo puede tocar una regla, así que vaciar la caja es cosa de
+--  aquí: al echarse el cerrojo y al quitarse, que no quede nada escrito.
+on("fact:bloqueada", function() text.clave = "" end)
+on("submit:clave", function(valor)
+    if fact.bloqueada ~= true or fact.comprobando == true then return end
+    if valor == nil or valor == "" then return end
+    fact.comprobando = true
+    local bien, vale = pcall(sys.ask, "auth.check", valor)
+    text.clave = ""
+    fact.comprobando = false
+    if bien and vale == true then
+        fact.bloqueada = false
+    else
+        if not bien then log("lock · the password could not be checked:", vale) end
+        emit("clave_mala")
+    end
+end)
+
 local ordenes = { "session.lock", "session.suspend", "session.logout", "session.reboot", "session.poweroff" }
 local pruebas = sys.ask("env", "MAREA_EN_PRUEBAS")
 
