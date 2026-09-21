@@ -763,11 +763,19 @@ yo», así que sumaban dos sitios y quedaba un agujero entre la de arriba y las
 otras. Ahora la cuenta de recencia **excluye a la urgente** y le suma su sitio
 una sola vez.
 
-**Acercarse a una gota la menea.** No es un resalte que se enciende: es un
-empujón a un muelle poco frenado —el mismo `chapoteo` del agua del borde—, y la
-gota engorda un 5 % y se aplasta un 12 % al revés en cada eje. Rebota un par de
-veces y se queda quieta sola. Es lo que la hace leerse como agua y no como un
-botón redondo.
+**Acercarse a una gota la menea, y la hace crecer.** Son dos cosas distintas y
+se notan como dos: el **meneo** es el saludo —un empujón a un muelle poco
+frenado, el mismo `chapoteo` del agua del borde, que la aplasta un 12 % al revés
+en cada eje y la deja temblando— y el **crecer un 16 %** es «te estoy mirando»,
+y dura lo que dure el ratón encima. Sin lo segundo no se lee como algo que se
+pulsa.
+
+**Y su manita se la estaban quedando otros.** El cursor, como la pulsación, es
+de la **última zona declarada**, y las dos zonas de gracia de alrededor —la de
+la hora y la del abanico— estaban escritas después: encima de una gota, el
+puntero seguía siendo una flecha. Van seis veces con lo mismo. Además la zona
+ahora crece con ella: recogida mide 14 y abierta 20, y una caja fija de 24
+dejaba fuera media gota abierta.
 
 **Y pulsar una gota abre el oleaje con lo suyo.** Si preguntas por la gota azul,
 lo que quieres ver son los mensajes, no todo lo que hay: la cabecera pasa de
