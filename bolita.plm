@@ -2060,11 +2060,19 @@ scene Marea {
                 //  Pulsar la tarjeta abre su página. El interruptor de Wi-Fi y
             //  Bluetooth sigue siendo del sistema; lo que aquí se abre es la lista.
                 on press fila.$k { emit mirar(k) }
-                //  Y las dos nuevas no necesitan que nadie averigüe nada: el
-                //  sonido ya lo cuenta el servicio, y la sesión no se consulta.
-                on press fila.4 { pagina = sonido }
-                on press fila.5 { pagina = sesion }
             }
+            //  Y **qué página se abre lo decide la escena**, no la lógica. Lo
+            //  hacía ella —`fact.pagina = paginas[k]`— y eso era un viaje de ida
+            //  y vuelta con los 600 ms de bloqueo en medio para algo que no
+            //  depende del sistema; peor: las dos tarjetas nuevas no estaban en
+            //  su lista, así que la lógica devolvía la página a `ninguna` justo
+            //  después de que la regla la abriera. Fuera del reparto, o serían
+            //  cinco reglas iguales.
+            on press fila.1 { pagina = wifi }
+            on press fila.2 { pagina = bluetooth }
+            on press fila.3 { pagina = concentracion }
+            on press fila.4 { pagina = sonido }
+            on press fila.5 { pagina = sesion }
             column tarjetas {
                 at: card.x + 4, card.top + 76
                 gap: 8

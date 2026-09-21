@@ -87,7 +87,6 @@ end)
 --  pleamar sabe LEER la red y no listarla ni cambiarla —es su B15—, así que
 --  esto se lo pregunta a las herramientas del sistema. Es justo para lo que
 --  está la lógica: la escena no manda nada, cuenta lo que le dicen.
-local paginas = { "wifi", "bluetooth", "concentracion" }
 
 local function mirar_redes()
     run("nmcli", { "-t", "-f", "IN-USE,SIGNAL,SSID", "dev", "wifi" }, function(salida)
@@ -154,7 +153,6 @@ on("elegir_cacharro", function(i)
 end)
 
 on("mirar", function(k)
-    fact.pagina = paginas[k] or "ninguna"
     if k == 1 then mirar_redes() elseif k == 2 then mirar_bluetooth() end
 end)
 

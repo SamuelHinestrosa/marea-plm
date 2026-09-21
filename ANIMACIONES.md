@@ -1542,7 +1542,14 @@ Dieciocho, todas arregladas en pleamar en vez de esquivadas aquí:
    morfismos de la cara declarados a 150, 160, 170, 180 y 200 ms medían los
    cinco lo mismo, 235. Ahora cada uno mide el suyo, y el prototipo no tiene
    que repetir en cada regla lo que ya dijo al declararla.
-20. **`--registrar` no decía qué nombres hay.** Un nombre que no existe se
+20. **Lo escondido seguía cazando el ratón.** Un hijo de un reparto con
+   `show:` apagaba sus zonas; un `group { show: … }` no, aunque la referencia
+   prometiera lo contrario. Aquí eso dejó dos tarjetas del centro de control sin
+   abrirse —las dos que caen justo debajo de las filas de la lista de sonido,
+   que estaba cerrada pero por delante—, y desde fuera parecía que la tarjeta no
+   hacía nada. Es el pariente escondido de la regla de siempre: **el clic es de
+   la última zona declarada**.
+21. **`--registrar` no decía qué nombres hay.** Un nombre que no existe se
    apuntaba como `?` toda la medición. Dentro de la copia de un componente los
    nombres llevan su marca (`px#Apoyado2`) y eso no se adivina: ahora lo dice al
    empezar, con los que se le parecen.
