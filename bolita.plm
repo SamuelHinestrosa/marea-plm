@@ -1788,7 +1788,10 @@ scene Marea {
         prop luz = 0 ~140ms
         //  Su turno: la de arriba entra antes, y la última algo más tarde.
         let entra = clamp(turno * 8 - h.index, 0, 1)
-        zone box toca { from: 0, 0; size: 600, 44; corner: 12; cursor: pointer }
+        //  Solo con el buscador abierto. Cerrado, estas filas siguen rellenas
+        //  —«a mano» se carga al arrancar— y debajo del centro de control: un
+        //  clic en un hueco del panel las atravesaba y lanzaba una terminal.
+        zone box toca { from: 0, 0; size: 600, 44; corner: 12; cursor: pointer; active: busca }
         box { from: 0, 0; size: 600, 44; corner: 12; color: #23282b; opacity: luz * 70% * entra }
         group {
             opacity: entra
