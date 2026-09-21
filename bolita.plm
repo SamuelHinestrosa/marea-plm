@@ -1424,6 +1424,13 @@ scene Marea {
 
         //  Las filas. Cada una llega un poco después que la de arriba: eso es
         //  el oleaje, y por eso no entran todas de golpe como una lista.
+        //
+        //  Y van recortadas a la propia bandeja: arrastrando una hacia un lado
+        //  se salía del panel y se veía flotando sobre el escritorio, que es
+        //  exactamente lo que un panel no hace. El recorte va dentro de su
+        //  grupo, que es donde acaba.
+        group {
+        clip inset 3 box { at: tray.x, tray.y; size: tray.w, tray.h; corner: 22 * tray }
         repeat k in 1..6 {
             let fy = ty0 + 76 + hueco.$k * 66 + (1 - sube.$k) * 26
             //  Donde descansa, y donde está ahora. Lo que se descubre va en el
@@ -1431,6 +1438,9 @@ scene Marea {
             //  debajo de ella y no se vería nunca.
             let fx0 = tx0 + 232
             let fx = fx0 + fuera.$k * 520 + tira.$k
+            //  Cuánto se la está estirando: lo que la ha arrastrado el dedo,
+            //  con tope para que la esquina no se coma la fila.
+            let estira.$k = clamp(abs(tira.$k) + abs(fuera.$k) * 120, 0, 150)
             //  El color es el de SU CATEGORÍA, no el de su sitio en la lista.
             //  Salía de `k` —la fila— y con cinco filas de ejemplo, una por
             //  categoría y en ese orden, no se notaba: dos avisos de Telegram
@@ -1457,7 +1467,13 @@ scene Marea {
                     box { at: fx0 + 160, fy; size: 130, 58; corner: 14; color: #2a1b1b }
                     text "Descartar" { at: fx0 + 160, fy; anchor: center; size: 12; weight: 600; color: #e0655a }
                 }
-                box { at: fx, fy; size: 456, 58; corner: 14; color: mix(mix(#171717, #1d1d1e, toca.$k), #241f16, if(urg.$k, 1, 0)) }
+                //  Tirar de una fila la estira: se alarga por donde tiras, se
+                //  adelgaza un poco y se redondea, como una gota a la que estás
+                //  estirando. Al soltarla vuelve sola con su muelle, y el
+                //  estirón se deshace con ella sin que nadie lo anime aparte.
+                box { at: fx, fy; size: 456 + estira.$k * 0.12, 58 - estira.$k * 0.045
+                      corner: 14 + estira.$k * 0.10
+                      color: mix(mix(#171717, #1d1d1e, toca.$k), #241f16, if(urg.$k, 1, 0)) }
                 //  La barra de su categoría, a la izquierda: es de donde saldrá
                 //  la gota cuando se resuelva.
                 box { at: fx - 214, fy; size: 4, if(urg.$k, 46, 34); corner: 2; color: color.$k }
@@ -1482,6 +1498,8 @@ scene Marea {
                 box { at: fx - 214, fy; size: 4, 34 * (1 - suelta.$k); corner: 2; blend: 14 * 4 * suelta.$k * (1 - suelta.$k) }
                 ellipse { at: vx, vy; radius: 4 + 3 * suelta.$k; blend: 14 * 4 * suelta.$k * (1 - suelta.$k) }
             }
+        }
+
         }
 
         //  El pie: lo que ha llegado, y sus ajustes. Mientras se puede deshacer

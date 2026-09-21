@@ -789,6 +789,18 @@ desde el borde derecho hacia dentro**: a mano, la cuarta pastilla caía justo
 encima del botón. Y las pastillas se colocan por **su orden**, no por el número
 de su categoría, así que si falta una se juntan en vez de dejar su hueco.
 
+### Arrastrar una fila: dentro del panel, y estirándose
+
+Tirando de una fila hacia un lado **se salía del panel** y se la veía flotando
+sobre el escritorio, que es exactamente lo que un panel no hace. Ahora las filas
+van recortadas a la propia bandeja: lo que sale por el borde, se corta ahí.
+
+Y tirar de una fila **la estira**, como de una gota: se alarga un 12 % de lo que
+la arrastras, se adelgaza un 4,5 % y se redondea hasta casi ser una píldora. Al
+soltarla, el estirón se deshace solo con el muelle que la devuelve —nadie lo
+anima aparte—, y si cruza el umbral se va estirada del todo, que es como se va
+algo líquido cuando lo sueltas con fuerza.
+
 ### Cerrar el oleaje: primero se pliega, luego vuelve
 
 Su sitio lo llevaba la geometría de la bandeja: al cerrarse, volvía **a la vez**
