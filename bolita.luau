@@ -43,6 +43,45 @@ on("conmutar", function(k)
     end
 end)
 
+-- ── el sonido: por dónde suena y por dónde escucha ─────────────────
+--  pleamar dice qué aparatos hay —`outputs` e `inputs`, cada uno con su id, su
+--  nombre y si es el puesto— y acepta `audio.default(id)` para cambiar. Aquí
+--  solo se reparten en dos listas y se recorta el nombre, que los de PipeWire
+--  vienen con el modelo de la tarjeta entero.
+local function corto(nombre)
+    --  «TU106 High Definition Audio Controller Estéreo digital (HDMI)» no cabe
+    --  en una fila y además lo que distingue está al final.
+    local limpio = tostring(nombre):gsub("%s+", " ")
+    if #limpio > 42 then limpio = limpio:sub(1, 41) .. "…" end
+    return limpio
+end
+
+local function aparatos(estado)
+    local salidas, micros = {}, {}
+    for _, a in ipairs(estado.outputs or {}) do
+        salidas[#salidas + 1] = { nombre = corto(a.name), id = a.id, puesta = a.default == true }
+    end
+    for _, a in ipairs(estado.inputs or {}) do
+        micros[#micros + 1] = { nombre = corto(a.name), id = a.id, puesta = a.default == true }
+    end
+    model.salidas = salidas
+    model.micros = micros
+end
+
+sys.watch("audio", aparatos)
+
+on("elegir_aparato", function(i)
+    --  Las dos listas van juntas: los primeros son salidas y los demás micros,
+    --  que es como se ven en la página.
+    local salidas = model.salidas or {}
+    local elegido = salidas[i + 1]
+    if elegido == nil then
+        local micros = model.micros or {}
+        elegido = micros[i - #salidas + 1]
+    end
+    if elegido ~= nil then sys.call("audio.default", elegido.id) end
+end)
+
 -- ── las páginas ────────────────────────────────────────────────────
 --  Pulsar una tarjeta abre su página, y entonces hay que averiguar qué hay.
 --  pleamar sabe LEER la red y no listarla ni cambiarla —es su B15—, así que
@@ -370,3 +409,28 @@ on("abrir_aviso", function(k) log("would open the notice where it lives", k) end
 on("tray", function() log("the tray would open at the newest one") end)
 on("calendar", function() log("the calendar would open here") end)
 on("abrir", function(k) log("page", k) end)
+
+-- ── la sesión ──────────────────────────────────────────────────────
+--  Lo único de toda la escena que no se deshace, así que lleva dos cinturones.
+--  El primero es el de la lámina y vive en la escena: cerrar, reiniciar y
+--  apagar abren una pregunta aparte, y la respuesta necesita una pulsación
+--  nueva. El segundo es de aquí: con `MAREA_EN_PRUEBAS` puesta se apunta lo
+--  que se haría y no se hace, que es lo que deja ensayar el gesto entero sin
+--  quedarse sin máquina a mitad de la prueba.
+local ordenes = { "session.lock", "session.suspend", "session.logout", "session.reboot", "session.poweroff" }
+local pruebas = sys.ask("env", "MAREA_EN_PRUEBAS")
+
+on("sesion", function(k)
+    local orden = ordenes[k]
+    if orden == nil then
+        log("session: there is no action number", k)
+        return
+    end
+    if pruebas ~= nil and pruebas ~= "" then
+        log("session · testing: it would call", orden)
+        return
+    end
+    --  Una vez y solo una: «tras confirmar, enviar la petición una sola vez».
+    log("session ·", orden)
+    sys.call(orden)
+end)

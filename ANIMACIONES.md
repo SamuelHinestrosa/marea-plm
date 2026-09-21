@@ -1349,6 +1349,115 @@ shadow: 0, 2 * panel, 12 * panel, 32% * panel, #05070a
 
 Con `panel` a cero no hay sombra que calcular: el render ni la mira.
 
+## El sonido: qué suena y por dónde
+
+![La página de sonido, con la salida y la entrada](evidencia/sonido.png)
+
+El centro de control tenía el volumen desde el principio —el deslizador de la
+izquierda—, pero no **por dónde** sale ni **por dónde** entra, que es lo que se
+busca en un panel cuando se enchufan unos cascos. Ahora es una tarjeta más:
+«Sonido · Salida y entrada», con las dos listas, la puesta marcada en menta y
+un clic para cambiarla.
+
+Y no hay ni una línea que sepa de PipeWire. pleamar ya traía el volumen; lo que
+le faltaba era decir **qué aparatos hay**, así que el servicio `audio` publica
+ahora `outputs` e `inputs` —de `wpctl status`— y `audio.default(id)` cambia el
+puesto. Eso es de pleamar y sirve para cualquier escena; la lista, el orden y
+los nombres recortados a 42 son de aquí.
+
+| | |
+| --- | --- |
+| lo que se ve | «SALIDA» con lo que haya, y debajo «ENTRADA», pegada a lo que ocupe la de arriba (`card.top + 150 + lista_salidas.height`) y no en un sitio fijo |
+| cómo se elige | un clic manda `elegir_aparato(i)`, y la lógica llama a `audio.default` con el id de PipeWire |
+| comprobado | dos salidas —el HDMI de la gráfica y el digital de la placa, con la puesta marcada— y la entrada analógica, tal y como las lista `wpctl` |
+
+## La sesión: una pausa, una despedida y una pregunta aparte
+
+![Bloquear y Suspender arriba; cerrar, reiniciar y apagar debajo](evidencia/sesion-menu.png)
+
+> «La jerarquía distingue dos intenciones: **hacer una pausa** —Bloquear y
+> Suspender— y **terminar o empezar de nuevo** —Cerrar sesión, Reiniciar y
+> Apagar, cada uno con su etiqueta explícita.»
+> «El acento coral distingue Apagar; salvia para selección y foco, **no para
+> disimular una acción destructiva**.»
+
+Es lo único de toda la escena que no se deshace, y por eso es lo único que está
+escrito dos veces: una en la tarjeta y otra en la pregunta. Bloquear y
+Suspender se piden y ya está —se deshacen con la contraseña o con una tecla—;
+las otras tres abren una confirmación **aparte**, que no es un paso más de la
+misma página sino otra cosa, con su título, lo que va a pasar y dos botones que
+no se parecen.
+
+![¿Apagar el equipo? Volver, con el foco, y Apagar equipo en coral](evidencia/sesion-confirmar.png)
+
+> «Volver recibe el foco inicial; la acción elegida necesita una **nueva
+> activación deliberada**, sin reutilizar el clic que abrió el cuadro ni
+> aceptar una repetición involuntaria de Enter.»
+
+Eso último no es una frase bonita: el botón de la derecha cae justo donde
+estaba la fila que abrió la pregunta, así que un doble clic la habría
+confirmado sola. Por eso la acción se **arma** y no está antes: `on still
+confirma for 320ms` enciende su zona, medido en **383 ms** desde la pulsación.
+Volver no espera —es la salida, y la salida nunca se hace esperar—.
+
+| | |
+| --- | --- |
+| de la lista a la pregunta | **201 ms** (la lámina pide 200–240): una se va por la izquierda mientras la otra entra por la derecha |
+| armar la acción | **383 ms** tras el clic. Antes de eso, el botón de la derecha no existe para el ratón |
+| Esc | uno vuelve a la lista, otro cierra la página. Dos reglas con guardas opuestas, que no se pisan porque el `while` lee el frame anterior |
+| atrás (la flecha) | un paso es un paso: desde la pregunta vuelve a la lista, no al centro de control |
+| cambiar de página | desarma lo que hubiera, que es lo que pide «no dejar una confirmación armada cuando se cambia de opción» |
+
+### Sus ojos, que son seis símbolos
+
+![Candado, párpados, puerta, flecha circular y encendido](evidencia/sesion-caras.png)
+
+> «Bloquear: una cápsula forma el arco del candado y la otra su cuerpo.
+> Suspender: los ojos se estrechan y terminan como dos párpados curvos.
+> Cerrar sesión: un ojo dibuja el marco de una puerta y el otro una flecha que
+> sale. Reiniciar: los dos trazos curvos se juntan en una flecha circular.
+> Apagar: un ojo forma el aro abierto y el otro el trazo vertical.»
+
+Cinco eslabones más de la misma cadena de la cara —la que ya llevaba el nivel,
+la cámara, el disco, la admiración, el Remanso, el sueño y la lupa—, y ni una
+geometría nueva: un aro es un disco al que otro del color del cuerpo le come el
+centro, y el arco del candado es ese mismo aro con la mitad de abajo tapada. Lo
+único que se dibuja aparte son las dos puntas de flecha y el picaporte, porque
+un triángulo no es una cápsula doblada.
+
+| | contrato | medido |
+| --- | --- | --- |
+| el candado | 120–160 ms | **154 ms** |
+| los párpados | 140–180 ms | **152 ms** |
+| la puerta | 180–240 ms | **188 ms** |
+| la flecha circular | un giro de 300–400 ms | **150 ms** el morfismo, y **una vuelta** de 350 ms por cada vez que la señalas |
+| el encendido | 140–180 ms | **150 ms** |
+| el punto de luz | 200–300 ms | **239 ms** |
+
+![El símbolo contraído a un punto, justo antes de irse](evidencia/sesion-punto.png)
+
+> «Tras confirmar, el símbolo puede contraerse hasta un pequeño punto de luz y
+> desaparecer.»
+
+Es el único gesto de toda la escena que ocurre **después** de decidir, y el
+único que no se puede terminar de ver: al apagar de verdad, el compositor deja
+de dibujar a media contracción. La lámina ya lo dice —«no retrasar una
+operación ni mantener una pantalla falsa para obligar a verlo completo»—, así
+que no espera a nada. Y como tampoco hay forma de que `sys.call` conteste, lo
+que hay es lo contrario de fingir: **a los cuatro segundos, si seguimos aquí,
+su cara vuelve** y la pregunta se cierra, que es lo más honesto que se puede
+hacer sin saber por qué no ha pasado nada.
+
+**Señalar no es hacer.** Pasar el ratón por encima solo enseña lo que haría:
+`anticipa` es un hecho distinto de `confirma`, y el candado de la cara no
+certifica que nada esté bloqueado. Las órdenes son de pleamar —`session.lock`,
+`suspend`, `logout`, `reboot`, `poweroff`, que por debajo son `loginctl` y
+`systemctl`— y la lógica de aquí lleva un segundo cinturón para poder ensayar
+el gesto entero sin quedarse sin máquina: con `MAREA_EN_PRUEBAS` puesta apunta
+lo que haría y no lo hace. Todo lo medido de esta página está tomado así, de un
+recorrido completo —fila, pregunta, espera, pulsación— que acabó en
+`session · testing: it would call session.poweroff` y nada más.
+
 ## Lo que le faltó al lenguaje, y ya no
 
 Dieciocho, todas arregladas en pleamar en vez de esquivadas aquí:
@@ -1421,7 +1530,19 @@ Dieciocho, todas arregladas en pleamar en vez de esquivadas aquí:
    escalar es píxeles. Ahora está `figure`: el mismo fichero leído como
    caminos, por capas, con el `usvg` que ya estaba dentro por las imágenes. Y
    se vigila como una biblioteca: dibujas el gorro, guardas, y está puesto.
-18. **`--registrar` no decía qué nombres hay.** Un nombre que no existe se
+18. **Una propiedad dicha dos veces se tragaba a la primera.** En silencio y
+   quedándose con la última. Aquí eso fueron dos líneas de `services:` en el
+   mismo `permissions` —una por tema, que parecía más ordenado— de las que solo
+   contó la de abajo: el audio se quedó sin permiso y el fallo salió tres capas
+   más allá, en una lista vacía. Ahora es un error donde se escribe.
+19. **El muelle de una propiedad se ignoraba al asignarla.** `prop candado = 0
+   ~150ms` y luego `candado: 1` viajaba con `lively` —250 ms— porque la
+   transición se quedaba con el muelle de la casa en cuanto no se le decía
+   otro. La referencia ya prometía lo contrario. Se vio midiendo: cinco
+   morfismos de la cara declarados a 150, 160, 170, 180 y 200 ms medían los
+   cinco lo mismo, 235. Ahora cada uno mide el suyo, y el prototipo no tiene
+   que repetir en cada regla lo que ya dijo al declararla.
+20. **`--registrar` no decía qué nombres hay.** Un nombre que no existe se
    apuntaba como `?` toda la medición. Dentro de la copia de un componente los
    nombres llevan su marca (`px#Apoyado2`) y eso no se adivina: ahora lo dice al
    empezar, con los que se le parecen.
@@ -1429,8 +1550,8 @@ Dieciocho, todas arregladas en pleamar en vez de esquivadas aquí:
 ## Lo siguiente
 
 Del contrato de la bolita ya no queda nada grande por hacer: el oleaje entero,
-el Remanso, dormir, el centro de control, su menú y el armario están puestos y
-medidos. Lo que viene ahora es de otro capítulo:
+el Remanso, dormir, el centro de control —con el sonido y la sesión—, su menú y
+el armario están puestos y medidos. Lo que viene ahora es de otro capítulo:
 
 - **Las notificaciones de verdad**, que hoy son una tanda inventada. pleamar
   sabe traerlas; falta darle el permiso, y decidir qué pasa cuando el sitio ya
@@ -1444,3 +1565,7 @@ medidos. Lo que viene ahora es de otro capítulo:
   decidir qué se enseña de un vídeo o de una imagen.
 - **Abrir un archivo de verdad**: hoy una aplicación se lanza y un archivo solo
   se apunta en el log. Falta `xdg-open`, que es una línea y una decisión.
+- **Que el sistema conteste.** `sys.call` manda y no vuelve, así que la sesión
+  no puede distinguir «apagando» de «el sistema lo ha inhibido»: lo que hay es
+  un plazo de cuatro segundos y la cara de vuelta. La lámina pide enseñar el
+  motivo, y para eso haría falta que una orden pudiera responder.
