@@ -25,7 +25,7 @@ scene Marea {
         //  casa; la sesión, poder despedirse. Lo que NO está es
         //  `notifications`: el primero que lo pide se queda el sitio, y en esta
         //  máquina ese sitio es de Marea.
-        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*"
+        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*"
         //  Cambiar de red o de auricular no lo sabe hacer pleamar todavía (su
         //  B15), así que lo hace la lógica con las herramientas del sistema. Y
         //  `fd` busca los archivos y las carpetas.
@@ -202,6 +202,7 @@ scene Marea {
     event resolver ->                  // con cuál, de carga: la lógica la marca leída
     event descartar ->                 // y esta se tira: no vuelve, ni manda gota
     event abrir_aviso ->               // un toque: que la lógica lo abra donde viva
+    event deshecho ->                  // se arrepintió a tiempo: esa fila no se cierra
     //  «Deshacer» durante 5 s, con una mecha que se consume. Cinco segundos
     //  exactos y a ritmo constante no los da un muelle: los da un gesto, que es
     //  una línea de tiempo con su curva. `linear` es lo que hace que una mecha
@@ -2860,6 +2861,7 @@ scene Marea {
                 n.$c = n.$c + 1
                 impulse late.$c 5
                 deshacer = false
+                emit deshecho(k)
             }
         }
     }

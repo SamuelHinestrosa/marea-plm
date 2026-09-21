@@ -354,8 +354,25 @@ end
 --  Llega uno: primero se dice QUÉ es —la escena lo necesita antes del suceso,
 --  porque la tarjeta que vuela ya lleva su nombre escrito— y luego que ha
 --  llegado. Un urgente, además, se anuncia como tal.
+--  De qué va un aviso de verdad, por quién lo manda. Es lo que decide el color
+--  de su gota, así que lo que no se reconoce es «sistema» y no se inventa nada.
+local CLASES = {
+    { 1, { "telegram", "whatsapp", "signal", "discord", "element", "fractal", "mensaj", "chat" } },
+    { 2, { "thunderbird", "mail", "correo", "geary", "evolution", "outlook", "slack", "teams", "github" } },
+    { 3, { "calendar", "calendario", "khal", "reminder", "recordatorio", "agenda" } },
+}
+local function clase(app)
+    local a = string.lower(app or "")
+    for _, c in ipairs(CLASES) do
+        for _, trozo in ipairs(c[2]) do
+            if string.find(a, trozo, 1, true) then return c[1] end
+        end
+    end
+    return 4
+end
+
 local function llega(n)
-    n.cat = DE[n.app] or 4
+    n.cat = DE[n.app] or clase(n.app)
     table.insert(filas, 1, n)
     while #filas > 5 do table.remove(filas) end
     pintar()
@@ -391,19 +408,105 @@ end
 
 on("otra_tanda", tandaEntera)
 
-log("demo · los avisos son inventados: pleamar cede el sitio a quien ya lo tenga")
-log("demo · otra tanda: pleamar --decir bolita \"emit otra_tanda\"")
-after(600, tandaEntera)
+-- ── los avisos de verdad ───────────────────────────────────────────
+--  El servicio da la lista viva entera cada vez que cambia, la más nueva
+--  primero. De ahí hay que sacar tres cosas: los que son nuevos —que entran
+--  por el mismo `llega()` que la demostración, porque es el mismo oleaje—, los
+--  que han cambiado sin dejar de ser el mismo —una descarga que avanza— y los
+--  que ya no están sin que los hayamos quitado nosotros: los cerró su
+--  aplicación, que es lo que pasa cuando lees el mensaje en Telegram.
+local vistos = {}
+
+local function quita_hechas()
+    for k = #filas, 1, -1 do
+        if filas[k].hecha then table.remove(filas, k) end
+    end
+end
+
+local function de_verdad(lista)
+    local estan = {}
+    for _, n in ipairs(lista) do estan[n.id] = n end
+    local cambio = false
+    for k = #filas, 1, -1 do
+        local f = filas[k]
+        if f.id and not f.hecha then
+            local n = estan[f.id]
+            if n == nil then
+                --  La cerró quien la mandó: se va la fila y baja su gota.
+                local c = "n." .. f.cat
+                if (fact[c] or 0) > 0 then fact[c] = fact[c] - 1 end
+                table.remove(filas, k)
+                cambio = true
+            elseif n.title ~= f.que or n.body ~= f.mas then
+                f.que, f.mas = n.title, n.body
+                cambio = true
+            end
+        end
+    end
+    if cambio then pintar() end
+    for i = #lista, 1, -1 do
+        local n = lista[i]
+        if not vistos[n.id] then
+            vistos[n.id] = true
+            --  Las resueltas esperaban en su sitio para no mover las filas a
+            --  media animación; al entrar una nueva se recoloca todo, y se van.
+            quita_hechas()
+            llega({ id = n.id, app = string.upper(n.app ~= "" and n.app or "aviso"), que = n.title, mas = n.body,
+                    urgente = (n.urgency or 1) >= 2, acciones = n.actions })
+        end
+    end
+end
+
+if sys.watch("notifications", de_verdad) then
+    --  Esto es un CENTRO de avisos, no una barra de globos: «todo llega, tú
+    --  decides». Si caducaran solos a los seis segundos, su aplicación dejaría
+    --  de escuchar y ya no se podrían abrir desde aquí.
+    sys.call("notifications.keep", true)
+    fact.demo = false
+    log("notifications · the real ones: this is who receives them now")
+else
+    log("demo · los avisos son inventados: pleamar cede el sitio a quien ya lo tenga")
+    log("demo · otra tanda: pleamar --decir bolita \"emit otra_tanda\"")
+    after(600, tandaEntera)
+end
 
 -- ── el oleaje ──────────────────────────────────────────────────────
 --  Resolver una fila es marcarla leída donde de verdad viva. Aquí solo se
 --  apunta: lo que se ve —la fila yéndose, la gota volviendo, la cuenta
 --  bajando— ya lo ha hecho la escena, sin esperar a esto.
-on("resolver", function(k) log("row marked as read", k) end)
---  Lo descartado no vuelve: ni gota, ni deshacer, ni aviso a quien lo mandó
---  hasta que se acabe el plazo. Aquí solo se apunta.
-on("descartar", function(k) log("row discarded", k) end)
-on("abrir_aviso", function(k) log("would open the notice where it lives", k) end)
+--  Resuelta no es cerrada todavía: la escena da cinco segundos para
+--  arrepentirse, y una notificación cerrada no vuelve. Se cierra de verdad
+--  cuando la mecha ya se ha apagado, si nadie la deshizo.
+on("resolver", function(k)
+    local f = filas[k]
+    if f == nil then return end
+    f.hecha = true
+    if f.id then
+        after(5400, function()
+            if f.hecha then sys.call("notifications.dismiss", f.id) end
+        end)
+    end
+end)
+on("deshecho", function(k)
+    local f = filas[k]
+    if f then f.hecha = false end
+end)
+--  Lo descartado no vuelve: ni gota, ni deshacer.
+on("descartar", function(k)
+    local f = filas[k]
+    if f == nil then return end
+    f.hecha = true
+    if f.id then sys.call("notifications.dismiss", f.id) end
+end)
+--  Un toque la abre donde vive: su acción por defecto, si la trae. Si no trae
+--  ninguna, tocarla no puede hacer más que darla por vista.
+on("abrir_aviso", function(k)
+    local f = filas[k]
+    if f == nil or f.id == nil then return end
+    local abre = false
+    for _, a in ipairs(f.acciones or {}) do abre = abre or a.key == "default" end
+    if abre then sys.call("notifications.invoke", f.id, "default") else sys.call("notifications.dismiss", f.id) end
+end)
 on("tray", function() log("the tray would open at the newest one") end)
 on("calendar", function() log("the calendar would open here") end)
 on("abrir", function(k) log("page", k) end)
