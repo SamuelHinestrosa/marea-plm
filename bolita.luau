@@ -795,3 +795,53 @@ run("pgrep", { "-x", "swaybg" }, function(_, cod)
         log("wallpaper ·", FONDO)
     end)
 end)
+
+-- ── su casa: en qué monitor vive ───────────────────────────────────
+--  Una copia por monitor, y aquí se decide cuál se ve. Dos maneras: una casa
+--  fija, o «sígueme» —va a donde esté la ventana con el foco, que lo cuenta el
+--  servicio `window`—. La casa se guarda por NOMBRE (`DP-3`): los monitores
+--  cambian de número al enchufar otro, y un nombre no.
+local monitores = {}                  -- por orden del compositor: nombre
+local foco = ""
+
+local function decide()
+    for k = 0, 1 do
+        local nombre = monitores[k + 1]
+        local suya
+        if fact.sigue == true then
+            suya = nombre ~= nil and nombre == foco
+            --  Sin foco en ninguno —el escritorio vacío—, la casa.
+            if foco == "" then suya = k == fact.casa end
+        else
+            suya = k == fact.casa
+        end
+        fact["en." .. k] = suya
+    end
+end
+
+local function guardar_ajustes()
+    ajustes.casa = monitores[(fact.casa or 0) + 1] or ajustes.casa
+    ajustes.sigue = fact.sigue == true
+    ajustes.fondo = FONDO
+    pcall(sys.call, "files.write", "ajustes.json", ajustes)
+end
+
+run("hyprctl", { "monitors" }, function(mons)
+    monitores = {}
+    for nombre in (mons or ""):gmatch("Monitor (%S+)") do monitores[#monitores + 1] = nombre end
+    --  La casa guardada, traducida a su número de hoy; si ya no está, la primera.
+    fact.casa = 0
+    for k, nombre in ipairs(monitores) do
+        if nombre == ajustes.casa then fact.casa = k - 1 end
+    end
+    fact.sigue = ajustes.sigue == true
+    decide()
+end)
+
+if not sys.watch("window", function(v)
+    foco = (v and v.monitor) or ""
+    if fact.sigue == true then decide() end
+end) then log("this compositor does not say where the focus is: «sígueme» will not work") end
+
+on("fact:casa", function() decide(); guardar_ajustes() end)
+on("fact:sigue", function() decide(); guardar_ajustes() end)

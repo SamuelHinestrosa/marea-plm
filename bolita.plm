@@ -25,7 +25,7 @@ scene Marea {
         //  casa; la sesión, poder despedirse. Lo que NO está es
         //  `notifications`: el primero que lo pide se queda el sitio, y en esta
         //  máquina ese sitio es de Marea.
-        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*", "auth", "files", "files.write"
+        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*", "auth", "files", "files.write", "window"
         //  Cambiar de red o de auricular no lo sabe hacer pleamar todavía (su
         //  B15), así que lo hace la lógica con las herramientas del sistema. Y
         //  `fd` busca los archivos y las carpetas.
@@ -41,7 +41,7 @@ scene Marea {
     //  Pulsar una tarjeta abre su página, y **la página sale de la tarjeta**:
     //  crece desde su sitio hasta llenar el panel. No es una pantalla que
     //  sustituye a otra; es la misma tarjeta, abierta.
-    fact pagina: ninguna | wifi | bluetooth | concentracion | armario | sonido | sesion | bandeja_sis = ninguna
+    fact pagina: ninguna | wifi | bluetooth | concentracion | armario | sonido | sesion | bandeja_sis | ajustes = ninguna
     prop pag = 0 ~240ms
     follow pag = if(pagina == ninguna, 0, 1)
     model redes max 8 { nombre: text; senal: number; puesta: bool }
@@ -118,7 +118,10 @@ scene Marea {
         size: 820, 680
         anchor: top
         margin: 0
-        screens: "DP-3"
+        //  Una copia por monitor, y cada una con lo suyo. Cuál se ve lo dice
+        //  `mia`, más abajo: la de su casa, o la del monitor con el foco si
+        //  la has puesto a seguirte. Las otras están, pero nadando fuera.
+        screens: each max 2
         //  Sesenta frames por segundo, decididos aquí y no por el monitor: ella
         //  respira siempre, y a 165 Hz pintaba cada respiración 165 veces por
         //  segundo. Medido: 21,5 % de un núcleo, frente a 8,6 % en una pantalla
@@ -142,16 +145,47 @@ scene Marea {
     //  la tarjeta se recoge primero y ella vuelve después, que es lo que hace
     //  que se vea el viaje en vez de que las dos cosas pasen encima de la otra.
     prop sitio = 0 ~290ms
+    // ── su casa: en qué monitor vive ─────────────────────────────
+    //  `casa` es el número del monitor en que vive, y `sigue` la pone a ir a
+    //  donde esté el foco. Quién se ve lo decide la LÓGICA: es quien se entera
+    //  de en qué monitor está la ventana activa —una superficie solo recibe el
+    //  puntero mientras está encima, así que hay que preguntarlo—, quien sabe
+    //  qué monitores hay y en qué orden, y quien guarda la casa por su nombre
+    //  en `ajustes.json`. Aquí llegan dos hechos ya masticados: `en.0` y
+    //  `en.1`, si ella está en ese monitor.
+    fact casa = 0
+    fact sigue = false
+    fact en.0 = true
+    fact en.1 = false
+    //  Y el viaje. No se apaga y se enciende: NADA. La que deja de ser suya se
+    //  va por el borde que da al otro monitor y la que pasa a serlo entra por
+    //  ese mismo borde, con el mismo muelle, así que parece que cruza. 620 ms,
+    //  que es lo que tarda en salir del borde de arriba: el mismo viaje.
+    //  El monitor 0 está a la izquierda: cruza hacia la derecha; el 1, hacia
+    //  la izquierda. `screen.index` vale distinto en cada copia aunque `cx` se
+    //  escriba una vez: es lo que hace que cada una lleve SOLO su viaje.
+    //  Hasta dónde: su superficie mide 820 y va centrada en el monitor, así
+    //  que el «borde» por el que sale es el de la superficie, a 480 px de
+    //  ella. Entre medias hay escritorio vacío, y se ve igual de bien que si
+    //  llegase al borde de verdad. Y mientras viaja, se hunde un poco: nada
+    //  con el cuerpo, no se desliza.
+    prop nada.0 = 1 ~620ms
+    prop nada.1 = 0 ~620ms
+    follow nada.0 = if(en.0, 1, 0)
+    follow nada.1 = if(en.1, 1, 0)
+    let nada.aqui = if(screen.index == 0, nada.0, nada.1)
+    let cruza = if(screen.index == 0, (1 - nada.0) * 480, (nada.1 - 1) * 480)
+    let bucea = 4 * 4 * nada.aqui * (1 - nada.aqui)
     //  Y su sitio lo manda SOLO esto, no la geometría de lo que tenga abierto:
     //  con la bandeja tirando de ella directamente, al cerrarse volvía a la vez
     //  que se plegaba, y las dos cosas encima de la otra no se ven.
     let fuera = sitio
-    let cx = 120 + (1 - fuera) * 240
+    let cx = 120 + (1 - fuera) * 240 + cruza
     //  Abierta, baja a la altura de la cabecera de la tarjeta, como en la lámina.
     //  Y el camino se comba: la altura va por el cuadrado, así que sale y entra
     //  por arriba en vez de cruzar en línea recta. Una cosa con peso no viaja
     //  en diagonal.
-    let cy = 46 + fuera * fuera * 46
+    let cy = 46 + fuera * fuera * 46 + bucea
     let r = 23                        // la mitad de los 46 px de la lámina
 
     // ── lo que la mueve ──────────────────────────────────────────
@@ -2019,7 +2053,7 @@ scene Marea {
         on leave engranaje { eng.luz: 0 }
         on enter cerrar { cruz.luz: 1 }
         on leave cerrar { cruz.luz: 0 }
-        on press engranaje { emit ajustes }
+        on press engranaje { pagina = ajustes }
         on press cerrar { open = false }
 
         //  La bandeja del sistema vive donde en cualquier escritorio: arriba a la
@@ -2248,7 +2282,7 @@ scene Marea {
         let pg.k = if(pagina == bluetooth, 2, 0) + if(pagina == concentracion, 3, 0) + if(pagina == wifi, 1, 0) + if(pagina == sonido, 4, 0) + if(pagina == sesion, 5, 0)
         //  Las tres primeras salen de su tarjeta; el armario no tiene tarjeta
         //  —se entra por su menú—, así que crece desde el centro del panel.
-        let pg.suya = if(pagina == armario or pagina == bandeja_sis, 0, 1)
+        let pg.suya = if(pagina == armario or pagina == bandeja_sis or pagina == ajustes, 0, 1)
         let pg.ox = card.x + 111 * pg.suya
         let pg.oy = card.top + 231 + (-126 + (pg.k - 1) * 66) * pg.suya
         let pg.x = pg.ox + (card.x - pg.ox) * pag
@@ -2268,6 +2302,7 @@ scene Marea {
             text "Concentración" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == concentracion }
             text "Su armario" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == armario }
             text "Sonido" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == sonido }
+            text "Ajustes" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == ajustes }
             text bandeja.titulo { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; width: 400; lines: 1; color: ink; show: pagina == bandeja_sis }
             text "¿Hacemos una pausa?" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == sesion and confirma == ninguna }
             text "Confirmar" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: pagina == sesion and confirma != ninguna }
@@ -2405,6 +2440,85 @@ scene Marea {
                 }
                 text "Nada que elegir" { at: card.x, card.top + 200; anchor: center; size: 11.5; color: #8b8f95
                                          show: salidas.count < 1 and micros.count < 1 }
+            }
+
+            // ── los ajustes ──────────────────────────────────────
+            //  Tres cosas, y ninguna es un formulario. **Su casa**: los dos
+            //  monitores dibujados como dos pozas, a escala, y ella nadando en
+            //  la que toca; pulsar una poza la manda allí, y «Sígueme» la pone a
+            //  ir donde esté el foco. **El fondo**: el que hay, y elegir otro.
+            //  **El bloqueo con red**: si el bloqueo se abre también con Esc.
+            group {
+                show: pagina == ajustes
+                text "SU CASA" { at: card.x - 228, card.top + 118; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
+                text "Puedes dejarla en un monitor, o que te siga." { at: card.x - 228, card.top + 136; anchor: left center; size: 11.5; color: #8b8f95 }
+
+                //  Las pozas: dos monitores de 16:9 a un cuarto de escala, con
+                //  su nombre. La que es su casa está iluminada; ella está
+                //  nadando dentro de la que se ve ahora, que con «sígueme» puede
+                //  ser cualquiera de las dos.
+                repeat m in 0..2 {
+                    let px = card.x - 112 + m * 224
+                    let py = card.top + 200
+                    prop poza.$m = 0 ~140ms
+                    let suya.$m = if(not sigue and casa == m, 1, 0)
+                    box { at: px, py; size: 200, 112; corner: 12
+                          color: mix(mix(#1b1f22, #202528, poza.$m), #1a2a25, suya.$m) }
+                    box { at: px, py; size: 200, 112; corner: 12; stroke: 1.2; color: mint; opacity: suya.$m * 80% + poza.$m * 20% }
+                    //  El agua de la poza: una franja al fondo, más honda en la suya.
+                    //  En su grupo, que un recorte llega hasta el final del grupo.
+                    group {
+                        clip inset 0 box { at: px, py; size: 200, 112; corner: 12 }
+                        box { at: px, py + 44; size: 200, 40; color: mix(#1f3a34, #24524a, suya.$m); opacity: 55% }
+                    }
+                    //  Ella, pequeña, nadando en la que se ve: si está aquí y no
+                    //  en la otra. Un vaivén lento, que es la respiración.
+                    group {
+                        opacity: if(m == 0, if(en.0, 1, 0), if(en.1, 1, 0))
+                        body {
+                            color: coal
+                            rim: 14%
+                            ellipse { at: px + 3 * vaiven, py + 26 + 1.5 * vaiven; radius: 12 }
+                        }
+                        box { at: px - 4 + 3 * vaiven, py + 26 + 1.5 * vaiven; size: 3, 6; corner: 1.5; color: ink }
+                        box { at: px + 4 + 3 * vaiven, py + 26 + 1.5 * vaiven; size: 3, 6; corner: 1.5; color: ink }
+                    }
+                    text screen.$m.name { at: px, py - 42; anchor: center; size: 10.5; weight: 600; color: mix(#8b8f95, ink, suya.$m) }
+                    zone box pozona.$m { at: px, py; size: 200, 112; corner: 12; cursor: pointer; active: pagina == ajustes and pag > 0.9 }
+                    on enter pozona.$m { poza.$m: 1 }
+                    on leave pozona.$m { poza.$m: 0 }
+                    on press pozona.$m { casa = m; sigue = false }
+                }
+                //  «Sígueme», que es la tercera casa: ninguna.
+                prop sig.luz = 0 ~140ms
+                box { at: card.x, card.top + 290; size: 456, 40; corner: 11; color: mix(mix(#202021, #262728, sig.luz), #1a2a25, if(sigue, 1, 0)) }
+                box { at: card.x, card.top + 290; size: 456, 40; corner: 11; stroke: 1.2; color: mint; opacity: if(sigue, 80%, 0%) }
+                //  Dos flechas que se cruzan: va y viene.
+                path { at: card.x - 210, card.top + 284; color: mix(#8b8f95, mint, if(sigue, 1, 0)); stroke: 1.6
+                       move 0, 3; line 12, 3; line 9, 0 }
+                path { at: card.x - 210, card.top + 293; color: mix(#8b8f95, mint, if(sigue, 1, 0)); stroke: 1.6
+                       move 12, 0; line 0, 0; line 3, 3 }
+                text "Sígueme" { at: card.x - 188, card.top + 284; anchor: left center; size: 12.5; color: ink }
+                text "Se va al monitor donde estés trabajando" { at: card.x - 188, card.top + 299; anchor: left center; size: 10.5; color: #8b8f95 }
+                zone box sigueme { at: card.x, card.top + 290; size: 456, 40; corner: 11; cursor: pointer; active: pagina == ajustes and pag > 0.9 }
+                on enter sigueme { sig.luz: 1 }
+                on leave sigueme { sig.luz: 0 }
+                on press sigueme { sigue = true }
+
+                line { from: card.x - 228, card.top + 326; to: card.x + 228, card.top + 326; width: 1; color: ink; opacity: 12% }
+
+                //  El bloqueo con red: un interruptor como los de las tarjetas.
+                text "EL BLOQUEO" { at: card.x - 228, card.top + 346; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
+                text "Con red: Esc también lo abre, y se abre solo al minuto" { at: card.x - 228, card.top + 366; anchor: left center; size: 11.5; width: 380; lines: 1; color: ink }
+                text "Quítala cuando te fíes de tu contraseña. Vale hasta que se reinicie" { at: card.x - 228, card.top + 382; anchor: left center; size: 10.5; color: #8b8f95 }
+                prop red.pos = 0 ~200ms
+                follow red.pos = if(con_salida, 1, 0)
+                box { at: card.x + 202, card.top + 372; size: 44, 24; corner: 12; color: mix(#3a3d40, mint, red.pos) }
+                ellipse { at: card.x + 192 + red.pos * 20, card.top + 372; radius: 9; color: #f6f6f5 }
+                zone box red_zona { at: card.x + 202, card.top + 372; size: 52, 36; corner: 18; cursor: pointer; active: pagina == ajustes and pag > 0.9 }
+                on press red_zona { toggle con_salida }
+
+                text "El fondo lo cambias desde su menú: Personalizar." { at: card.x, card.top + 420; anchor: center; size: 10.5; color: #8b8f95; opacity: 70% }
             }
 
             // ── el menú de un icono de la bandeja ────────────────

@@ -1458,6 +1458,56 @@ lo que haría y no lo hace. Todo lo medido de esta página está tomado así, de
 recorrido completo —fila, pregunta, espera, pulsación— que acabó en
 `session · testing: it would call session.poweroff` y nada más.
 
+## Los ajustes: su casa
+
+![Ajustes: las dos pozas, «Sígueme» y la red del bloqueo](evidencia/ajustes.png)
+
+No hay lámina de Codex para esto: la lámina es esta. Tres cosas, y ninguna es
+un formulario.
+
+**Su casa.** Los dos monitores dibujados como dos **pozas** —a un cuarto de
+escala, 16:9, con su nombre encima— y ella nadando dentro de la que se ve. La
+poza de su casa está iluminada; pulsar la otra la manda allí. Y una tercera
+casa, que es ninguna: **«Sígueme»**, va al monitor donde estés trabajando.
+
+**El bloqueo con red**: si el bloqueo se abre también con Esc. Un interruptor
+como los de las tarjetas, y una frase honesta debajo: vale hasta que se
+reinicie, porque la red de verdad la pone el autoarranque.
+
+**El fondo** se cambia desde su menú, en Personalizar, que es donde estaba.
+
+![El cruce: sale por un lado, aparece por el otro](evidencia/ajustes-nado.png)
+
+### Cómo cruza de un monitor al otro
+
+Una superficie de layer-shell no cambia de monitor viva, así que hay **una copia
+por monitor** (`screens: each max 2`), cada una con su estado, y la lógica dice
+cuál es la que se ve (`en.0`, `en.1`). No se apaga y se enciende: **nada**. La
+que deja de ser suya se va por el lado que da al otro monitor y la que pasa a
+serlo entra por ese mismo lado, con el mismo muelle de 620 ms —el de salir por
+el borde de arriba—, y mientras viaja se hunde 4 px: nada con el cuerpo, no se
+desliza. Entre las dos superficies hay escritorio vacío, y se ve igual de bien
+que si llegase al borde de verdad.
+
+| | medido |
+| --- | --- |
+| la lógica cambia de casa | 16 ms |
+| el cruce (de 1 % a 99 %) | **300 ms** por cada lado, que se solapan: 620 en total |
+| la casa se guarda | por su nombre (`DP-3`) en `ajustes.json`: los monitores cambian de número al enchufar otro, y un nombre no |
+
+**Lo que no he podido probar:** «Sígueme» con el foco de verdad. Hyprland no
+mueve el foco a otro monitor con el ratón parado en este, ni con
+`focuswindow`, y mover el ratón de alguien no es una prueba. Está comprobado
+hasta el último eslabón: el servicio `window` avisa de cada cambio con el
+monitor del foco, y la lógica decide con él.
+
+### Lo que le faltó a pleamar
+
+Cuatro tropiezos seguidos al repetir por monitor una escena de 3 200 líneas,
+todos de la misma familia —lo que es de la escena se buscaba con la marca de la
+copia—, y dos cosas nuevas: `screen.index` como hecho, para que un `let`
+suelto valga distinto en cada copia, y `window.monitor`.
+
 ## Lo que le faltó al lenguaje, y ya no
 
 Dieciocho, todas arregladas en pleamar en vez de esquivadas aquí:
