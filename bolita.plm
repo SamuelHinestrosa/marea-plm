@@ -119,6 +119,11 @@ scene Marea {
         anchor: top
         margin: 0
         screens: "DP-3"
+        //  Sesenta frames por segundo, decididos aquí y no por el monitor: ella
+        //  respira siempre, y a 165 Hz pintaba cada respiración 165 veces por
+        //  segundo. Medido: 21,5 % de un núcleo, frente a 8,6 % en una pantalla
+        //  de 60. Lo que consume tiene que ser lo mismo en cualquier pantalla.
+        rate: 60
         //  Teclado solo mientras el menú esté abierto, y a petición: se pide al
         //  pulsar y se devuelve al cerrarlo. «El clic da foco de teclado, pero
         //  no los deja pegados a la pantalla.»
