@@ -122,6 +122,11 @@ scene Marea {
         //  `mia`, más abajo: la de su casa, o la del monitor con el foco si
         //  la has puesto a seguirte. Las otras están, pero nadando fuera.
         screens: each max 2
+        //  Y la copia por la que ella se ha ido se CIERRA: no tiene nada que
+        //  enseñar, y una superficie cerrada no se pinta ni gasta. Abierta
+        //  mientras quede algo de ella dentro, que es lo que deja verla salir
+        //  nadando y entrar por el otro lado; `nada.aqui` es el de esta copia.
+        open: nada.aqui > 0.01
         //  Sesenta frames por segundo, decididos aquí y no por el monitor: ella
         //  respira siempre, y a 165 Hz pintaba cada respiración 165 veces por
         //  segundo. Medido: 21,5 % de un núcleo, frente a 8,6 % en una pantalla
