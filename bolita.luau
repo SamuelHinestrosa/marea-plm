@@ -826,17 +826,25 @@ local function guardar_ajustes()
     pcall(sys.call, "files.write", "ajustes.json", ajustes)
 end
 
-run("hyprctl", { "monitors" }, function(mons)
-    monitores = {}
-    for nombre in (mons or ""):gmatch("Monitor (%S+)") do monitores[#monitores + 1] = nombre end
-    --  La casa guardada, traducida a su número de hoy; si ya no está, la primera.
+--  Qué monitor es cada copia lo dice pleamar, no `hyprctl`: el orden de las
+--  copias es el suyo (`screen.0.name`, `screen.1.name`), y no coincide con el
+--  del compositor. Llegan cuando cada superficie se pone, así que se recoge la
+--  casa en cuanto se conocen las dos.
+local function coloca()
     fact.casa = 0
     for k, nombre in ipairs(monitores) do
         if nombre == ajustes.casa then fact.casa = k - 1 end
     end
     fact.sigue = ajustes.sigue == true
     decide()
-end)
+end
+for k = 0, 1 do
+    on("text:screen." .. k .. ".name", function(nombre)
+        if nombre == nil or nombre == "" then return end
+        monitores[k + 1] = nombre
+        coloca()
+    end)
+end
 
 if not sys.watch("window", function(v)
     foco = (v and v.monitor) or ""
