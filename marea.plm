@@ -781,6 +781,13 @@ scene Marea {
     prop gun = 0 ~lively
     prop fade = 0 ~900ms               // the broken glass, all of it
     prop flash = 0 ~16ms
+    //  The gunslinger's part: the spin as it comes out and goes back —two whole
+    //  turns round her finger, slowing into the aim—, the glare before
+    //  shooting, and blowing the smoke off the barrel at the end.
+    prop twirl = 0 ~800ms
+    prop glare = 0 ~200ms
+    prop blow = 0 ~350ms
+    prop calm = 0 ~16ms
     //  Each shot, a step at its moment; each hole, how far it has cracked.
     prop shot.1 = 0 ~16ms
     prop crack.1 = 0 ~300ms
@@ -794,17 +801,28 @@ scene Marea {
     prop crack.5 = 0 ~300ms
     on rage {
         raging = true; face = angry; asleep = false
-        gun: 1 ~lively after 200ms
-        fade: 1 ~16ms
+        fade: 1 ~16ms; calm: 0
         shot.1: 0; shot.2: 0; shot.3: 0; shot.4: 0; shot.5: 0
         crack.1: 0 ~16ms; crack.2: 0 ~16ms; crack.3: 0 ~16ms; crack.4: 0 ~16ms; crack.5: 0 ~16ms
-        shot.1: 1 after 850ms
-        shot.2: 1 after 1300ms
-        shot.3: 1 after 1650ms
-        shot.4: 1 after 2200ms
-        shot.5: 1 after 2550ms
+        //  Out, spinning into the aim.
+        twirl: 0 ~16ms; twirl: 1 ~800ms after 200ms
+        gun: 1 ~lively after 200ms
+        //  The glare: looking at you, narrowed, before the first shot.
+        glare: 1 ~220ms after 1050ms
+        glare: 0 ~200ms after 1950ms
+        shot.1: 1 after 2000ms
+        shot.2: 1 after 2450ms
+        shot.3: 1 after 2800ms
+        shot.4: 1 after 3350ms
+        shot.5: 1 after 3700ms
+        //  Blowing the smoke off, and back in, spinning.
+        blow: 1 ~350ms after 4250ms
+        blow: 0 ~300ms after 5500ms
+        twirl: 0 ~700ms after 5650ms
+        gun: 0 ~260ms after 6000ms
+        calm: 1 after 6350ms
     }
-    on still raging for 5.4s while raging { raging = false; face = eye; gun: 0 ~220ms; fade: 0 ~900ms after 400ms }
+    on change calm > 0.5 while calm > 0.5 and raging { raging = false; face = eye; fade: 0 ~900ms }
     //  The gulp, when the drop reaches her shoulder.
     gesture gulp reflex {
         90ms out_quad   { sx: 1.06; sy: 0.94; body.y: 1 }
@@ -1351,9 +1369,9 @@ scene Marea {
         //  ring before the ring goes.
         let shrink = 1 - powerdown
         let v.w = w.w * shrink
-        let v.h = w.h * shrink * (1 - joy) * (1 - 0.35 * fury)
+        let v.h = w.h * shrink * (1 - joy) * (1 - 0.35 * fury - 0.25 * glare)
         let v.rw = w.rw * shrink
-        let v.rh = w.rh * shrink * (1 - joy) * (1 - 0.35 * fury)
+        let v.rh = w.rh * shrink * (1 - joy) * (1 - 0.35 * fury - 0.25 * glare)
 
         let eye.y = y + 2.5 + drowsy * 1.4
         let l.x = x - sep
@@ -1393,6 +1411,8 @@ scene Marea {
             //  narrowed under them.
             line { from: l.x - 5.5, eye.y - 11 + 2 * (1 - fury); to: l.x + 4, eye.y - 6.5; width: 2.2; color: ink; opacity: fury }
             line { from: r.x + 5.5, eye.y - 11 + 2 * (1 - fury); to: r.x - 4, eye.y - 6.5; width: 2.2; color: ink; opacity: fury }
+            //  Blowing: a little «o» of a mouth.
+            ellipse { at: x + 6 * side, eye.y + 10; radius: 2.6 * blow; stroke: 1.5; color: ink; opacity: blow }
 
             //  The level's filled part is **the same track**, painted again and
             //  clipped from the left. That way the mint has the exact shape of the
@@ -1536,8 +1556,8 @@ scene Marea {
     //  Where her face is, said ONCE: the face and whatever sticks to it use it.
     //  Written twice, a pair of glasses stays looking the other way as soon as
     //  someone touches one of the two places.
-    let face.dx = gaze.x + (4 - gaze.x) * attentive
-    let face.dy = gaze.y * (1 - attentive)
+    let face.dx = (gaze.x + (4 - gaze.x) * attentive) * (1 - glare)
+    let face.dy = gaze.y * (1 - attentive) * (1 - glare)
     let face.sink = (1 - out) * 4.5 * if(hidden, 1, 0)
     Face(cx, cy_actual, face.dx, face.dy, face.sink)
 
@@ -2213,9 +2233,12 @@ scene Marea {
     //  The pistol, on the side she aims to: it swaps hands, and flips so the
     //  grip stays down.
     let side = if(aim.x < cx, -1, 1)
-    let gun.x = cx + 40 * side
-    let gun.y = cy_actual + 14
-    let gun.angle = atan2(aim.y - gun.y, aim.x - gun.x)
+    //  Blowing, the pistol comes up beside her mouth, barrel to the sky.
+    let gun.x = cx + (40 - 12 * blow) * side
+    let gun.y = cy_actual + 14 + 8 * blow
+    let gun.aim = atan2(aim.y - gun.y, aim.x - gun.x)
+    //  Up is −90° from the right hand and 270° from the left: the nearer way round.
+    let gun.angle = gun.aim + (if(side > 0, -90, 270) - gun.aim) * blow
     let muzzle.x = gun.x + cos(gun.angle) * 36
     let muzzle.y = gun.y + sin(gun.angle) * 36
 
@@ -2252,7 +2275,7 @@ scene Marea {
     group {
         opacity: gun
         pivot: gun.x, gun.y
-        rotate: gun.angle * 1deg - kick * 0.35 * side
+        rotate: gun.angle * 1deg - kick * 0.35 * side - (1 - twirl) * 4 * 3.14159265 * side
         scale: 0.4 + 0.6 * gun, (0.4 + 0.6 * gun) * side
         move: (1 - gun) * -26 * side, 0
         box { at: gun.x + 17 - 6 * kick, gun.y - 4; size: 30, 9; corner: 2; color: #2b2e33 }
@@ -2263,6 +2286,9 @@ scene Marea {
         line { from: gun.x + 4 - 6 * kick, gun.y - 8; to: gun.x + 31 - 6 * kick, gun.y - 8; width: 1; color: ink; opacity: 25% }
         box { at: gun.x + 22 - 6 * kick, gun.y - 4; size: 6, 2; corner: 1; color: ink; opacity: 12% }
     }
+    //  The smoke she blows off: grey puffs that grow, rise and thin out.
+    particles { at: muzzle.x, muzzle.y; count: 60; life: 0.9s .. 1.6s; speed: 12 .. 34; direction: -90deg; spread: 50deg
+                drag: 0.8; size: 4, 15; colors: #b8bcc2, #7d8288; opacity: 45%, 0%; emit: blow > 0.8 and raging }
     //  The muzzle flash: a bright star that lasts a blink.
     group {
         glow: 12, 140%
