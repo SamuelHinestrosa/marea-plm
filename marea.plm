@@ -3673,6 +3673,12 @@ scene Marea {
                 n.$c = n.$c - 1
                 impulse beat.$c 4
             }
+            //  Dismissing sends no drop, but the count goes down all the same:
+            //  what was dismissed is not pending any more. Without this the
+            //  number stayed beside her for ever.
+            on release row_zone.$k while alive.$k and pull.$k < -92 and row_cat.$k == c and n.$c > 0 {
+                n.$c = n.$c - 1
+            }
             //  And undoing gives it back: the row goes back to its place rising,
             //  and its drop's count goes up again with its beat.
             on press undo_zone while resolved_row == k and row_cat.$k == c {

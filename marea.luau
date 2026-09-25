@@ -447,6 +447,38 @@ local function remove_done()
     end
 end
 
+--  And no drop can count more than there are left of its kind: whatever
+--  path removed one —resolved, dismissed, closed by its application—, the
+--  number beside her comes down to what is really pending. Only down: a drop
+--  flying back is counted by the scene when it lands. Counted from the
+--  service's list, not from the rows: the tray keeps five and there may be
+--  more. A resolved one still counts while its drop flies home; a dismissed
+--  one no. With made-up notices there is no list, and nothing is capped.
+local live = nil
+local function cap_counts()
+    if live == nil then return end
+    local gone = {}
+    for _, f in ipairs(rows) do
+        if f.id and f.done and not f.flying then gone[f.id] = true end
+    end
+    local left = { 0, 0, 0, 0 }
+    for _, n in ipairs(live) do
+        if not gone[n.id] then
+            local app = string.upper(n.app ~= "" and n.app or tr("notice"))
+            local c = CATEGORY_OF[app] or classify(app)
+            if left[c] then left[c] = left[c] + 1 end
+        end
+    end
+    for k = 1, 4 do
+        local c = "n." .. k
+        if (fact[c] or 0) > left[k] then fact[c] = left[k] end
+    end
+end
+--  The scene counts on its own when a drop sinks in, which can be seconds
+--  after the notice came —she was asleep and the drop had to fall—: by then
+--  it may already be closed.
+for k = 1, 4 do on("fact:n." .. k, cap_counts) end
+
 local function from_service(list)
     local present = {}
     for _, n in ipairs(list) do present[n.id] = n end
@@ -468,6 +500,8 @@ local function from_service(list)
         end
     end
     if changed then render() end
+    live = list
+    cap_counts()
     for i = #list, 1, -1 do
         local n = list[i]
         if not seen[n.id] then
@@ -507,6 +541,8 @@ on("resolve", function(k)
     local f = rows[k]
     if f == nil then return end
     f.done = true
+    f.flying = true
+    after(1000, function() f.flying = nil end)
     if f.id then
         after(5400, function()
             if f.done then sys.call("notifications.dismiss", f.id) end
