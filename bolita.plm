@@ -42,6 +42,17 @@ scene Marea {
     //  crece desde su sitio hasta llenar el panel. No es una pantalla que
     //  sustituye a otra; es la misma tarjeta, abierta.
     fact pagina: ninguna | wifi | bluetooth | concentracion | armario | sonido | sesion | bandeja_sis | ajustes = ninguna
+    //  Su aspecto, que se elige en Ajustes y se guarda: de cristal que dobla lo
+    //  de detrás como el de Apple, de cristal que solo lo desenfoca —más
+    //  ligero, lo hace el compositor—, o la de siempre, opaca.
+    fact piel: lente | liquido | normal = lente
+    //  Y cuánto de cristal hay ahora: un muelle, así que cambiar de aspecto
+    //  no es un salto. El cristal aparece doblando la luz, no fundiéndose.
+    prop cristal = 1 ~calm
+    follow cristal = if(piel == normal, 0, 1)
+    let dobla = piel == lente
+    //  Ajustes tiene dos apartados: lo de siempre y el aspecto.
+    fact apartado: general | aspecto = general
     prop pag = 0 ~240ms
     follow pag = if(pagina == ninguna, 0, 1)
     model redes max 8 { nombre: text; senal: number; puesta: bool }
@@ -873,7 +884,8 @@ scene Marea {
     body {
         color: coal
         rim: 14%
-        glass: 100%
+        glass: cristal
+        lens: dobla
         //  Sin sombra y sin halo cuando está sola. Lo que la separa del
         //  escritorio es su propio filo, que es luz por DENTRO de su silueta:
         //  no pinta nada fuera de ella, así que no hay cerco negro ni resplandor
@@ -2110,7 +2122,7 @@ scene Marea {
             //  parecía cojo. Y las pistas crecen con ella, que es lo que la
             //  lámina pide: los deslizadores son el protagonista.
             let niv.y = card.top + 237
-            box { at: niv.x, niv.y; size: 210, 322; corner: 16; color: ink; opacity: velo }
+            box { at: niv.x, niv.y; size: 210, 322; corner: 16; color: mix(#1b1b1c, ink, cristal); opacity: mix(1, velo, cristal) }
             repeat k in 0..2 {
                 let sx = niv.x - 45 + k * 90
                 let val = if(k == 0, brillo, nivel)
@@ -2121,7 +2133,7 @@ scene Marea {
                 group {
                     opacity: 25% + hay * 75%
                     //  La pista, y lo lleno desde abajo.
-                    box { at: sx, arriba + alto / 2; size: 14, alto; corner: 7; color: hundido; opacity: 70% }
+                    box { at: sx, arriba + alto / 2; size: 14, alto; corner: 7; color: mix(#2a2b2c, hundido, cristal); opacity: mix(1, 70%, cristal) }
                     box { from: sx - 7, arriba + alto * (1 - val); size: 14, alto * val; corner: 7
                           color: mix(mint, #6b7280, mudo) }
                     //  Y el tirador, que es lo que dice dónde estás.
@@ -2224,7 +2236,7 @@ scene Marea {
                         //  La de Concentración va resaltada cuando está puesta: el
                         //  fondo un punto más verde. Es el único borde del panel, y
                         //  lo pinta la tarjeta, no el reparto.
-                        fill: mix(ink, mint, encendida.$k * if(k == 3, 1, 0)) velo + luz.$k * velo.luz
+                        fill: mix(mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k * if(k == 3, 1, 0)), mix(ink, mint, encendida.$k * if(k == 3, 1, 0)), cristal) mix(1, velo + luz.$k * velo.luz, cristal)
                         corner: 14
                         group {
                             size: 20, 22
@@ -2263,13 +2275,13 @@ scene Marea {
                         //  Lo que se lee, con el sitio que quede. Sin anchos.
                         column { grow: 1; gap: 2
                             text titulo.$k { size: 13; lines: 1; color: ink }
-                            text sub.$k { size: 11.5; lines: 1; color: tenue; show: k == 2 or k > 3 }
-                            text red.name { size: 11.5; lines: 1; color: tenue; show: k == 1 }
+                            text sub.$k { size: 11.5; lines: 1; color: mix(#8b8f95, tenue, cristal); show: k == 2 or k > 3 }
+                            text red.name { size: 11.5; lines: 1; color: mix(#8b8f95, tenue, cristal); show: k == 1 }
                             //  La de Concentración cuenta lo que le queda, no lo
                             //  que duraría: puesta, lo que hace falta saber es
                             //  cuándo vuelve.
                             text "Puesto · {queda, 0} min" { size: 11.5; lines: 1; color: mint; show: k == 3 and remanso }
-                            text sub.3 { size: 11.5; lines: 1; color: tenue; show: k == 3 and not remanso }
+                            text sub.3 { size: 11.5; lines: 1; color: mix(#8b8f95, tenue, cristal); show: k == 3 and not remanso }
                         }
                         //  El interruptor, o la flecha de las que abren una página.
                         //  La que abre una página solo lleva flecha, así que ocupa
@@ -2307,7 +2319,7 @@ scene Marea {
         let pg.y = pg.oy + (card.top + 231 - pg.oy) * pag
         let pg.w = 234 + 222 * pag
         let pg.h = 58 + 292 * pag
-        box { at: pg.x, pg.y; size: pg.w, pg.h; corner: 14; color: ink; opacity: pag * velo }
+        box { at: pg.x, pg.y; size: pg.w, pg.h; corner: 14; color: mix(#1b1b1c, ink, cristal); opacity: pag * mix(1, velo, cristal) }
 
         group {
             opacity: clamp(pag * 3 - 2, 0, 1)
@@ -2466,8 +2478,67 @@ scene Marea {
             //  la que toca; pulsar una poza la manda allí, y «Sígueme» la pone a
             //  ir donde esté el foco. **El fondo**: el que hay, y elegir otro.
             //  **El bloqueo con red**: si el bloqueo se abre también con Esc.
+            // ── las dos pestañas de Ajustes ───────────────────────────
+            //  Un conmutador de dos, arriba a la derecha de la cabecera: como
+            //  los de Apple, una píldora que se desliza a la elegida.
             group {
                 show: pagina == ajustes
+                prop pestana = 0 ~quick
+                follow pestana = if(apartado == aspecto, 1, 0)
+                box { at: card.x + 132, card.top + 88; size: 184, 30; corner: 15; color: ink; opacity: 8% }
+                box { at: card.x + 87 + pestana * 90, card.top + 88; size: 88, 24; corner: 12; color: ink; opacity: 16% }
+                text "General" { at: card.x + 87, card.top + 88; anchor: center; size: 11.5; weight: 500; color: ink; opacity: 55% + (1 - pestana) * 45% }
+                text "Aspecto" { at: card.x + 177, card.top + 88; anchor: center; size: 11.5; weight: 500; color: ink; opacity: 55% + pestana * 45% }
+                zone box pestana.general { at: card.x + 87, card.top + 88; size: 90, 30; corner: 15; cursor: pointer; active: pagina == ajustes and pag > 0.9 }
+                zone box pestana.aspecto { at: card.x + 177, card.top + 88; size: 90, 30; corner: 15; cursor: pointer; active: pagina == ajustes and pag > 0.9 }
+                on press pestana.general { apartado = general }
+                on press pestana.aspecto { apartado = aspecto }
+            }
+            on press atras while pagina == ajustes { apartado = general }
+
+            // ── el aspecto ────────────────────────────────────────────
+            //  Tres fichas, y en cada una ella misma pintada así: no una foto
+            //  de cómo sería, sino ella de verdad, con su cristal doblando lo
+            //  que haya detrás de la tarjeta o con el de siempre.
+            group {
+                show: pagina == ajustes and apartado == aspecto
+                text "SU ASPECTO" { at: card.x - 228, card.top + 118; anchor: left center; size: 9.5; weight: 700; color: mix(#8b8f95, tenue, cristal) }
+                text "De cristal como el de Apple, o la de siempre." { at: card.x - 228, card.top + 136; anchor: left center; size: 11.5; color: mix(#8b8f95, tenue, cristal) }
+                repeat t in 0..3 {
+                    let fx = card.x - 152 + t * 152
+                    let fy = card.top + 236
+                    prop ficha.$t = 0 ~140ms
+                    let es.$t = if(t == 0, piel == lente, if(t == 1, piel == liquido, piel == normal))
+                    box { at: fx, fy; size: 140, 164; corner: 16; color: mix(#1b1b1c, ink, cristal); opacity: mix(1, velo, cristal) + ficha.$t * 5% }
+                    box { at: fx, fy; size: 140, 164; corner: 16; stroke: 1.5; color: mint; opacity: es.$t * 85% + ficha.$t * 20% }
+                    //  Ella, en pequeño y con su vaivén, pintada como toca.
+                    body {
+                        color: coal
+                        rim: 14%
+                        glass: if(t < 2, 1, 0)
+                        lens: t == 0
+                        ellipse { at: fx + 3 * vaiven, fy - 22 + 1.5 * vaiven; radius: 30 }
+                    }
+                    box { at: fx - 7 + 3 * vaiven, fy - 22 + 1.5 * vaiven; size: 5, 11; corner: 2.5; color: ink }
+                    box { at: fx + 7 + 3 * vaiven, fy - 22 + 1.5 * vaiven; size: 5, 11; corner: 2.5; color: ink }
+                    text "Líquida" { at: fx, fy + 36; anchor: center; size: 12.5; weight: 600; color: ink; show: t == 0 }
+                    text "Líquida ligera" { at: fx, fy + 36; anchor: center; size: 12.5; weight: 600; color: ink; show: t == 1 }
+                    text "La de siempre" { at: fx, fy + 36; anchor: center; size: 12.5; weight: 600; color: ink; show: t == 2 }
+                    text "Dobla lo de detrás" { at: fx, fy + 56; anchor: center; size: 10.5; color: mix(#8b8f95, tenue, cristal); show: t == 0 }
+                    text "Lo desenfoca" { at: fx, fy + 56; anchor: center; size: 10.5; color: mix(#8b8f95, tenue, cristal); show: t == 1 }
+                    text "Opaca, sin cristal" { at: fx, fy + 56; anchor: center; size: 10.5; color: mix(#8b8f95, tenue, cristal); show: t == 2 }
+                    zone box ficha.$t { at: fx, fy; size: 140, 164; corner: 16; cursor: pointer; active: pagina == ajustes and apartado == aspecto and pag > 0.9 }
+                    on enter ficha.$t { ficha.$t: 1 }
+                    on leave ficha.$t { ficha.$t: 0 }
+                }
+                on press ficha.0 { piel = lente }
+                on press ficha.1 { piel = liquido }
+                on press ficha.2 { piel = normal }
+                text "La líquida lee la pantalla detrás de ella para doblarla: gasta un poco más." { at: card.x, card.top + 350; anchor: center; size: 10.5; width: 440; lines: 1; color: mix(#8b8f95, tenue, cristal); opacity: 80% }
+            }
+
+            group {
+                show: pagina == ajustes and apartado == general
                 text "SU CASA" { at: card.x - 228, card.top + 118; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
                 text "Puedes dejarla en un monitor, o que te siga." { at: card.x - 228, card.top + 136; anchor: left center; size: 11.5; color: #8b8f95 }
 
@@ -2655,7 +2726,7 @@ scene Marea {
 
                 prop vol.luz = 0 ~140ms
                 prop haz.luz = 0 ~140ms
-                box { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; color: ink; opacity: velo + vol.luz * velo.luz }
+                box { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; color: mix(mix(#1b1b1c, #232425, vol.luz), ink, cristal); opacity: mix(1, velo + vol.luz * velo.luz, cristal) }
                 box { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; stroke: 1.4; color: mint }
                 text "Volver" { at: card.x - 128, card.top + 264; anchor: center; size: 13; color: ink }
                 box { at: card.x + 118, card.top + 264; size: 220, 44; corner: 11; color: mix(#e0655a, #f0796a, haz.luz) }
@@ -3172,6 +3243,8 @@ scene Marea {
     on key Up while menuab { elegida = max(elegida - 1, 0) }
     on key Return while menuab and elegida < 1 { emit buscar; menuab = false }
     on key Return while menuab and elegida == 1 { emit ajustes; menuab = false }
+    //  «Ajustes», desde su menú o desde fuera, abre su página en el centro de control.
+    on ajustes { open = true; pagina = ajustes; apartado = general }
     on key Return while menuab and elegida == 2 { emit personalizar; menuab = false; open = true; pagina = armario }
     on key Return while menuab and elegida == 3 { emit dormir; menuab = false }
     on key Return while menuab and elegida > 3 { emit del_menu(elegida - 4); menuab = false }

@@ -156,7 +156,6 @@ on("mirar", function(k)
     if k == 1 then mirar_redes() elseif k == 2 then mirar_bluetooth() end
 end)
 
-on("ajustes", function() log("settings would open here") end)
 on("personalizar", function() log("customize would open here") end)
 
 -- ── el buscador ────────────────────────────────────────────────────
@@ -822,6 +821,7 @@ end
 local function guardar_ajustes()
     ajustes.casa = monitores[(fact.casa or 0) + 1] or ajustes.casa
     ajustes.sigue = fact.sigue == true
+    ajustes.piel = fact.piel
     ajustes.fondo = FONDO
     pcall(sys.call, "files.write", "ajustes.json", ajustes)
 end
@@ -879,3 +879,10 @@ end) then log("this compositor does not say where the focus is: «sígueme» wil
 
 on("fact:casa", function() decide(); guardar_ajustes() end)
 on("fact:sigue", function() decide(); guardar_ajustes() end)
+
+--  Su aspecto, como se dejó la última vez. Si en el fichero hay algo que no es
+--  uno de los tres —otra versión, una mano—, se queda la de fábrica.
+if ajustes.piel == "lente" or ajustes.piel == "liquido" or ajustes.piel == "normal" then
+    fact.piel = ajustes.piel
+end
+on("fact:piel", function() guardar_ajustes() end)
