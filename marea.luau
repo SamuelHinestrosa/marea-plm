@@ -776,11 +776,18 @@ on("fact:face", function(face)
         this_one = spawn("wf-recorder", args, function() end, function(_, code)
             --  Now it really has finished, with its index written.
             if recorder == this_one then recorder = nil end
+            local recorded = fact.taping == true
             fact.taping = false
             log("recording · saved", video, "· exit", code)
             --  If it left on its own —it could not start—, let her not stay in
             --  the corner recording nothing.
             if fact.face == "rec" then emit("stop") end
+            --  A video really made —it was recording, and the recorder closed it
+            --  cleanly— deserves a party. Once she is back from her corner: she
+            --  comes down 300 ms after `stop`, and the fireworks are hers.
+            if recorded and (code == nil or code == 0) then
+                after(700, function() emit("celebrate") end)
+            end
         end)
         recorder = this_one
         --  «Really running»: if it is still alive after 400 ms, the red is its own.
