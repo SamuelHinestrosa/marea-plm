@@ -646,9 +646,14 @@ scene Marea {
     prop reel = 0 ~200ms
     follow reel = if(reel_open and out > 0.9, 1, 0)
     let reel.x = cx + (23 + 11 + 150) * reel
-    prop reel_clock = 0 ~10s
-    on recorded { reel_open = true; reel_clock: 0 ~16ms; reel_clock: 1 ~10s after 30ms }
-    on change reel_clock > 0.97 while reel_clock > 0.97 and not reel_hovered { reel_open = false }
+    //  Its time is a step, not a slow spring: a 10 s spring kicked back to 0
+    //  in 16 ms swung past it and, depending on where it came from, crossed
+    //  «ten seconds» less than one second after the card had come out. The step
+    //  jumps when its moment comes, and its destination is worked out then: if
+    //  the pointer is on the card, it does not jump.
+    prop reel_clock = 0 ~16ms
+    on recorded { reel_open = true; reel_clock: 0; reel_clock: if(reel_hovered, 0, 1) after 10s }
+    on change reel_clock > 0.5 while reel_clock > 0.5 { reel_open = false }
 
     //  The Haven's capsule and the summary take the same place as the note, and
     //  that is why they are born the same way: from her centre, sliding to the
@@ -1522,7 +1527,7 @@ scene Marea {
     //  zone declared last.
     zone box reel_area { at: reel.x - 20, reel.y; size: 350, 120; corner: 24; active: reel > 0.01 }
     on enter reel_area { reel_hovered = true }
-    on leave reel_area { reel_hovered = false; reel_clock: 0 ~16ms; reel_clock: 1 ~6s after 30ms }
+    on leave reel_area { reel_hovered = false; reel_clock: if(reel_hovered, 0, 1) after 6s }
     let reel.reveal = clamp(reel * 2.2 - 1.2, 0, 1)
     group {
         opacity: reel.reveal
