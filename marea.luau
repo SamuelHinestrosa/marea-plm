@@ -889,39 +889,19 @@ local function place()
     fact.following = settings.follow == true
     decide()
 end
---  Which way each copy crosses: towards the other monitor, which is on one
---  side or the other depending on how they are set up, not on the copy's
---  number. The compositor knows it; the scene does not.
-local function orient()
-    if not (monitors[1] and monitors[2]) then return end
-    run("hyprctl", { "monitors" }, function(txt)
-        local x = {}
-        for block in ((txt or "") .. "\n\n"):gmatch("(Monitor .-)\n\n") do
-            local name = block:match("^Monitor (%S+)")
-            local px = block:match("@[%d%.]+ at (%-?%d+)x%-?%d+")
-            if name and px then x[name] = tonumber(px) end
-        end
-        local a, b = x[monitors[1]], x[monitors[2]]
-        if a == nil or b == nil or a == b then return end
-        fact["toward.0"] = a < b and 1 or -1
-        fact["toward.1"] = a < b and -1 or 1
-    end)
-end
 for k = 0, 1 do
     on("text:screen." .. k .. ".name", function(name)
         if name == nil or name == "" then return end
         monitors[k + 1] = name
         place()
-        orient()
     end)
 end
 --  When only the logic is reloaded, the names no longer arrive again: the ones
---  there are are read, and with them it is already known which way to cross.
+--  there are are read.
 for k = 0, 1 do
     local name = text["screen." .. k .. ".name"]
     if name ~= nil and name ~= "" then monitors[k + 1] = name end
 end
-orient()
 
 if not sys.watch("window", function(v)
     focused = (v and v.monitor) or ""

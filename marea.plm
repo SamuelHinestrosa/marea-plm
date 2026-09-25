@@ -201,21 +201,11 @@ scene Marea {
     prop swim.0 = 1 ~16ms
     prop swim.1 = 0 ~16ms
     let swim.here = if(screen.index == 0, swim.0, swim.1)
-    //  She leans the journey towards the other monitor: rising she drifts
-    //  towards it, and falling she comes in from its side, so the two halves
-    //  read as one crossing. Which side it is is not given by the copy's number
-    //  —copy 0 can be the one on the right: here the HDMI is 0 and sits to the
-    //  right of DP-3—, but by where they are placed: `toward.K` is set by the
-    //  logic, which asks the compositor. +1, the other one is to the right; −1,
-    //  to the left. `screen.index` is worth something different in each copy
-    //  even though `cx` is written once: that is what makes each one lean ITS
-    //  own way.
-    fact toward.0 = 1
-    fact toward.1 = -1
-    let toward.here = if(screen.index == 0, toward.0, toward.1)
-    pose drift = 0                    // rising: how far she leans towards the other one
+    //  Straight up and straight down, at the centre where she lives: the edge
+    //  of the screen is the same water on both monitors, so the journey needs
+    //  no side. Leaning it towards the other monitor looked like an effect
+    //  happening off to one side and then correcting itself.
     prop drop_in = 0 ~16ms            // 1: above the edge of the one she is going to
-    let crossing = (drift + 56 * drop_in) * toward.here
     //  Falling she stretches with her own speed, and nobody leads it: it is the
     //  velocity of the spring that drops her, so it is longest mid-fall and
     //  gone by the time she touches.
@@ -228,7 +218,7 @@ scene Marea {
     //  open: with the tray pulling her directly, on closing she came back at the
     //  same time as it folded, and two things on top of each other cannot be seen.
     let aside = offset
-    let cx = 120 + (1 - aside) * 240 + crossing
+    let cx = 120 + (1 - aside) * 240
     //  Open, she drops to the height of the card's header, as on the sheet.
     //  And the path bows: the height goes by the square, so she leaves and comes
     //  in from above instead of crossing in a straight line. Something with
@@ -801,15 +791,14 @@ scene Marea {
 
     // ── the journey to the other monitor ─────────────────────────
     //  The leap: she gathers herself —squashed, eyes narrowed—, pushes off and
-    //  shoots up through the edge, stretched and leaning towards where she is
-    //  going. 120 px is more than she needs to be gone even tucked in and
+    //  shoots up through the edge, stretched like a drop. 120 px is more than she needs to be gone even tucked in and
     //  stretched. `gone` in a frame of its own, as in `retire`: the copy swap
     //  has to happen when she is no longer seen.
     gesture leap state {
         110ms out_quad hold 40ms { eyes: 10.5; sx: 1.14; sy: 0.84; body.y: 5 }
-        70ms out_quad            { eyes: 14.8; sx: 0.92; sy: 1.14; body.y: -6; drift: 6 }
-        180ms in_cubic           { eyes: 13.1; sx: 0.72; sy: 1.40; body.y: -120; drift: 34 }
-        30ms emit gone           { eyes: 13.1; sx: 0.72; sy: 1.40; body.y: -120; drift: 34 }
+        70ms out_quad            { eyes: 14.8; sx: 0.92; sy: 1.14; body.y: -6 }
+        180ms in_cubic           { eyes: 13.1; sx: 0.72; sy: 1.40; body.y: -120 }
+        30ms emit gone           { eyes: 13.1; sx: 0.72; sy: 1.40; body.y: -120 }
     }
     //  The landing: she squashes on touching, rebounds with her eyes wide open
     //  —where am I?— and settles.
