@@ -633,6 +633,23 @@ scene Marea {
     on change capsule.wants while capsule.wants { capsule: 1 ~160ms }
     on change capsule.wants while not capsule.wants { capsule: 0 ~140ms }
     let notecard.x = cx + (23 + 14 + 52) * notecard
+    //  The card of a recording just saved: it comes out of her, to her right,
+    //  like the time and the capsule, and goes back into her on its own after
+    //  ten seconds unless the pointer is on it.
+    fact reel_open = false
+    fact reel_hovered = false
+    text reel.name = ""
+    event recorded                     // the logic: a recording has been saved
+    event reel_watch ->
+    event reel_folder ->
+    event reel_copy ->
+    prop reel = 0 ~200ms
+    follow reel = if(reel_open and out > 0.9, 1, 0)
+    let reel.x = cx + (23 + 11 + 150) * reel
+    prop reel_clock = 0 ~10s
+    on recorded { reel_open = true; reel_clock: 0 ~16ms; reel_clock: 1 ~10s after 30ms }
+    on change reel_clock > 0.97 while reel_clock > 0.97 and not reel_hovered { reel_open = false }
+
     //  The Haven's capsule and the summary take the same place as the note, and
     //  that is why they are born the same way: from her centre, sliding to the
     //  right until they sit 11 px away. Their half width goes in the sum, as in
@@ -739,7 +756,7 @@ scene Marea {
         180ms out_back
     }
 
-    follow out = if(hidden and not needed and not celebrating, 0, 1)
+    follow out = if(hidden and not needed and not celebrating and not reel_open, 0, 1)
 
     // ── the photograph ───────────────────────────────────────────
     //  She does not switch off all at once before the screen freezes: she
@@ -920,6 +937,8 @@ scene Marea {
     //  The capsule, 12 px lower than her: it measures 92 tall and, centred on
     //  her centre, it stuck out through the top edge.
     let capsule.y = cy_actual + 12
+    //  And the saved recording's card, a little lower still.
+    let reel.y = cy_actual + 16
     //  The menu: 163 wide —the sheet's 248 times 46/70— and as tall as whatever
     //  there is asks. Each entry measures 23 and the first of each group takes
     //  16 more for the name of whoever brings it.
@@ -1087,6 +1106,13 @@ scene Marea {
             size: 208 * clamp(capsule * 1.6, 0, 1), 92 * clamp(capsule * 2.4, 0, 1)
             corner: 16
             blend: 18 * 4 * capsule * (1 - capsule)
+        }
+        //  And the saved recording's card, the same way.
+        box reel_box {
+            at: reel.x, reel.y
+            size: 300 * clamp(reel * 1.6, 0, 1), 96 * clamp(reel * 2.4, 0, 1)
+            corner: 16
+            blend: 18 * 4 * reel * (1 - reel)
         }
         //  The finder, which also comes out of her: it is the same as always, one
         //  more box in her body with its neck.
@@ -1491,6 +1517,47 @@ scene Marea {
         on press end_haven { emit leave_haven }
         on press rules { emit view_rules }
     }
+    // ── the saved recording's card ───────────────────────────────
+    //  Its grace zone first, below what it holds: the press belongs to the
+    //  zone declared last.
+    zone box reel_area { at: reel.x - 20, reel.y; size: 350, 120; corner: 24; active: reel > 0.01 }
+    on enter reel_area { reel_hovered = true }
+    on leave reel_area { reel_hovered = false; reel_clock: 0 ~16ms; reel_clock: 1 ~6s after 30ms }
+    let reel.reveal = clamp(reel * 2.2 - 1.2, 0, 1)
+    group {
+        opacity: reel.reveal
+        move: (1 - reel.reveal) * -8, 0
+        //  A mint tick: done, and kept.
+        ellipse { at: reel.x - 130, reel.y - 26; radius: 8; color: mint; opacity: 18% }
+        path { at: reel.x - 134, reel.y - 27; color: mint; stroke: 1.8
+               move 0, 0; line 3, 3; line 8, -3 }
+        text "Recording saved" { at: reel.x - 116, reel.y - 29; anchor: left center; size: 12; weight: 500; color: ink }
+        text reel.name { at: reel.x - 116, reel.y - 13; anchor: left center; size: 10.5; width: 230; lines: 1; color: #8b8f95 }
+        prop reel_x.glow = 0 ~140ms
+        line { from: reel.x + 126, reel.y - 33; to: reel.x + 134, reel.y - 25; width: 1.6; color: ink; opacity: 45% + reel_x.glow * 55% }
+        line { from: reel.x + 134, reel.y - 33; to: reel.x + 126, reel.y - 25; width: 1.6; color: ink; opacity: 45% + reel_x.glow * 55% }
+        zone box reel_close { at: reel.x + 130, reel.y - 29; size: 26, 26; corner: 13; cursor: pointer; active: reel > 0.8 }
+        on enter reel_close { reel_x.glow: 1 }
+        on leave reel_close { reel_x.glow: 0 }
+        on press reel_close { reel_open = false }
+        //  Three choices, the first one lit: watching it is what one wants most.
+        repeat b in 0..3 {
+            let bx = reel.x - 94 + b * 94
+            prop reel_b.glow.$b = 0 ~140ms
+            box { at: bx, reel.y + 22; size: 88, 30; corner: 10
+                  color: mix(mix(#1b1b1c, #242526, reel_b.glow.$b), mix(#1f3a34, #25483f, reel_b.glow.$b), b == 0) }
+            text "Watch" { at: bx, reel.y + 22; anchor: center; size: 11.5; weight: 500; color: mint; show: b == 0 }
+            text "Folder" { at: bx, reel.y + 22; anchor: center; size: 11.5; color: ink; show: b == 1 }
+            text "Copy path" { at: bx, reel.y + 22; anchor: center; size: 11.5; color: ink; show: b == 2 }
+            zone box reel_b.$b { at: bx, reel.y + 22; size: 88, 30; corner: 10; cursor: pointer; active: reel > 0.8 }
+            on enter reel_b.$b { reel_b.glow.$b: 1 }
+            on leave reel_b.$b { reel_b.glow.$b: 0 }
+        }
+        on press reel_b.0 { emit reel_watch; reel_open = false }
+        on press reel_b.1 { emit reel_folder; reel_open = false }
+        on press reel_b.2 { emit reel_copy; reel_open = false }
+    }
+
     //  On coming back, a single summary. The normal drops stay hidden while it is
     //  there: releasing the whole queue at once would be the opposite of what
     //  the Haven came to do.

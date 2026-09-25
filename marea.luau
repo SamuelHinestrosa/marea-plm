@@ -750,6 +750,11 @@ run("test", { "-e", "/proc/driver/nvidia/version" }, function(_, code) nvenc = c
 --  because the current output may have changed since it started.
 
 local recorder, video = nil, nil
+--  The last one saved, for the card's buttons.
+local last_video = nil
+on("reel_watch", function() if last_video then run("xdg-open", { last_video }, function() end) end end)
+on("reel_folder", function() run("xdg-open", { VIDEOS }, function() end) end)
+on("reel_copy", function() if last_video then run("wl-copy", { last_video }, function() end) end end)
 
 on("fact:face", function(face)
     if face ~= "rec" or recorder ~= nil then return end
@@ -773,10 +778,15 @@ on("fact:face", function(face)
         --  device», which is the microphone.
         if sound_sink then args[#args + 1] = "--audio=" .. sound_sink .. ".monitor" end
         local this_one
+        --  Whether it got to record: kept here, not read from `taping`, which the
+        --  scene switches off the moment «stop» is pressed —long before the
+        --  recorder has finished—, so a finished recording never had its party.
+        local reached = false
+        local this_video = video
         this_one = spawn("wf-recorder", args, function() end, function(_, code)
             --  Now it really has finished, with its index written.
             if recorder == this_one then recorder = nil end
-            local recorded = fact.taping == true
+            local recorded = reached
             fact.taping = false
             log("recording · saved", video, "· exit", code)
             --  If it left on its own —it could not start—, let her not stay in
@@ -785,13 +795,24 @@ on("fact:face", function(face)
             --  A video really made —it was recording, and the recorder closed it
             --  cleanly— deserves a party. Once she is back from her corner: she
             --  comes down 300 ms after `stop`, and the fireworks are hers.
+            --  And the card that comes out of her: watch it, its folder, or its path.
             if recorded and (code == nil or code == 0) then
-                after(700, function() emit("celebrate") end)
+                last_video = this_video
+                text["reel.name"] = this_video:match("[^/]+$") or this_video
+                after(700, function()
+                    emit("celebrate")
+                    emit("recorded")
+                end)
             end
         end)
         recorder = this_one
         --  «Really running»: if it is still alive after 400 ms, the red is its own.
-        after(400, function() if recorder == this_one then fact.taping = true end end)
+        after(400, function()
+            if recorder == this_one then
+                fact.taping = true
+                reached = true
+            end
+        end)
     end)
     end)
 end)
