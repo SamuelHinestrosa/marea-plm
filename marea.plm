@@ -662,7 +662,7 @@ scene Marea {
     //  ── what the face can be ────────────────────────────────────
     //  A fact with a type: the compiler checks what it is compared against, so
     //  `face == magnifier` does not get past the first reading.
-    fact face: eye | count | camera | rec | alert = eye
+    fact face: eye | count | camera | rec | alert | happy = eye
     fact left = 0                     // what is left of the countdown
     fact taping = false               // the recorder running FOR REAL
 
@@ -670,6 +670,7 @@ scene Marea {
     prop cam = 0 ~220ms               // 0 face, 1 camera
     prop dot = 0 ~260ms               // 0 face, 1 disc
     prop alarm = 0 ~180ms             // 0 face, 1 exclamation mark
+    prop joy = 0 ~lively              // 0 face, 1 happy: «^ ^»
     prop red = 0 ~200ms               // the red, which is something other than the disc
     prop pop = 0 ~lively              // the countdown's bounce
 
@@ -680,6 +681,7 @@ scene Marea {
     follow cam = if(face == camera, 1, 0)
     follow dot = if(face == rec, 1, 0)
     follow alarm = if(face == alert, 1, 0)
+    follow joy = if(face == happy, 1, 0)
     follow red = if(taping, 1, 0)
 
     // ── living rest ──────────────────────────────────────────────
@@ -713,13 +715,31 @@ scene Marea {
         160ms hold 100ms          { eyes: 14; tilt: 0.05 }
         200ms
     }
+
+    // ── celebrating ──────────────────────────────────────────────
+    //  `./marea celebrate`: she comes out, beams —«^ ^»— and hops for joy, and
+    //  seven rockets leave her in a fan and burst around her. It is a test of
+    //  pleamar's particles as much as a party: nothing here is stored per
+    //  spark, every one is worked out on the card.
+    event celebrate
+    fact celebrating = false
+    gesture cheer reflex {
+        90ms out_quad            { sx: 1.10; sy: 0.88; body.y: 3 }
+        160ms out_quad           { sx: 0.94; sy: 1.10; body.y: -9; eyes: 14 }
+        140ms in_quad            { sx: 1.06; sy: 0.92; body.y: 1 }
+        150ms out_quad           { sx: 0.97; sy: 1.05; body.y: -6; tilt: 0.06 }
+        130ms in_quad            { sx: 1.04; sy: 0.95; body.y: 0.5; tilt: -0.04 }
+        180ms out_back
+    }
+    on celebrate { celebrating = true; face = happy; play cheer }
+    on still celebrating for 4.2s while celebrating { celebrating = false; face = eye }
     //  The gulp, when the drop reaches her shoulder.
     gesture gulp reflex {
         90ms out_quad   { sx: 1.06; sy: 0.94; body.y: 1 }
         180ms out_back
     }
 
-    follow out = if(hidden and not needed, 0, 1)
+    follow out = if(hidden and not needed and not celebrating, 0, 1)
 
     // ── the photograph ───────────────────────────────────────────
     //  She does not switch off all at once before the screen freezes: she
@@ -1248,9 +1268,9 @@ scene Marea {
         //  ring before the ring goes.
         let shrink = 1 - powerdown
         let v.w = w.w * shrink
-        let v.h = w.h * shrink
+        let v.h = w.h * shrink * (1 - joy)
         let v.rw = w.rw * shrink
-        let v.rh = w.rh * shrink
+        let v.rh = w.rh * shrink * (1 - joy)
 
         let eye.y = y + 2.5 + drowsy * 1.4
         let l.x = x - sep
@@ -1281,6 +1301,11 @@ scene Marea {
                 box { at: r.x + 8.8 * magnifier, eye.y + 6.2 * alarm + 8.8 * magnifier + 5.4 * padlock - 3.4 * power
                       size: v.rw, v.rh; corner: r.corner; rotate: 45deg * magnifier; blend: eye.fusion }
             }
+            //  Happy: the pills flatten into nothing and two arches rise in their
+            //  place —«^ ^»—. The same eyes, bent once more; the arch grows from a
+            //  point as the pill goes, so there is never a face with none.
+            arc { at: l.x, eye.y + 2; radius: 4.2; span: 170deg * joy; width: 2.4; color: ink; opacity: min(joy * 3, 1) }
+            arc { at: r.x, eye.y + 2; radius: 4.2; span: 170deg * joy; width: 2.4; color: ink; opacity: min(joy * 3, 1) }
 
             //  The level's filled part is **the same track**, painted again and
             //  clipped from the left. That way the mint has the exact shape of the
@@ -2032,6 +2057,62 @@ scene Marea {
         on enter touch { glow: 1 }
         on leave touch { glow: 0 }
         on press touch { emit pick(h.index) }
+    }
+
+    // ── the fireworks ────────────────────────────────────────────
+    //  Seven rockets, one after another. Each one is a spring from her to
+    //  where it bursts —critically damped, so it slows as it arrives, like a
+    //  rocket at the top of its climb—, with a slight bow sideways so it does
+    //  not fly like a ruler. While it flies it leaves a trail of sparks; on
+    //  arriving, its event lets out the burst. She lives against the top
+    //  edge, so they fan out downwards and to the sides.
+    //  Here and not further down: after the card's loose clip everything is
+    //  the card's, and with the card closed they did not show at all.
+    event boom.1
+    event boom.2
+    event boom.3
+    event boom.4
+    event boom.5
+    event boom.6
+    event boom.7
+    on celebrate {
+        rise.1: 0 ~16ms; rise.1: 1 ~700ms after 120ms
+        rise.2: 0 ~16ms; rise.2: 1 ~700ms after 330ms
+        rise.3: 0 ~16ms; rise.3: 1 ~700ms after 520ms
+        rise.4: 0 ~16ms; rise.4: 1 ~700ms after 740ms
+        rise.5: 0 ~16ms; rise.5: 1 ~700ms after 960ms
+        rise.6: 0 ~16ms; rise.6: 1 ~700ms after 1250ms
+        rise.7: 0 ~16ms; rise.7: 1 ~700ms after 1500ms
+    }
+    group {
+        glow: 10, 110%
+        mode: add
+        repeat k in 1..8 {
+            prop rise.$k = 0 ~700ms
+            //  Where it bursts, from her: a fan from left to right, alternating
+            //  near and far so two neighbours do not burst on top of each other.
+            let fw.ang = 200 - (k - 1) * 36.6
+            let fw.far = if(k == 2 or k == 4 or k == 6, 115, 175)
+            let fw.tx = cx + cos(fw.ang - 180) * fw.far * -1
+            let fw.ty = cy_actual + 40 + abs(sin(fw.ang - 180)) * fw.far * 0.8 + 30
+            let fw.color = mix(mix(mix(mix(mix(mix(amber, mint, k > 1.5), lilac, k > 2.5), blue, k > 3.5), #ff6f91, k > 4.5), green, k > 5.5), #ffd166, k > 6.5)
+            //  The rocket: from her centre to its point, bowed a little.
+            let fw.bow = 4 * rise.$k * (1 - rise.$k) * 18 * if(k < 4, -1, 1)
+            let fw.x = cx + (fw.tx - cx) * rise.$k + fw.bow
+            let fw.y = cy_actual + (fw.ty - cy_actual) * rise.$k
+            let flying = rise.$k > 0.03 and rise.$k < 0.95 and celebrating
+            particles { at: fw.x, fw.y; count: 90; life: 0.25s .. 0.6s; speed: 4 .. 30; size: 2.6, 0
+                        colors: fw.color, #fff3d6; opacity: 90%, 0%; emit: flying }
+            ellipse { at: fw.x, fw.y; radius: 2.6; color: #fff3d6; opacity: if(flying, 1, 0) }
+            on change rise.$k > 0.95 while rise.$k > 0.95 and celebrating { emit boom.$k }
+            //  The burst: a ring of streaks that the air brakes and gravity bends,
+            //  and a few slower sparks that linger as it falls apart.
+            particles { at: fw.tx, fw.ty; count: 160; life: 0.9s .. 1.5s; speed: 90 .. 200; drag: 1.8
+                        gravity: 0, 70; size: 3, 0.6; colors: fw.color, #ffffff; opacity: 100%, 0%
+                        shape: spark; burst: boom.$k }
+            particles { at: fw.tx, fw.ty; count: 60; life: 1.2s .. 2s; speed: 20 .. 70; drag: 1.2
+                        gravity: 0, 40; size: 2.2, 0; colors: #ffffff, fw.color; opacity: 90%, 0%; burst: boom.$k }
+        }
     }
 
     //  The clip goes INSIDE a group, and with it everything of its own: loose it
