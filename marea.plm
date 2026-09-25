@@ -791,22 +791,24 @@ scene Marea {
     pose wing = 0                      // 0 none, 1 wings out
     gesture journey state {
         //  Letting go: the water holds her, stretching, and lets go.
-        220ms out_quad           { adv.fy: 0.02; sx: 0.88; sy: 1.16 }
+        450ms in_out_sine        { adv.fy: 0.02; sx: 0.88; sy: 1.16 }
         //  The fall, speeding up, stretched.
-        640ms in_quad            { adv.fy: 1; sx: 0.86; sy: 1.2 }
-        //  Splat, and back into shape.
-        80ms out_quad            { adv.fy: 1; sx: 1.32; sy: 0.7 }
-        200ms out_back           { adv.fy: 1; hop.amp: 70 }
-        //  Three hops to the right, at an even pace.
-        1140ms linear            { adv.fy: 1; adv.p: 3; adv.fx: 0.72; hopping: 1; hop.amp: 70 }
+        950ms in_quad            { adv.fy: 1; sx: 0.86; sy: 1.2 }
+        //  Splat, back into shape, and a breath.
+        120ms out_quad           { adv.fy: 1; sx: 1.3; sy: 0.72 }
+        450ms out_back           { adv.fy: 1; hop.amp: 70 }
+        300ms                    { adv.fy: 1; hop.amp: 70 }
+        //  Three hops to the right, at an even, unhurried pace.
+        2400ms linear            { adv.fy: 1; adv.p: 3; adv.fx: 0.72; hopping: 1; hop.amp: 70 }
         //  And a big one to turn back, leaning into it.
-        440ms linear             { adv.fy: 1; adv.p: 4; adv.fx: 0.3; hopping: 1; hop.amp: 130; tilt: -0.14 }
-        //  Wings, still on the ground.
-        320ms out_back           { adv.fy: 1; adv.p: 4; adv.fx: 0.3; wing: 1 }
-        160ms hold 120ms         { adv.fy: 1; adv.p: 4; adv.fx: 0.3; wing: 1; sx: 1.12; sy: 0.88 }
-        //  And up, home.
-        1400ms in_out_sine       { adv.fy: 0; adv.fx: 0; wing: 1; sx: 0.94; sy: 1.06 }
-        260ms out_quad           { adv.fy: 0; adv.fx: 0 }
+        950ms linear             { adv.fy: 1; adv.p: 4; adv.fx: 0.3; hopping: 1; hop.amp: 130; tilt: -0.14 }
+        250ms out_quad           { adv.fy: 1; adv.p: 4; adv.fx: 0.3 }
+        //  Wings, still on the ground, and a moment to gather herself.
+        550ms out_back           { adv.fy: 1; adv.p: 4; adv.fx: 0.3; wing: 1 }
+        300ms in_out_sine hold 200ms { adv.fy: 1; adv.p: 4; adv.fx: 0.3; wing: 1; sx: 1.12; sy: 0.88 }
+        //  And up, home, gently.
+        2600ms in_out_sine       { adv.fy: 0; adv.fx: 0; wing: 1; sx: 0.95; sy: 1.05 }
+        450ms out_quad           { adv.fy: 0; adv.fx: 0 }
         30ms emit adventure_done { adv.fy: 0; adv.fx: 0 }
     }
     on adventure {
@@ -3937,7 +3939,8 @@ scene Marea {
         let ay = home.y + adv.fy * (floor.y - home.y) - hop.h + 5 * hop.ground
         //  The wings, flapping while they are out.
         prop flap = 0
-        wave flap = 1 at 22
+        //  Slow, broad strokes: fast ones looked like a hummingbird.
+        wave flap = 1 at 11
         repeat w in 0..2 {
             let s.w = w * 2 - 1
             group {
