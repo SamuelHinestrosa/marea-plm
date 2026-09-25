@@ -2887,8 +2887,24 @@ scene Marea {
     on change open while not open {
         content: 0 ~50ms
         card: 0 ~210ms after 30ms
-        sitio: 0 ~vuelta after 200ms
     }
+
+    // ── una cosa suya fuera, y solo una ──────────────────────────
+    //  La tarjeta, el buscador y el oleaje salen los tres de ella, apartándola
+    //  (`sitio`). Antes no se excluían —el buscador cerraba la tarjeta, pero el
+    //  oleaje no cerraba nada y nada lo cerraba a él—: pulsarle la cara con el
+    //  oleaje abierto sacaba la tarjeta ENCIMA, con los dos títulos pisándose.
+    //  Ahora abrir una cierra las otras, y el menú igual.
+    //
+    //  Y volver a su sitio es de todas, no de cada una: cada una la devolvía al
+    //  cerrarse, 200 ms después, aunque otra siguiera fuera; al recoger la
+    //  tarjeta volvía con el oleaje abierto, y el oleaje, sacado desde ahí, se
+    //  cortaba contra el borde. Ahora vuelve cuando no queda nada fuera y así
+    //  sigue 200 ms: si en ese rato sale otra cosa, no vuelve.
+    let algo_fuera = open or busca or bandeja
+    on change open while open { bandeja = false; busca = false }
+    on change bandeja while bandeja { open = false; busca = false; menuab = false }
+    on still algo_fuera for 200ms while not algo_fuera { sitio: 0 ~vuelta }
 
     //  Y ni el trago ni el chapoteo van con reloj: van con lo que está pasando.
     //  Cuando de la tarjeta ya no queda casi nada, es que se la ha tragado; y
@@ -2907,6 +2923,7 @@ scene Marea {
     on change busca while busca {
         open = false
         menuab = false
+        bandeja = false
         dormida = false
         needed = true
         wanted = true
@@ -2921,7 +2938,6 @@ scene Marea {
         bcont: 0 ~50ms
         busc: 0 ~210ms after 30ms
         lupa: 0 ~280ms after 60ms
-        sitio: 0 ~vuelta after 200ms
         blur
     }
     on key Escape while busca { busca = false }
@@ -3035,7 +3051,7 @@ scene Marea {
     //  recoge la bandeja, y **entonces** vuelve a su sitio. Es lo mismo que el
     //  centro de control, y por lo mismo: verlo en dos tiempos es verlo.
     on change bandeja while bandeja { sitio: 1 ~290ms; tray: 1 ~240ms }
-    on change bandeja while not bandeja { tray: 0 ~240ms; sitio: 0 ~vuelta after 190ms }
+    on change bandeja while not bandeja { tray: 0 ~240ms }
     //  Las gotas se van al carril en cuanto la bandeja empieza a salir.
     follow carril = if(bandeja, 1, 0)
     //  Y las filas llegan una tras otra, 35 ms entre cada una. Al cerrar se van
@@ -3225,7 +3241,7 @@ scene Marea {
     //  Abierto, la hora, el abanico y la cápsula se recogen: «lo que el puntero
     //  hubiera sacado por ahí, se va». Quien llega último, gana.
     on press right cuerpo_zona { toggle menuab }
-    on change menuab while menuab { open = false; note = false; elegida = -1 }
+    on change menuab while menuab { open = false; note = false; elegida = -1; busca = false; bandeja = false }
     //  Se cierra como la nota: al llevar un rato fuera del conjunto —ella y el
     //  menú—, con Esc, al elegir algo, o con otro clic derecho.
     //  Y no antes de estar abierto: mientras crece, su zona todavía no está, y
