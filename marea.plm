@@ -844,7 +844,9 @@ scene Marea {
     //  Whatever she had open is folded away: she cannot carry a card through
     //  the water.
     fact travelling = false
-    let misplaced = abs(if(hosts.0, 1, 0) - swim.0) + abs(if(hosts.1, 1, 0) - swim.1) > 0.5 and not travelling
+    //  Not while she is in her recording corner: moving the focus mid-recording
+    //  must not pull her out of it. She travels when she comes back.
+    let misplaced = abs(if(hosts.0, 1, 0) - swim.0) + abs(if(hosts.1, 1, 0) - swim.1) > 0.5 and not travelling and not corner
     on change misplaced while misplaced {
         purpose = travel
         travelling = true
@@ -3420,6 +3422,7 @@ scene Marea {
     event stop ->                      // and the logic asks the recorder to finish
     event record_toggle                // SUPER+SHIFT+C: starts, or stops whatever there is
     fact corner = false
+    fact nook_screen = 0               // which monitor's copy holds the corner
     //  Which of the four. The contract says the one that falls OUTSIDE what is
     //  recorded is chosen; the one that knows what is being recorded is the logic,
     //  so here it is only obeyed. Recording the whole screen leaves none and she
@@ -3434,6 +3437,7 @@ scene Marea {
     //  «She already counts from the corner she is going to take».
     on gone while purpose == nook {
         away: 1 ~16ms
+        nook_screen = if(hosts.1, 1, 0)
         corner = true
         face = count
     }
@@ -3624,10 +3628,15 @@ scene Marea {
         //  needed four surfaces —it was pleamar's limitation S13—.
         anchor: nook
         level: overlay
-        screens: "DP-3"
+        //  One per monitor, and only the one she was on when the recording began
+        //  is open —with «follow me», the one with the focus, which is the one
+        //  being recorded—. It used to say `screens: "DP-3"`, from when she only
+        //  lived there, and with her on the other monitor the corner came out on
+        //  the wrong one.
+        screens: each max 2
         //  Open while anything of her is left inside: that way she slides out
         //  instead of disappearing with the window.
-        open: tuck > 0.01
+        open: tuck > 0.01 and screen.index == nook_screen
 
         //  Where she falls inside her surface, depending on which angle she is
         //  stuck to. She leaves by the same angle she came in by: what hides her is
