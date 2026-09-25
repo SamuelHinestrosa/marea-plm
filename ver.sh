@@ -11,6 +11,6 @@ cd "$(dirname "$0")" || exit 1
 "$P" --comprobar bolita.plm || exit 1
 pkill -x pleamar
 sleep 0.5
-setsid nohup "$P" --escena bolita.plm --pantalla "${1:-HDMI-A-1}" --sin-hud --bloqueo 0 > /tmp/marea-plm.log 2>&1 &
+setsid nohup "$P" --scene bolita.plm --screen "${1:-HDMI-A-1}" --no-hud --stall 0 > /tmp/marea-plm.log 2>&1 &
 sleep 1.5
 echo "abierta. el log en /tmp/marea-plm.log · clic derecho FUERA de ella para cerrarla (encima abre su menú)"

@@ -20,13 +20,13 @@ case "${1:-}" in
         # El log de la vez anterior se guarda una vez y no más: que no crezca
         # para siempre, pero que lo de ayer se pueda mirar.
         [ -f "$ESTADO/marea.log" ] && mv -f "$ESTADO/marea.log" "$ESTADO/marea.log.1"
-        exec "$PLEAMAR" --escena bolita.plm --sin-hud "$@" > "$ESTADO/marea.log" 2>&1
+        exec "$PLEAMAR" --scene bolita.plm --no-hud "$@" > "$ESTADO/marea.log" 2>&1
         ;;
     parar)
-        exec "$PLEAMAR" --decir bolita quit
+        exec "$PLEAMAR" --say bolita quit
         ;;
     estado)
-        if "$PLEAMAR" --decir bolita "get open" > /dev/null 2>&1; then
+        if "$PLEAMAR" --say bolita "get open" > /dev/null 2>&1; then
             echo "en marcha · log en $ESTADO/marea.log"
         else
             echo "parada"; exit 1
@@ -36,6 +36,6 @@ case "${1:-}" in
         sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
         ;;
     *)
-        exec "$PLEAMAR" --decir bolita "emit $1"
+        exec "$PLEAMAR" --say bolita "emit $1"
         ;;
 esac
