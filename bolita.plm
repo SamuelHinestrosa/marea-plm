@@ -873,6 +873,7 @@ scene Marea {
     body {
         color: coal
         rim: 14%
+        glass: 100%
         //  Sin sombra y sin halo cuando está sola. Lo que la separa del
         //  escritorio es su propio filo, que es luz por DENTRO de su silueta:
         //  no pinta nada fuera de ella, así que no hay cerco negro ni resplandor
@@ -2109,7 +2110,7 @@ scene Marea {
             //  parecía cojo. Y las pistas crecen con ella, que es lo que la
             //  lámina pide: los deslizadores son el protagonista.
             let niv.y = card.top + 237
-            box { at: niv.x, niv.y; size: 210, 322; corner: 16; color: #1b1b1c }
+            box { at: niv.x, niv.y; size: 210, 322; corner: 16; color: placa; glass: 100% }
             repeat k in 0..2 {
                 let sx = niv.x - 45 + k * 90
                 let val = if(k == 0, brillo, nivel)
@@ -2120,7 +2121,7 @@ scene Marea {
                 group {
                     opacity: 25% + hay * 75%
                     //  La pista, y lo lleno desde abajo.
-                    box { at: sx, arriba + alto / 2; size: 14, alto; corner: 7; color: #2a2b2c }
+                    box { at: sx, arriba + alto / 2; size: 14, alto; corner: 7; color: hundido; opacity: 70% }
                     box { from: sx - 7, arriba + alto * (1 - val); size: 14, alto * val; corner: 7
                           color: mix(mint, #6b7280, mudo) }
                     //  Y el tirador, que es lo que dice dónde estás.
@@ -2223,7 +2224,8 @@ scene Marea {
                         //  La de Concentración va resaltada cuando está puesta: el
                         //  fondo un punto más verde. Es el único borde del panel, y
                         //  lo pinta la tarjeta, no el reparto.
-                        fill: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k * if(k == 3, 1, 0))
+                        fill: mix(mix(placa, placa.luz, luz.$k), placa.menta, encendida.$k * if(k == 3, 1, 0))
+                        glass: 100%
                         corner: 14
                         group {
                             size: 20, 22
@@ -2239,11 +2241,16 @@ scene Marea {
                             //  Bluetooth: la runa, de un trazo.
                             path { at: 6, 2; color: ink; stroke: 1.8; opacity: 40% + encendida.2 * 60%; show: k == 2
                                    move 0, 4; line 10, 14; line 5, 18; line 5, 0; line 10, 4; line 0, 14 }
-                            //  Concentración: la luna, que es un disco al que otro
-                            //  del color de la tarjeta le come un lado.
-                            ellipse { at: 11, 11; radius: 9; color: ink; opacity: 70%; show: k == 3 }
-                            ellipse { at: 16, 6; radius: 8.5; show: k == 3
-                                      color: mix(mix(#1b1b1c, #202021, luz.$k), #1a241f, encendida.$k) }
+                            //  Concentración: la luna. Era un disco al que otro del
+                            //  color de la tarjeta le comía un lado, y sobre una
+                            //  tarjeta de cristal el que come se ve: ahora es la
+                            //  creciente misma, el disco de radio 9 en (11, 11) menos
+                            //  el de 8,5 en (16, 6), con cada arco en curvas.
+                            path { at: 0, 0; color: ink; opacity: 70%; show: k == 3
+                                   move 8.3, 2.4; curve 3.5, 6.1 via 5.2, 3.4; curve 2, 11.9 via 1.7, 8.7; curve 4.6, 17.4 via 2.4, 15.1
+                                   curve 10.1, 20 via 6.9, 19.6; curve 15.9, 18.5 via 13.3, 20.3; curve 19.6, 13.7 via 18.6, 16.8
+                                   curve 14.5, 14.4 via 17.2, 14.8; curve 10, 12 via 11.9, 13.9; curve 7.6, 7.5 via 8.1, 10.1
+                                   curve 8.3, 2.4 via 7.2, 4.8; close }
                             //  Sonido: el altavoz de siempre, el mismo que va
                             //  debajo de su pista.
                             path { at: 2, 5; color: ink; opacity: 70%; show: k == 4
@@ -2257,13 +2264,13 @@ scene Marea {
                         //  Lo que se lee, con el sitio que quede. Sin anchos.
                         column { grow: 1; gap: 2
                             text titulo.$k { size: 13; lines: 1; color: ink }
-                            text sub.$k { size: 11.5; lines: 1; color: #8b8f95; show: k == 2 or k > 3 }
-                            text red.name { size: 11.5; lines: 1; color: #8b8f95; show: k == 1 }
+                            text sub.$k { size: 11.5; lines: 1; color: tenue; show: k == 2 or k > 3 }
+                            text red.name { size: 11.5; lines: 1; color: tenue; show: k == 1 }
                             //  La de Concentración cuenta lo que le queda, no lo
                             //  que duraría: puesta, lo que hace falta saber es
                             //  cuándo vuelve.
                             text "Puesto · {queda, 0} min" { size: 11.5; lines: 1; color: mint; show: k == 3 and remanso }
-                            text sub.3 { size: 11.5; lines: 1; color: #8b8f95; show: k == 3 and not remanso }
+                            text sub.3 { size: 11.5; lines: 1; color: tenue; show: k == 3 and not remanso }
                         }
                         //  El interruptor, o la flecha de las que abren una página.
                         //  La que abre una página solo lleva flecha, así que ocupa
@@ -2301,7 +2308,7 @@ scene Marea {
         let pg.y = pg.oy + (card.top + 231 - pg.oy) * pag
         let pg.w = 234 + 222 * pag
         let pg.h = 58 + 292 * pag
-        box { at: pg.x, pg.y; size: pg.w, pg.h; corner: 14; color: #1b1b1c; opacity: pag }
+        box { at: pg.x, pg.y; size: pg.w, pg.h; corner: 14; color: placa; glass: 100%; opacity: pag }
 
         group {
             opacity: clamp(pag * 3 - 2, 0, 1)
@@ -2649,7 +2656,7 @@ scene Marea {
 
                 prop vol.luz = 0 ~140ms
                 prop haz.luz = 0 ~140ms
-                box { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; color: mix(#1b1b1c, #232425, vol.luz) }
+                box { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; color: mix(placa, placa.luz, vol.luz); glass: 100% }
                 box { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; stroke: 1.4; color: mint }
                 text "Volver" { at: card.x - 128, card.top + 264; anchor: center; size: 13; color: ink }
                 box { at: card.x + 118, card.top + 264; size: 220, 44; corner: 11; color: mix(#e0655a, #f0796a, haz.luz) }

@@ -6,4 +6,11 @@ library Paleta {
     let rose   = #e86a9a        // lo que reclama
     let coal   = #151616        // el cuerpo de la bolita
     let slate  = #232727        // los paneles de dentro
+    //  El cristal: lo de dentro de la tarjeta son placas de cristal más claro
+    //  sobre el suyo. Un gris medio al 36 % aclara lo justo sobre el oscuro.
+    let placa       = #4a5057     // una placa
+    let placa.luz   = #5d646c     // con el ratón encima
+    let placa.menta = #3f6b5c     // encendida (concentración)
+    let hundido     = #101316     // lo que va metido en una placa: la pista de un deslizador
+    let tenue       = #c2c7cc     // lo que se lee en segundo plano, sobre cristal
 }
