@@ -7,7 +7,8 @@
 #   marea status                       whether she is running, and what she says of herself
 #   marea <event>                      tells her something: search, lock,
 #                                      shot_region, shot_screen,
-#                                      shot_window, record_toggle, celebrate…
+#                                      shot_window, record_toggle, celebrate,
+#                                      rage…
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PLEAMAR="${PLEAMAR:-$HOME/Proyectos/pleamar/target/release/pleamar}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/marea-plm"

@@ -684,7 +684,7 @@ scene Marea {
     //  ── what the face can be ────────────────────────────────────
     //  A fact with a type: the compiler checks what it is compared against, so
     //  `face == magnifier` does not get past the first reading.
-    fact face: eye | count | camera | rec | alert | happy = eye
+    fact face: eye | count | camera | rec | alert | happy | angry = eye
     fact left = 0                     // what is left of the countdown
     fact taping = false               // the recorder running FOR REAL
 
@@ -693,6 +693,10 @@ scene Marea {
     prop dot = 0 ~260ms               // 0 face, 1 disc
     prop alarm = 0 ~180ms             // 0 face, 1 exclamation mark
     prop joy = 0 ~lively              // 0 face, 1 happy: «^ ^»
+    prop fury = 0 ~quick              // 0 face, 1 angry: frowning, reddening
+    //  Her skin: coal, reddening when she is angry. The face's holes are cut
+    //  with it too, or they would show as dark patches on a red face.
+    let skin = mix(coal, #4a1616, fury * 0.75)
     prop red = 0 ~200ms               // the red, which is something other than the disc
     prop pop = 0 ~lively              // the countdown's bounce
 
@@ -704,6 +708,7 @@ scene Marea {
     follow dot = if(face == rec, 1, 0)
     follow alarm = if(face == alert, 1, 0)
     follow joy = if(face == happy, 1, 0)
+    follow fury = if(face == angry, 1, 0)
     follow red = if(taping, 1, 0)
 
     // ── living rest ──────────────────────────────────────────────
@@ -753,15 +758,60 @@ scene Marea {
         130ms in_quad            { sx: 1.04; sy: 0.95; body.y: 0.5; tilt: -0.04 }
         180ms out_back
     }
-    on celebrate { celebrating = true; face = happy; play cheer }
+    //  Awake first: asleep, her eyes are two thin strokes, and a face made on
+    //  top of them has no eyes.
+    on celebrate { celebrating = true; face = happy; asleep = false; play cheer }
     on still celebrating for 4.2s while celebrating { celebrating = false; face = eye }
+
+    // ── angry ────────────────────────────────────────────────────
+    //  `./marea rage`: she frowns, reddens, pulls out a pistol and shoots the
+    //  screen five times; the glass cracks where each one lands, and the shards
+    //  bend what is behind it. Then the glass fades, she puts it away and calms
+    //  down. A test of how far a scene can go: angry face, a drawn pistol that
+    //  aims and recoils, muzzle flashes and tracers made of particles, and a
+    //  shader of its own that breaks the screen.
+    event rage
+    fact raging = false
+    pose kick = 0                      // the pistol's recoil
+    gesture recoil reflex {
+        40ms out_quad            { kick: 1; body.y: -2.5; sx: 1.06; sy: 0.95 }
+        170ms out_quad           { kick: 0 }
+        120ms
+    }
+    prop gun = 0 ~lively
+    prop fade = 0 ~900ms               // the broken glass, all of it
+    prop flash = 0 ~16ms
+    //  Each shot, a step at its moment; each hole, how far it has cracked.
+    prop shot.1 = 0 ~16ms
+    prop crack.1 = 0 ~300ms
+    prop shot.2 = 0 ~16ms
+    prop crack.2 = 0 ~300ms
+    prop shot.3 = 0 ~16ms
+    prop crack.3 = 0 ~300ms
+    prop shot.4 = 0 ~16ms
+    prop crack.4 = 0 ~300ms
+    prop shot.5 = 0 ~16ms
+    prop crack.5 = 0 ~300ms
+    on rage {
+        raging = true; face = angry; asleep = false
+        gun: 1 ~lively after 200ms
+        fade: 1 ~16ms
+        shot.1: 0; shot.2: 0; shot.3: 0; shot.4: 0; shot.5: 0
+        crack.1: 0 ~16ms; crack.2: 0 ~16ms; crack.3: 0 ~16ms; crack.4: 0 ~16ms; crack.5: 0 ~16ms
+        shot.1: 1 after 850ms
+        shot.2: 1 after 1300ms
+        shot.3: 1 after 1650ms
+        shot.4: 1 after 2200ms
+        shot.5: 1 after 2550ms
+    }
+    on still raging for 5.4s while raging { raging = false; face = eye; gun: 0 ~220ms; fade: 0 ~900ms after 400ms }
     //  The gulp, when the drop reaches her shoulder.
     gesture gulp reflex {
         90ms out_quad   { sx: 1.06; sy: 0.94; body.y: 1 }
         180ms out_back
     }
 
-    follow out = if(hidden and not needed and not celebrating and not reel_open, 0, 1)
+    follow out = if(hidden and not needed and not celebrating and not reel_open and not raging, 0, 1)
 
     // ── the photograph ───────────────────────────────────────────
     //  She does not switch off all at once before the screen freezes: she
@@ -1038,7 +1088,7 @@ scene Marea {
     //  not drawn, it comes from melting them together. That is why it thins and
     //  breaks without anyone computing it, and why it is concave.
     body {
-        color: coal
+        color: skin
         rim: 14%
         glass: glassiness
         lens: bends
@@ -1301,9 +1351,9 @@ scene Marea {
         //  ring before the ring goes.
         let shrink = 1 - powerdown
         let v.w = w.w * shrink
-        let v.h = w.h * shrink * (1 - joy)
+        let v.h = w.h * shrink * (1 - joy) * (1 - 0.35 * fury)
         let v.rw = w.rw * shrink
-        let v.rh = w.rh * shrink * (1 - joy)
+        let v.rh = w.rh * shrink * (1 - joy) * (1 - 0.35 * fury)
 
         let eye.y = y + 2.5 + drowsy * 1.4
         let l.x = x - sep
@@ -1339,6 +1389,10 @@ scene Marea {
             //  point as the pill goes, so there is never a face with none.
             arc { at: l.x, eye.y + 2; radius: 4.2; span: 170deg * joy; width: 2.4; color: ink; opacity: min(joy * 3, 1) }
             arc { at: r.x, eye.y + 2; radius: 4.2; span: 170deg * joy; width: 2.4; color: ink; opacity: min(joy * 3, 1) }
+            //  Angry: two brows sloping down to the middle, «\ /», and the eyes
+            //  narrowed under them.
+            line { from: l.x - 5.5, eye.y - 11 + 2 * (1 - fury); to: l.x + 4, eye.y - 6.5; width: 2.2; color: ink; opacity: fury }
+            line { from: r.x + 5.5, eye.y - 11 + 2 * (1 - fury); to: r.x - 4, eye.y - 6.5; width: 2.2; color: ink; opacity: fury }
 
             //  The level's filled part is **the same track**, painted again and
             //  clipped from the left. That way the mint has the exact shape of the
@@ -1359,7 +1413,7 @@ scene Marea {
             //  here everything is distances, so a hole is one more shape. It is
             //  the same trick as the diaphragm down here.
             body {
-                color: coal
+                color: skin
                 ellipse { at: l.x, eye.y; radius: 6.4 * magnifier * shrink }
                 //  The padlock's shackle: a ring whose lower half is covered,
                 //  which is where the body fits.
@@ -1399,7 +1453,7 @@ scene Marea {
             //  also the same sum as always: here everything is distances, and a
             //  hole is one more shape.
             body {
-                color: coal
+                color: skin
                 ellipse { at: x, eye.y; radius: g.w / 2 * aperture * 1.25 }
             }
 
@@ -1408,7 +1462,7 @@ scene Marea {
             //  hole is made when everything is distances. It grows from nothing, so
             //  the eye empties instead of being swapped for a frame.
             body {
-                color: coal
+                color: skin
                 box { at: x, eye.y; size: 21.3 * cam, 14 * cam; corner: 3.3 }
             }
 
@@ -2131,6 +2185,90 @@ scene Marea {
         on enter touch { glow: 1 }
         on leave touch { glow: 0 }
         on press touch { emit pick(h.index) }
+    }
+
+    // ── the shots ────────────────────────────────────────────────
+    //  Where each one lands, on her surface: around her and below, never on her.
+    event bang.1
+    event bang.2
+    event bang.3
+    event bang.4
+    event bang.5
+    let tgt.x.1 = 170
+    let tgt.y.1 = 250
+    let tgt.x.2 = 560
+    let tgt.y.2 = 330
+    let tgt.x.3 = 300
+    let tgt.y.3 = 470
+    let tgt.x.4 = 660
+    let tgt.y.4 = 190
+    let tgt.x.5 = 110
+    let tgt.y.5 = 440
+    //  She aims at the next one: as soon as a shot is fired, at the one after.
+    let aim.next = min(5, 1 + round(shot.1 + shot.2 + shot.3 + shot.4 + shot.5))
+    prop aim.x = 170 ~quick
+    prop aim.y = 250 ~quick
+    follow aim.x = if(aim.next < 1.5, tgt.x.1, if(aim.next < 2.5, tgt.x.2, if(aim.next < 3.5, tgt.x.3, if(aim.next < 4.5, tgt.x.4, tgt.x.5))))
+    follow aim.y = if(aim.next < 1.5, tgt.y.1, if(aim.next < 2.5, tgt.y.2, if(aim.next < 3.5, tgt.y.3, if(aim.next < 4.5, tgt.y.4, tgt.y.5))))
+    //  The pistol, on the side she aims to: it swaps hands, and flips so the
+    //  grip stays down.
+    let side = if(aim.x < cx, -1, 1)
+    let gun.x = cx + 40 * side
+    let gun.y = cy_actual + 14
+    let gun.angle = atan2(aim.y - gun.y, aim.x - gun.x)
+    let muzzle.x = gun.x + cos(gun.angle) * 36
+    let muzzle.y = gun.y + sin(gun.angle) * 36
+
+    //  The broken glass: a shader of her own at each hole, bending what is
+    //  behind the screen. And the shards that jump out of it.
+    shader cracks = file "shaders/cracks.wgsl"
+    repeat k in 1..6 {
+        on change shot.$k > 0.5 while shot.$k > 0.5 and raging { emit bang.$k }
+        on bang.$k { crack.$k: 1 ~300ms; flash: 1 ~16ms; flash: 0 ~120ms after 50ms; play recoil }
+        shader cracks { at: tgt.x.$k - 140, tgt.y.$k - 140; size: 280, 280; values: crack.$k, k * 1.37, fade
+                        show: crack.$k > 0.01 and fade > 0.01 }
+        particles { at: tgt.x.$k, tgt.y.$k; count: 45; life: 0.5s .. 1.1s; speed: 60 .. 280; spread: 360deg
+                    gravity: 0, 700; drag: 0.6; size: 3.2, 1; colors: #ffffff, #bfe3ff; opacity: 95%, 0%
+                    shape: square; burst: bang.$k }
+        particles { at: tgt.x.$k, tgt.y.$k; count: 25; life: 0.4s .. 0.9s; speed: 20 .. 90; spread: 360deg
+                    drag: 2; size: 5, 9; colors: #8a8f96, #5a5e63; opacity: 35%, 0%; burst: bang.$k }
+        //  The tracer: from the muzzle to the hole, too fast to see as anything
+        //  but a streak.
+        particles { at: muzzle.x, muzzle.y; count: 2; life: length(tgt.x.$k - muzzle.x, tgt.y.$k - muzzle.y) / 3200
+                    speed: 3200; direction: atan2(tgt.y.$k - muzzle.y, tgt.x.$k - muzzle.x) * 1deg; spread: 0
+                    size: 3, 3; colors: #fff6d8; opacity: 100%, 100%; shape: spark; burst: bang.$k }
+        //  And the flash's sparks, out of the muzzle.
+        group {
+            glow: 8, 120%
+            mode: add
+            particles { at: muzzle.x, muzzle.y; count: 20; life: 0.08s .. 0.22s; speed: 90 .. 260
+                        direction: gun.angle * 1deg; spread: 60deg; size: 3, 0; colors: #fff1b8, #ff8a3d; shape: spark; burst: bang.$k }
+        }
+    }
+
+    //  The pistol itself: slide, barrel, frame, grip and trigger guard, drawn
+    //  pointing right from its pivot and turned to where she aims. It slides
+    //  out of her, and kicks back and up with every shot.
+    group {
+        opacity: gun
+        pivot: gun.x, gun.y
+        rotate: gun.angle * 1deg - kick * 0.35 * side
+        scale: 0.4 + 0.6 * gun, (0.4 + 0.6 * gun) * side
+        move: (1 - gun) * -26 * side, 0
+        box { at: gun.x + 17 - 6 * kick, gun.y - 4; size: 30, 9; corner: 2; color: #2b2e33 }
+        box { at: gun.x + 33 - 6 * kick, gun.y - 4; size: 3, 6; corner: 1; color: #121416 }
+        box { at: gun.x + 13 - 6 * kick, gun.y + 1.5; size: 22, 5; corner: 1.5; color: #22252a }
+        box { at: gun.x + 5 - 6 * kick, gun.y + 10; size: 9, 17; corner: 2.5; rotate: 0.28; color: #1b1d20 }
+        ellipse { at: gun.x + 14 - 6 * kick, gun.y + 7; radius: 3.6; stroke: 1.6; color: #1b1d20 }
+        line { from: gun.x + 4 - 6 * kick, gun.y - 8; to: gun.x + 31 - 6 * kick, gun.y - 8; width: 1; color: ink; opacity: 25% }
+        box { at: gun.x + 22 - 6 * kick, gun.y - 4; size: 6, 2; corner: 1; color: ink; opacity: 12% }
+    }
+    //  The muzzle flash: a bright star that lasts a blink.
+    group {
+        glow: 12, 140%
+        mode: add
+        ellipse { at: muzzle.x, muzzle.y; radius: 9 * flash; color: #fff1b8; opacity: flash }
+        ellipse { at: muzzle.x + cos(gun.angle) * 8, muzzle.y + sin(gun.angle) * 8; radius: 5 * flash; color: #ff9f43; opacity: flash }
     }
 
     // ── the fireworks ────────────────────────────────────────────
