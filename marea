@@ -1,41 +1,41 @@
 #!/bin/sh
-# marea-plm: arrancarla y hablarle desde fuera. Es lo que usan los atajos de
-# teclado del compositor, y lo que en Marea era `./marea foto region`.
+# marea-plm: start her and talk to her from outside. It is what the
+# compositor's keyboard shortcuts use, and what in Marea was `./marea foto region`.
 #
-#   marea arrancar [opciones de pleamar]   la pone en marcha (autoarranque)
-#   marea parar                            la cierra
-#   marea estado                           si está, y qué dice de sí misma
-#   marea <suceso>                         le dice algo: buscar, bloquear,
-#                                          foto_region, foto_pantalla,
-#                                          foto_ventana, grabar_alternar…
-AQUI="$(cd "$(dirname "$0")" && pwd)"
+#   marea start [pleamar options]      starts her up (autostart)
+#   marea stop                         closes her
+#   marea status                       whether she is running, and what she says of herself
+#   marea <event>                      tells her something: search, lock,
+#                                      shot_region, shot_screen,
+#                                      shot_window, record_toggle…
+HERE="$(cd "$(dirname "$0")" && pwd)"
 PLEAMAR="${PLEAMAR:-$HOME/Proyectos/pleamar/target/release/pleamar}"
-ESTADO="${XDG_STATE_HOME:-$HOME/.local/state}/marea-plm"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/marea-plm"
 
 case "${1:-}" in
-    arrancar)
+    start)
         shift
-        mkdir -p "$ESTADO"
-        cd "$AQUI" || exit 1
-        # El log de la vez anterior se guarda una vez y no más: que no crezca
-        # para siempre, pero que lo de ayer se pueda mirar.
-        [ -f "$ESTADO/marea.log" ] && mv -f "$ESTADO/marea.log" "$ESTADO/marea.log.1"
-        exec "$PLEAMAR" --scene bolita.plm --no-hud "$@" > "$ESTADO/marea.log" 2>&1
+        mkdir -p "$STATE_DIR"
+        cd "$HERE" || exit 1
+        # The previous run's log is kept once and no more: so that it does not
+        # grow forever, but yesterday's can still be looked at.
+        [ -f "$STATE_DIR/marea.log" ] && mv -f "$STATE_DIR/marea.log" "$STATE_DIR/marea.log.1"
+        exec "$PLEAMAR" --scene marea.plm --no-hud "$@" > "$STATE_DIR/marea.log" 2>&1
         ;;
-    parar)
-        exec "$PLEAMAR" --say bolita quit
+    stop)
+        exec "$PLEAMAR" --say marea quit
         ;;
-    estado)
-        if "$PLEAMAR" --say bolita "get open" > /dev/null 2>&1; then
-            echo "en marcha · log en $ESTADO/marea.log"
+    status)
+        if "$PLEAMAR" --say marea "get open" > /dev/null 2>&1; then
+            echo "running · log in $STATE_DIR/marea.log"
         else
-            echo "parada"; exit 1
+            echo "stopped"; exit 1
         fi
         ;;
-    ""|-h|--help|ayuda)
-        sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+    ""|-h|--help|help)
+        sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
         ;;
     *)
-        exec "$PLEAMAR" --say bolita "emit $1"
+        exec "$PLEAMAR" --say marea "emit $1"
         ;;
 esac

@@ -1,0 +1,32 @@
+// What marea.luau writes itself, in Spanish. The logic writes it in English
+// through `tr("…")`; this is the table `tr` reads when `locale` is `es`.
+//
+// Both libraries fill the same table, and a text translated twice is an error:
+// what the scene also writes —the demo batch's rows it starts with, «now»,
+// «History»— is already in es.plm, and the logic uses those same English words.
+library SpanishLogic {
+    translations es {
+        // the finder
+        "Application" = "Aplicación"
+        "Folder" = "Carpeta"
+        "File" = "Archivo"
+
+        // her menu: the plugins that bring something, and what they bring
+        // («History» is in es.plm)
+        "Drift" = "Deriva"
+        "Swell" = "Oleaje"
+        "Lend something" = "Prestar algo"
+        "Release what was lent" = "Soltar lo prestado"
+
+        // the system tray: going back up a submenu
+        "‹  Back" = "‹  Volver"
+
+        // the swell: a real notice whose application has no name
+        "notice" = "aviso"
+
+        // the swell in demo mode: what of the invented batch is not in es.plm
+        "I'll call you in five" = "te llamo en cinco"
+        "Battery at 8 %" = "Batería al 8 %"
+        "about 12 minutes left" = "quedan unos 12 minutos"
+    }
+}

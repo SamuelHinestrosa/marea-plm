@@ -7,7 +7,7 @@ Esto no vive dentro del repo de pleamar a propósito. Es lo que tendría cualqui
 que use pleamar: unos `.plm`, sus `.luau` al lado, y el programa ya compilado.
 
 ```sh
-pleamar --escena bolita.plm
+pleamar --scene marea.plm
 ```
 
 ## Lo que se mide
@@ -22,10 +22,10 @@ Desde el 22 de septiembre de 2026 es la Marea que corre en esta máquina; la de
 Quickshell (`~/Proyectos/proyecto-marea`) está parada, no borrada.
 
 ```sh
-./marea arrancar        # la pone en marcha; el log va a ~/.local/state/marea-plm/marea.log
-./marea estado
-./marea foto_region     # cualquier otra palabra es un suceso que se le dice
-./marea parar
+./marea start           # la pone en marcha; el log va a ~/.local/state/marea-plm/marea.log
+./marea status
+./marea shot_region     # cualquier otra palabra es un suceso que se le dice
+./marea stop
 ```
 
 La arranca Hyprland (`~/.config/hypr/config/marea.lua`), que es también donde
@@ -36,15 +36,15 @@ foto de región, `MAYÚS+Impr` de pantalla, `CTRL+Impr` de ventana,
 
 Dos variables, y no son lo mismo:
 
-- `MAREA_BLOQUEO_CON_SALIDA=1` — el bloqueo se abre también con Esc y solo al
+- `MAREA_LOCK_WITH_EXIT=1` — el bloqueo se abre también con Esc y solo al
   minuto, y lo dice en pantalla. Está puesta en el autoarranque mientras el
   bloqueo sea nuevo: aquí no hay otro bloqueador que releve a uno que se quede
   echado. Se quita cuando haya confianza.
-- `MAREA_EN_PRUEBAS=1` — bloquear, salir, reiniciar y apagar solo se apuntan en
+- `MAREA_TESTING=1` — bloquear, salir, reiniciar y apagar solo se apuntan en
   el log. Para ensayar; nunca en la de diario.
 
 Lo que la otra hacía y esta no: hablarle por voz, el chat con el modelo y la
 vista de ventanas (`SUPER+Tab`). Eran del agente, no de la barra.
 
-Para ensayar sin pisar a la de diario: `--pantalla HDMI-A-1 --margen 390`, y una
-copia de la escena con otro nombre si se le va a hablar con `--decir`.
+Para ensayar sin pisar a la de diario: `--screen HDMI-A-1 --margin 390`, y una
+copia de la escena con otro nombre si se le va a hablar con `--say`.
