@@ -778,39 +778,36 @@ scene Marea {
     fact adv_screen = 0
     pose adv.fx = 0                    // across the bottom: −1 left edge, 1 right edge
     pose adv.fy = 0                    // 0 at home, 1 on the bottom edge
-    pose hop = 0                       // how high off the ground
+    //  The hops are not keyframed one by one: `adv.p` runs linearly from one
+    //  hop to the next (1 is the end of the first, 3 of the third) while
+    //  `adv.fx` runs linearly across the floor, and each hop's arc, squash and
+    //  stretch are worked out from where in its hop she is. Keyframed —up
+    //  slowing, down speeding— the curve applied to the sideways movement too,
+    //  so she stopped dead at every top and every landing, and it looked like
+    //  too few frames.
+    pose adv.p = 0                     // which hop and how far into it
+    pose hopping = 0                   // 1 while hopping: arcs, squashes and dust
+    pose hop.amp = 70                  // how high the hops go
     pose wing = 0                      // 0 none, 1 wings out
     gesture journey state {
         //  Letting go: the water holds her, stretching, and lets go.
-        220ms out_quad           { adv.fy: 0.02; adv.fx: 0; hop: 0; wing: 0; sx: 0.88; sy: 1.16 }
+        220ms out_quad           { adv.fy: 0.02; sx: 0.88; sy: 1.16 }
         //  The fall, speeding up, stretched.
-        640ms in_quad            { adv.fy: 1; adv.fx: 0; hop: 0; wing: 0; sx: 0.86; sy: 1.2 }
+        640ms in_quad            { adv.fy: 1; sx: 0.86; sy: 1.2 }
         //  Splat, and back into shape.
-        80ms out_quad            { adv.fy: 1; adv.fx: 0; hop: 0; wing: 0; sx: 1.32; sy: 0.7 }
-        200ms out_back           { adv.fy: 1; adv.fx: 0; hop: 0; wing: 0; sx: 1; sy: 1 }
-        //  Three hops to the right, each with its squash.
-        190ms out_quad           { adv.fy: 1; adv.fx: 0.12; hop: 1; wing: 0; sx: 0.92; sy: 1.1 }
-        190ms in_quad            { adv.fy: 1; adv.fx: 0.24; hop: 0; wing: 0; sx: 0.95; sy: 1.06 }
-        70ms out_quad            { adv.fy: 1; adv.fx: 0.24; hop: 0; wing: 0; sx: 1.16; sy: 0.84 }
-        190ms out_quad           { adv.fy: 1; adv.fx: 0.36; hop: 1; wing: 0; sx: 0.92; sy: 1.1 }
-        190ms in_quad            { adv.fy: 1; adv.fx: 0.48; hop: 0; wing: 0; sx: 0.95; sy: 1.06 }
-        70ms out_quad            { adv.fy: 1; adv.fx: 0.48; hop: 0; wing: 0; sx: 1.16; sy: 0.84 }
-        190ms out_quad           { adv.fy: 1; adv.fx: 0.6; hop: 1; wing: 0; sx: 0.92; sy: 1.1 }
-        190ms in_quad            { adv.fy: 1; adv.fx: 0.72; hop: 0; wing: 0; sx: 0.95; sy: 1.06 }
-        70ms out_quad            { adv.fy: 1; adv.fx: 0.72; hop: 0; wing: 0; sx: 1.16; sy: 0.84 }
-        //  Turning back with a big one.
-        150ms out_quad           { adv.fy: 1; adv.fx: 0.72; hop: 0; wing: 0; sx: 1; sy: 1; tilt: -0.12 }
-        280ms out_quad           { adv.fy: 1; adv.fx: 0.5; hop: 1.8; wing: 0; sx: 0.9; sy: 1.12; tilt: -0.2 }
-        280ms in_quad            { adv.fy: 1; adv.fx: 0.3; hop: 0; wing: 0; sx: 0.95; sy: 1.06; tilt: -0.1 }
-        80ms out_quad            { adv.fy: 1; adv.fx: 0.3; hop: 0; wing: 0; sx: 1.2; sy: 0.8 }
-        160ms out_back           { adv.fy: 1; adv.fx: 0.3; hop: 0; wing: 0; sx: 1; sy: 1 }
-        //  Wings.
-        320ms out_back           { adv.fy: 1; adv.fx: 0.3; hop: 0; wing: 1; sx: 1; sy: 1 }
-        160ms hold 120ms         { adv.fy: 1; adv.fx: 0.3; hop: 0; wing: 1; sx: 1.12; sy: 0.88 }
+        80ms out_quad            { adv.fy: 1; sx: 1.32; sy: 0.7 }
+        200ms out_back           { adv.fy: 1; hop.amp: 70 }
+        //  Three hops to the right, at an even pace.
+        1140ms linear            { adv.fy: 1; adv.p: 3; adv.fx: 0.72; hopping: 1; hop.amp: 70 }
+        //  And a big one to turn back, leaning into it.
+        440ms linear             { adv.fy: 1; adv.p: 4; adv.fx: 0.3; hopping: 1; hop.amp: 130; tilt: -0.14 }
+        //  Wings, still on the ground.
+        320ms out_back           { adv.fy: 1; adv.p: 4; adv.fx: 0.3; wing: 1 }
+        160ms hold 120ms         { adv.fy: 1; adv.p: 4; adv.fx: 0.3; wing: 1; sx: 1.12; sy: 0.88 }
         //  And up, home.
-        1400ms in_out_sine       { adv.fy: 0; adv.fx: 0; hop: 0; wing: 1; sx: 0.94; sy: 1.06 }
-        260ms out_quad           { adv.fy: 0; adv.fx: 0; hop: 0; wing: 0; sx: 1; sy: 1 }
-        30ms emit adventure_done { adv.fy: 0; adv.fx: 0; hop: 0; wing: 0 }
+        1400ms in_out_sine       { adv.fy: 0; adv.fx: 0; wing: 1; sx: 0.94; sy: 1.06 }
+        260ms out_quad           { adv.fy: 0; adv.fx: 0 }
+        30ms emit adventure_done { adv.fy: 0; adv.fx: 0 }
     }
     on adventure {
         //  Its own purpose: `away` for more than 2.5 s with the default one (`shot`)
@@ -3930,7 +3927,14 @@ scene Marea {
         let home.y = cy - rise
         let floor.y = stage.height - 26
         let ax = home.x + adv.fx * (stage.width / 2 - 80)
-        let ay = home.y + adv.fy * (floor.y - home.y) - hop * 70
+        //  Where in its hop she is (0 taking off, 1 landing), the arc's height,
+        //  how close to the ground —for the squash— and how fast she goes up or
+        //  down —for the stretch—.
+        let hop.f = fract(adv.p)
+        let hop.h = 4 * hop.f * (1 - hop.f) * hop.amp * hopping
+        let hop.ground = (1 - smooth(0, 0.14, min(hop.f, 1 - hop.f))) * hopping
+        let hop.speed = abs(1 - 2 * hop.f) * (1 - hop.ground) * hopping
+        let ay = home.y + adv.fy * (floor.y - home.y) - hop.h + 5 * hop.ground
         //  The wings, flapping while they are out.
         prop flap = 0
         wave flap = 1 at 22
@@ -3954,12 +3958,13 @@ scene Marea {
             color: skin
             rim: 14%
             ellipse { at: home.x, -30; radius: 40 * clamp(1 - adv.fy * 6, 0, 1); blend: 18 * clamp(1 - adv.fy * 8, 0, 1) }
-            ellipse { at: ax, ay; radius: 23; scale: sx, sy; rotate: tilt; blend: 18 * clamp(1 - adv.fy * 8, 0, 1) }
+            ellipse { at: ax, ay; radius: 23; rotate: tilt; blend: 18 * clamp(1 - adv.fy * 8, 0, 1)
+                      scale: sx * (1 + 0.2 * hop.ground - 0.07 * hop.speed), sy * (1 - 0.24 * hop.ground + 0.1 * hop.speed) }
         }
         Face(ax, ay, gaze.x * 0.5, gaze.y * 0.5, 0)
         //  A little dust where she lands and hops.
         particles { at: ax, floor.y + 18; area: 30, 0; count: 40; life: 0.3s .. 0.6s; speed: 20 .. 70; direction: -90deg; spread: 120deg
-                    gravity: 0, 200; size: 3, 0; colors: #cfd3d8; opacity: 50%, 0%; emit: adventuring and adv.fy > 0.98 and hop < 0.05 and sx > 1.1 }
+                    gravity: 0, 200; size: 3, 0; colors: #cfd3d8; opacity: 50%, 0%; emit: adventuring and adv.fy > 0.98 and (hop.ground > 0.6 or sx > 1.1) }
     }
 
     surface nook {
