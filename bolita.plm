@@ -166,9 +166,14 @@ scene Marea {
     //  va por el borde que da al otro monitor y la que pasa a serlo entra por
     //  ese mismo borde, con el mismo muelle, así que parece que cruza. 620 ms,
     //  que es lo que tarda en salir del borde de arriba: el mismo viaje.
-    //  El monitor 0 está a la izquierda: cruza hacia la derecha; el 1, hacia
-    //  la izquierda. `screen.index` vale distinto en cada copia aunque `cx` se
-    //  escriba una vez: es lo que hace que cada una lleve SOLO su viaje.
+    //  Cada copia sale por el borde que da al OTRO monitor. Cuál es no lo dice
+    //  su número —la copia 0 puede ser la de la derecha: aquí el HDMI es la 0
+    //  y está a la derecha de DP-3, y ella se iba por el lado contrario—, sino
+    //  dónde están puestos: `hacia.K` lo pone la lógica, que pregunta al
+    //  compositor. +1, el otro está a la derecha; −1, a la izquierda. Mientras
+    //  no lo diga, la 0 a la izquierda. `screen.index` vale distinto en cada
+    //  copia aunque `cx` se escriba una vez: es lo que hace que cada una lleve
+    //  SOLO su viaje.
     //  Hasta dónde: su superficie mide 820 y va centrada en el monitor, así
     //  que el «borde» por el que sale es el de la superficie, a 480 px de
     //  ella. Entre medias hay escritorio vacío, y se ve igual de bien que si
@@ -179,7 +184,9 @@ scene Marea {
     follow nada.0 = if(en.0, 1, 0)
     follow nada.1 = if(en.1, 1, 0)
     let nada.aqui = if(screen.index == 0, nada.0, nada.1)
-    let cruza = if(screen.index == 0, (1 - nada.0) * 480, (nada.1 - 1) * 480)
+    fact hacia.0 = 1
+    fact hacia.1 = -1
+    let cruza = if(screen.index == 0, (1 - nada.0) * 480 * hacia.0, (1 - nada.1) * 480 * hacia.1)
     let bucea = 4 * 4 * nada.aqui * (1 - nada.aqui)
     //  Y su sitio lo manda SOLO esto, no la geometría de lo que tenga abierto:
     //  con la bandeja tirando de ella directamente, al cerrarse volvía a la vez

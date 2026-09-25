@@ -838,13 +838,39 @@ local function coloca()
     fact.sigue = ajustes.sigue == true
     decide()
 end
+--  Hacia dónde cruza cada copia: hacia el otro monitor, que está a un lado o
+--  al otro según cómo estén puestos, no según el número de la copia. Lo sabe
+--  el compositor; la escena no.
+local function orienta()
+    if not (monitores[1] and monitores[2]) then return end
+    run("hyprctl", { "monitors" }, function(txt)
+        local x = {}
+        for bloque in ((txt or "") .. "\n\n"):gmatch("(Monitor .-)\n\n") do
+            local nombre = bloque:match("^Monitor (%S+)")
+            local px = bloque:match("@[%d%.]+ at (%-?%d+)x%-?%d+")
+            if nombre and px then x[nombre] = tonumber(px) end
+        end
+        local a, b = x[monitores[1]], x[monitores[2]]
+        if a == nil or b == nil or a == b then return end
+        fact["hacia.0"] = a < b and 1 or -1
+        fact["hacia.1"] = a < b and -1 or 1
+    end)
+end
 for k = 0, 1 do
     on("text:screen." .. k .. ".name", function(nombre)
         if nombre == nil or nombre == "" then return end
         monitores[k + 1] = nombre
         coloca()
+        orienta()
     end)
 end
+--  Al recargar solo la lógica, los nombres ya no vuelven a llegar: los que
+--  haya se leen, y con ellos se sabe ya hacia dónde cruzar.
+for k = 0, 1 do
+    local nombre = text["screen." .. k .. ".name"]
+    if nombre ~= nil and nombre ~= "" then monitores[k + 1] = nombre end
+end
+orienta()
 
 if not sys.watch("window", function(v)
     foco = (v and v.monitor) or ""
