@@ -2110,7 +2110,7 @@ scene Marea {
             //  parecía cojo. Y las pistas crecen con ella, que es lo que la
             //  lámina pide: los deslizadores son el protagonista.
             let niv.y = card.top + 237
-            box { at: niv.x, niv.y; size: 210, 322; corner: 16; color: placa; glass: 100% }
+            box { at: niv.x, niv.y; size: 210, 322; corner: 16; color: ink; opacity: velo }
             repeat k in 0..2 {
                 let sx = niv.x - 45 + k * 90
                 let val = if(k == 0, brillo, nivel)
@@ -2224,8 +2224,7 @@ scene Marea {
                         //  La de Concentración va resaltada cuando está puesta: el
                         //  fondo un punto más verde. Es el único borde del panel, y
                         //  lo pinta la tarjeta, no el reparto.
-                        fill: mix(mix(placa, placa.luz, luz.$k), placa.menta, encendida.$k * if(k == 3, 1, 0))
-                        glass: 100%
+                        fill: mix(ink, mint, encendida.$k * if(k == 3, 1, 0)) velo + luz.$k * velo.luz
                         corner: 14
                         group {
                             size: 20, 22
@@ -2308,7 +2307,7 @@ scene Marea {
         let pg.y = pg.oy + (card.top + 231 - pg.oy) * pag
         let pg.w = 234 + 222 * pag
         let pg.h = 58 + 292 * pag
-        box { at: pg.x, pg.y; size: pg.w, pg.h; corner: 14; color: placa; glass: 100%; opacity: pag }
+        box { at: pg.x, pg.y; size: pg.w, pg.h; corner: 14; color: ink; opacity: pag * velo }
 
         group {
             opacity: clamp(pag * 3 - 2, 0, 1)
@@ -2656,7 +2655,7 @@ scene Marea {
 
                 prop vol.luz = 0 ~140ms
                 prop haz.luz = 0 ~140ms
-                box { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; color: mix(placa, placa.luz, vol.luz); glass: 100% }
+                box { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; color: ink; opacity: velo + vol.luz * velo.luz }
                 box { at: card.x - 128, card.top + 264; size: 200, 44; corner: 11; stroke: 1.4; color: mint }
                 text "Volver" { at: card.x - 128, card.top + 264; anchor: center; size: 13; color: ink }
                 box { at: card.x + 118, card.top + 264; size: 220, 44; corner: 11; color: mix(#e0655a, #f0796a, haz.luz) }
