@@ -642,6 +642,12 @@ scene Marea {
 
     prop card = 0 ~290ms
     prop content = 0 ~200ms
+    //  Closed, she starts again from the front page. Otherwise the page she was
+    //  on stayed chosen with the card folded, and pressing her opened straight
+    //  into Settings —or Wi-Fi, or half a confirmation— instead of her control
+    //  center. Only once it has finished folding: done on closing, the content
+    //  jumped to the front page while it was still shrinking.
+    on change card < 0.02 while card < 0.02 and not open { page = none; section = general; confirming = none }
 
     //  The level on the face. The system brings the volume: not a single line of
     //  logic, and that is why the panel's slider and the keyboard's key look
