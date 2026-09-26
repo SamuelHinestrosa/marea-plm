@@ -30,6 +30,17 @@ on("next", function() sys.call("media.next") end)
 --  assuming: if someone has changed it from outside, this still gets it right.
 --  And turning the radio off can be undone from the same place, which is the
 --  least you can ask of a switch.
+--  Whether the radio is on is the system's too: read, not assumed. It is read
+--  on start, every little while and after each flip, since it can also be
+--  switched from outside —a headset that wakes it, another panel—.
+local function read_bluetooth()
+    run("bluetoothctl", { "show" }, function(output)
+        fact["switched_on.2"] = tostring(output):match("Powered: yes") ~= nil
+    end)
+end
+read_bluetooth()
+every(15000, read_bluetooth)
+
 on("flip", function(k)
     if k == 1 then
         run("nmcli", { "radio", "wifi" }, function(output)
@@ -39,7 +50,7 @@ on("flip", function(k)
     elseif k == 2 then
         run("bluetoothctl", { "show" }, function(output)
             local enabled = tostring(output):match("Powered: yes") ~= nil
-            run("bluetoothctl", { "power", enabled and "off" or "on" }, function() end)
+            run("bluetoothctl", { "power", enabled and "off" or "on" }, function() read_bluetooth() end)
         end)
     end
 end)
@@ -155,7 +166,7 @@ on("pick_gadget", function(i)
 end)
 
 on("scan", function(k)
-    if k == 1 then scan_networks() elseif k == 2 then scan_bluetooth() end
+    if k == 1 then scan_networks() elseif k == 2 then scan_bluetooth(); read_bluetooth() end
 end)
 
 on("customize", function() log("customize would open here") end)
