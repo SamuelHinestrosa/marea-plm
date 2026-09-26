@@ -714,7 +714,14 @@ scene Marea {
     // ── living rest ──────────────────────────────────────────────
     //  A brief blink, every 5.2 s. And the gaze, which follows the mouse closely.
     blink lid every 5.2s for 120ms
-    look gaze.x, gaze.y at cx, cy reach 6, 3.5 within 260
+    //  And now and then, with the mouse far from her —over a window, on the
+    //  other monitor—, a glance at where it is, and back. When, the logic says
+    //  (`glancing`): every so often, never on a beat. Asleep, she does not look.
+    fact glancing = false
+    prop glance = 0 ~gentle
+    follow glance = if(glancing and not asleep, 1, 0)
+    let glance.d = max(length(cursor.x - cx, cursor.y - cy), 1)
+    look gaze.x, gaze.y at cx, cy reach 6, 3.5 within 260 rest glance * 6 * (cursor.x - cx) / glance.d, glance * 3.5 * (cursor.y - cy) / glance.d
 
     //  Marea's breath. Ambient: any other gesture cuts it off.
     gesture breathe ambient {
@@ -1169,6 +1176,8 @@ scene Marea {
         rim: 14%
         glass: glassiness
         lens: bends
+        //  Her glass catches the light from wherever the mouse is.
+        shine: cursor.x, cursor.y
         //  No shadow and no halo when she is alone. What separates her from the
         //  desktop is her own rim, which is light INSIDE her silhouette: it paints
         //  nothing outside her, so there is no black ring or green glow around.

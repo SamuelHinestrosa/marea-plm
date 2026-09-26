@@ -530,6 +530,20 @@ else
     after(600, playBatch)
 end
 
+-- ── glances ─────────────────────────────────────────────────────
+--  Every 7 to 16 s she looks for a moment at where the mouse is, wherever it
+--  is. The scene does the looking; here it is only decided when.
+local function glance_later()
+    after(math.random(7000, 16000), function()
+        fact.glancing = true
+        after(math.random(1200, 2200), function()
+            fact.glancing = false
+            glance_later()
+        end)
+    end)
+end
+glance_later()
+
 -- ── the swell ──────────────────────────────────────────────────────
 --  Resolving a row is marking it read wherever it really lives. Here it is
 --  only noted down: what is seen —the row leaving, the drop going back, the
