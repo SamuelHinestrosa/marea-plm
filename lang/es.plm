@@ -6,6 +6,10 @@ library SpanishUi {
     translations es {
         "CALENDAR" = "CALENDARIO"
         "Agents" = "Agentes"
+        "Today" = "Hoy"
+        "Nothing yet." = "Nada todavía."
+        "New event: 10:30 Dentist" = "Nuevo evento: 10:30 Dentista"
+        "Start with a time, or leave it for the whole day. Enter saves it." = "Empieza con una hora, o déjalo para todo el día. Intro lo guarda."
         "Reading your windows…" = "Leyendo tus ventanas…"
         "left" = "quedan"
         "MAIL" = "CORREO"
