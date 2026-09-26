@@ -3262,7 +3262,9 @@ scene Marea {
         let pg.y = pg.oy + (pg.to.y - pg.oy) * paging
         let pg.w = 234 + 222 * paging
         let pg.h = 58 + (pg.to.h - 58) * paging
-        box { at: pg.x, pg.y; size: pg.w, pg.h; corner: 14; color: mix(#1b1b1c, ink, glassiness); opacity: paging * mix(1, veil, glassiness) }
+        //  The box only carries the row into the page: once there it melts,
+        //  and the page sits on the card itself, all of one colour.
+        box { at: pg.x, pg.y; size: pg.w, pg.h; corner: 14; color: mix(#1b1b1c, ink, glassiness); opacity: paging * min(1, (1 - paging) * 4) * mix(1, veil, glassiness) }
 
         group {
             opacity: clamp(paging * 3 - 2, 0, 1)
