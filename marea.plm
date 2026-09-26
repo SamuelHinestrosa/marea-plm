@@ -33,7 +33,7 @@ scene Marea {
         //  finds the files and the folders.
         run: "node", "nmcli", "bluetoothctl", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl"
     }
-    service clock as now { time: text = "--:--"; date: text }
+    service clock as now { time: text = "--:--"; date: text; hour: number; minute: number }
     service audio as sound { volume: number; muted: bool; input: number; input_muted: bool }
     service media as playback { playing: bool; title: text; artist: text }
     service network as net { online: bool; name: text; kind: text; strength: number }
@@ -633,9 +633,13 @@ scene Marea {
     //  switch, it shows the one there already is. Two truths of the same state
     //  is how you end up with a card switched on and the ball awake.
     follow lit.3 = if(haven, 1, 0)
-    prop notecard = 0 ~190ms
+    prop notecard = 0 ~650ms
     //  And with the menu out neither of the two comes out: they take its place.
-    follow notecard = if(note and not open and not haven and not menu_open and face == eye and out > 0.9 and phase == 0 and pending < 1, 1, 0)
+    //  Going out it takes its time —it is a division, see below— and it goes
+    //  back in quickly: two rules, because the two journeys are not the same.
+    let notecard.wants = note and not open and not haven and not menu_open and face == eye and out > 0.9 and phase == 0 and pending < 1
+    on change notecard.wants while notecard.wants { notecard: 1 ~700ms }
+    on change notecard.wants while not notecard.wants { notecard: 0 ~260ms }
     follow fan = if(note and not open and not tray_open and not haven and not menu_open and face == eye and out > 0.9 and phase == 0 and pending > 0, 1, 0)
     // ── her menu, the right-button one ───────────────────────────
     //  «The right button opens her menu, which closes the same way on leaving
@@ -663,7 +667,18 @@ scene Marea {
     let capsule.wants = note and haven and not menu_open and out > 0.9
     on change capsule.wants while capsule.wants { capsule: 1 ~160ms }
     on change capsule.wants while not capsule.wants { capsule: 0 ~140ms }
-    let notecard.x = cx + (23 + 14 + 52) * notecard
+    //  The time comes out of her the way a drop divides. First a bud swells on
+    //  her side, melted into her (a); then it moves off, and the melting
+    //  lessens as it goes, so the neck stretches, thins and snaps (b); and once
+    //  free it stretches into the card (c). Going back in, the same in reverse.
+    let nc.a = clamp(notecard / 0.3, 0, 1)
+    let nc.b = clamp((notecard - 0.3) / 0.3, 0, 1)
+    let nc.c = clamp((notecard - 0.6) / 0.4, 0, 1)
+    let notecard.x = cx + 12 + 15 * nc.a + 62 * nc.b
+    let notecard.w = 28 * nc.a + 76 * nc.c
+    let notecard.h = 28 * nc.a + 28 * nc.c
+    //  And when it comes loose, both of them wobble.
+    on change nc.b > 0.95 while nc.b > 0.95 and notecard.wants { impulse wobble 70 }
     //  The card of a recording just saved: it comes out of her, to her right,
     //  like the time and the capsule, and goes back into her on its own after
     //  ten seconds unless the pointer is on it.
@@ -744,6 +759,18 @@ scene Marea {
     //  Reading water —the agents' tubes—: each eye a little wave, «~ ~», that
     //  flows while she reads. The wave only runs with that face on.
     prop eyewave = 0 ~240ms
+    //  Telling the time: while the note comes out, her eyes turn into the
+    //  hands of a clock for a moment and sweep from twelve to the hour.
+    prop hands = 0 ~220ms
+    prop hand.h = 0 ~lively
+    prop hand.m = 0 ~lively
+    on change notecard.wants while notecard.wants {
+        hands: 1 ~220ms; hands: 0 ~300ms after 1600ms
+        hand.h: 0 ~16ms; hand.m: 0 ~16ms
+        hand.h: (mod(now.hour, 12) + now.minute / 60) * 30 ~lively after 120ms
+        hand.m: now.minute * 6 ~lively after 120ms
+    }
+    on change notecard.wants while not notecard.wants { hands: 0 ~150ms }
     follow eyewave = if(face == reading, 1, 0)
     prop eyewave.phase = 0
     spin eyewave.phase by if(face == reading, 1.3, 0)
@@ -1277,9 +1304,9 @@ scene Marea {
         }
         box notecard_box {
             at: notecard.x, cy_actual
-            size: 104 * clamp(notecard * 1.6, 0, 1), 56 * clamp(notecard * 2.4, 0, 1)
-            corner: 13
-            blend: 18 * 4 * notecard * (1 - notecard)
+            size: notecard.w, notecard.h
+            corner: 14 - nc.c
+            blend: 16 * (1 - nc.b)
         }
         //  The Haven's capsule, the same: it is what she says when you ask her by
         //  hovering over her, so it comes out from where the time comes out and in
@@ -1324,12 +1351,82 @@ scene Marea {
         }
     }
 
-    //  What it has written on it. The system brings the time; there is no logic here.
+    //  Its sky: the one outside at this hour. Night blue, the warm band of
+    //  dawn and dusk, day blue; a sun or a moon crossing a small arc on its
+    //  right side, and stars when it is dark. Over the body, clipped to the
+    //  card, and only once it is a card.
+    let sky.t = now.hour + now.minute / 60
+    let sky.day = clamp((sky.t - 6) / 2, 0, 1) * clamp((19 - sky.t) / 2, 0, 1)
+    let sky.warm = clamp(1 - abs(sky.t - 7) / 1.5, 0, 1) + clamp(1 - abs(sky.t - 19.5) / 1.5, 0, 1)
+    let sky.night = (1 - sky.day) * (1 - clamp(sky.warm, 0, 1))
+    let sky.x0 = notecard.x - 52
+    let sky.y0 = cy_actual - 28
+    //  Where the sun is between 6 and 18, and the moon the other twelve hours.
+    let sun.p = clamp((sky.t - 6) / 12, 0, 1)
+    let moon.p = mod(sky.t + 6, 24) / 12
+    let sun.up = if(sky.t >= 6 and sky.t < 18, 1, 0)
+    let orb.p = if(sun.up > 0.5, sun.p, moon.p)
+    let orb.x = sky.x0 + 70 + 28 * orb.p
+    let orb.y = sky.y0 + 38 - 24 * sin(orb.p * 180)
     group {
-        opacity: clamp(notecard * 4 - 3, 0, 1)
-        move: (1 - notecard) * -12, 0
-        text now.time { at: notecard.x - 39, cy_actual - 9; anchor: left center; size: 21; weight: 600; color: #f6f6f5 }
-        text "{upper(now.date)}" { at: notecard.x - 39, cy_actual + 13; anchor: left center; size: 10; color: #8b8f95 }
+        opacity: nc.c * 72%
+        clip inset 0 box { at: notecard.x, cy_actual; size: notecard.w, notecard.h; corner: 14 - nc.c }
+        body {
+            gradient: sky.x0, sky.y0 to sky.x0, sky.y0 + 56, mix(mix(#0d1633, #2f76c9, sky.day), #f08a6a, clamp(sky.warm, 0, 1)), mix(mix(#1d2c57, #5fa6e0, sky.day), #6a4a9a, clamp(sky.warm, 0, 1))
+            box { at: notecard.x, cy_actual; size: notecard.w, notecard.h; corner: 14 - nc.c }
+        }
+        repeat k in 0..6 {
+            ellipse { at: sky.x0 + 8 + k * 17.5, sky.y0 + 7 + mod(k * 7, 11); radius: 0.8 + mod(k, 2) * 0.4; color: #ffffff; opacity: sky.night * 80% }
+        }
+        group {
+            glow: 6, 90%, #ffd36b
+            ellipse { at: orb.x, orb.y; radius: 5; color: #ffd36b; show: sun.up > 0.5 }
+        }
+        ellipse { at: orb.x, orb.y; radius: 4.5; color: #e8ecf5; show: sun.up < 0.5 }
+        ellipse { at: orb.x + 2.2, orb.y - 1.4; radius: 3.8; color: #1a2648; show: sun.up < 0.5 }
+    }
+
+    //  What it has written on it. The system brings the time; there is no logic
+    //  here. Each digit is a column of numbers seen through a window of its own:
+    //  when the card appears they roll a whole lap, one after another, and stop
+    //  on the hour, like a slot machine; when the minute changes, only those
+    //  roll. 24 px between numbers, the same as the window.
+    let dg.1 = floor(now.hour / 10)
+    let dg.2 = now.hour - floor(now.hour / 10) * 10
+    let dg.3 = floor(now.minute / 10)
+    let dg.4 = now.minute - floor(now.minute / 10) * 10
+    on change nc.c > 0.05 while nc.c > 0.05 and notecard.wants {
+        roll.1: 0 ~16ms; roll.2: 0 ~16ms; roll.3: 0 ~16ms; roll.4: 0 ~16ms
+        roll.1: 10 + dg.1 ~650ms after 20ms
+        roll.2: 10 + dg.2 ~750ms after 90ms
+        roll.3: 10 + dg.3 ~850ms after 160ms
+        roll.4: 10 + dg.4 ~950ms after 230ms
+    }
+    on change now.minute while notecard > 0.9 {
+        roll.3: 10 + dg.3 ~420ms
+        roll.4: 10 + dg.4 ~420ms
+    }
+    on change now.hour while notecard > 0.9 {
+        roll.1: 10 + dg.1 ~420ms
+        roll.2: 10 + dg.2 ~420ms
+    }
+    group {
+        opacity: clamp(nc.c * 3 - 1, 0, 1)
+        let tx = notecard.x - 39
+        let ty = cy_actual - 9
+        repeat d in 1..5 {
+            prop roll.$d = 0 ~420ms
+            let dx = tx + 6.4 + (d - 1) * 12.8 + if(d > 2, 6.2, 0)
+            group {
+                clip inset 0 box { at: dx, ty; size: 14, 23 }
+                repeat n in 0..20 {
+                    text number(mod(n, 10), 0) { at: dx, ty + (n - roll.$d) * 24; anchor: center; size: 21; weight: 600; color: #f6f6f5
+                                                 opacity: clamp(1 - abs(n - roll.$d) * 1.4, 0, 1) }
+                }
+            }
+        }
+        text ":" { at: tx + 28.2, ty - 1; anchor: center; size: 21; weight: 600; color: #f6f6f5 }
+        text "{upper(now.date)}" { at: tx, cy_actual + 13; anchor: left center; size: 10; color: #c2c7cc }
     }
 
     // ── the face ─────────────────────────────────────────────────
@@ -1480,9 +1577,9 @@ scene Marea {
         //  ring before the ring goes.
         let shrink = 1 - powerdown
         let v.w = w.w * shrink
-        let v.h = w.h * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
+        let v.h = w.h * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - clamp(hands, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
         let v.rw = w.rw * shrink
-        let v.rh = w.rh * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
+        let v.rh = w.rh * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - clamp(hands, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
 
         //  The magnifying glass is centred as a whole, not by its ring: the ring
         //  sat where the eyes do and the handle hung off it down to the right,
@@ -1530,6 +1627,11 @@ scene Marea {
             //  point as the pill goes, so there is never a face with none.
             arc { at: l.x, eye.y + 2; radius: 4.2; span: 170deg * joy; width: 2.4; color: ink; opacity: min(joy * 3, 1) }
             arc { at: r.x, eye.y + 2; radius: 4.2; span: 170deg * joy; width: 2.4; color: ink; opacity: min(joy * 3, 1) }
+            //  The clock: the pills flatten and two hands grow from her centre,
+            //  the hour's short and thick, the minute's long.
+            line { from: x, eye.y; to: x + 5.5 * sin(hand.h) * hands, eye.y - 5.5 * cos(hand.h) * hands; width: 2.8; color: ink; opacity: min(hands * 3, 1) }
+            line { from: x, eye.y; to: x + 9 * sin(hand.m) * hands, eye.y - 9 * cos(hand.m) * hands; width: 2; color: ink; opacity: min(hands * 3, 1) }
+            ellipse { at: x, eye.y; radius: 1.9 * hands; color: ink; opacity: min(hands * 3, 1) }
             //  Reading water: the pills flatten the same way and a little wave
             //  grows in each place, a ∩ and a ∪ side by side, rocking.
             repeat e in 0..2 {
