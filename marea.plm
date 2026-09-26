@@ -12,6 +12,7 @@
 //
 // Everything in this file is run by the renderer. There is no logic here at all.
 
+import "pleamar:ui"
 import "common/palette.plm"
 import "common/accessories.plm"
 import "lang/es.plm"
@@ -54,7 +55,6 @@ scene Marea {
     follow glassiness = if(skin == classic, 0, 1)
     let bends = skin == lens
     //  Settings has two sections: the usual stuff and the look.
-    fact section: menu | home | look | language | lock = menu
     //  The language she speaks: the system's (`LANG`), or one chosen in
     //  Settings. The logic turns it into `locale`, which is what switches the texts.
     fact language: system | english | spanish = system
@@ -3275,11 +3275,7 @@ scene Marea {
             text "Focus" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == concentration }
             text "Her wardrobe" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == wardrobe }
             text "Sound" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == sound }
-            text "Settings" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings and section == menu }
-            text "Where she lives" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings and section == home }
-            text "Her look" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings and section == look }
-            text "Language" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings and section == language }
-            text "The lock" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings and section == lock }
+            text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
             text "Agents" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == agents }
             text cal.month { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == calendar }
             text systray.title { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; width: 300; lines: 1; color: ink; show: page == systray }
@@ -3423,264 +3419,192 @@ scene Marea {
 
             // ── the settings ─────────────────────────────────────
             //  A front page of tiles, one per subject, each with its drawing and
-            //  what it is set to right now: you see how she is without opening
-            //  anything. Pressing one opens it, and the arrow comes back here.
-            //  A subject a page: before, her home, the lock and the language
-            //  were one crowded list.
+            //  what it is set to right now; pressing one opens its own page, and
+            //  the arrow of the card's header comes back. The pages are
+            //  pleamar's `pages`, the tiles its `grid` of `Tile`s, and the
+            //  switches and choices its own pieces: what is left here is what
+            //  is Marea's.
             on press back_arrow while page == settings and section != menu { section = menu }
-            prop sect = 0 ~260ms
-            follow sect = if(section == menu, 0, 1)
-            let st.on = page == settings and paging > 0.9
-            //  A shade over the page's background, so each tile reads as a button.
-            let st.col = mix(#25282b, ink, glassiness)
-            let st.op = mix(1, veil, glassiness)
+            event to_home
+            event to_look
+            event to_language
+            event to_lock
+            event to_wardrobe
+            event flip_follow
+            event flip_safety
+            on to_home { section = home }
+            on to_look { section = look }
+            on to_language { section = language }
+            on to_lock { section = lock }
+            on to_wardrobe { emit customize; page = wardrobe }
+            on flip_follow { toggle following }
+            on flip_safety { toggle with_exit }
             let st.faint = mix(#8b8f95, faint, glassiness)
             group {
-                show: page == settings and section == menu
-                opacity: 1 - sect
-                //  The tiles: two columns, the last one across. Each: a round
-                //  drawing on the left, its name, its value, and ›.
-                repeat t in 0..5 {
-                    let tw = if(t == 4, 456, 222)
-                    let tx = if(t == 4, card.x, card.x - 117 + mod(t, 2) * 234)
-                    let ty = card.top + 162 + floor(t / 2) * 118
-                    let ix = tx - tw / 2 + 42
-                    prop tile.$t = 0 ~140ms
-                    box { at: tx, ty; size: tw, 106; corner: 18; color: st.col; opacity: st.op + tile.$t * 6% }
-                    box { at: tx, ty; size: tw, 106; corner: 18; stroke: 1.2; color: mint; opacity: tile.$t * 45% }
-                    ellipse { at: ix, ty - 12; radius: 24; color: ink; opacity: 7% + tile.$t * 5% }
-                    //  0 · her home: a monitor, and her in it.
-                    group {
-                        show: t == 0
-                        box { at: ix, ty - 15; size: 26, 17; corner: 3; stroke: 1.8; color: ink }
-                        line { from: ix, ty - 6.5; to: ix, ty - 2; width: 1.8; color: ink }
-                        line { from: ix - 6, ty - 1.5; to: ix + 6, ty - 1.5; width: 1.8; color: ink }
-                        ellipse { at: ix, ty - 15; radius: 4.5; color: mint }
-                    }
-                    //  1 · her look: herself, the way she is now.
-                    group {
-                        show: t == 1
-                        body {
-                            color: coal
-                            rim: 14%
-                            glass: if(skin == classic, 0, 1)
-                            lens: skin == lens
-                            ellipse { at: ix, ty - 12; radius: 15 }
+                show: page == settings
+                pages section {
+                    page menu "Settings" {
+                        grid {
+                            at: card.x - 228, card.top + 109; columns: 2; gap: 12; width: 456; row: 106
+                            Tile("Where she lives", pick(if(following, 0, home + 1), "Follows you", screen.0.name, screen.1.name), to_home, cell.w) {
+                                group { size: 30, 26
+                                    box { at: 15, 10; size: 26, 17; corner: 3; stroke: 1.8; color: ink }
+                                    line { from: 9, 23; to: 21, 23; width: 1.8; color: ink }
+                                    ellipse { at: 15, 10; radius: 4.5; color: mint }
+                                }
+                            }
+                            Tile("Her look", pick(skin, "Liquid", "Light liquid", "Classic"), to_look, cell.w) {
+                                group { size: 32, 32
+                                    body {
+                                        color: coal
+                                        rim: 14%
+                                        glass: if(skin == classic, 0, 1)
+                                        lens: skin == lens
+                                        ellipse { at: 16, 16; radius: 15 }
+                                    }
+                                    box { at: 12, 16; size: 3, 7; corner: 1.5; color: ink }
+                                    box { at: 20, 16; size: 3, 7; corner: 1.5; color: ink }
+                                }
+                            }
+                            Tile("Language", pick(language, "System", "English", "Español"), to_language, cell.w) {
+                                text "Aa" { size: 17; weight: 700; color: ink }
+                            }
+                            Tile("The lock", pick(with_exit, "Password only", "Safety net on"), to_lock, cell.w) {
+                                group { size: 20, 24
+                                    arc { at: 10, 8; radius: 6; span: 180deg; width: 2; color: ink }
+                                    line { from: 4, 8; to: 4, 12; width: 2; color: ink }
+                                    line { from: 16, 8; to: 16, 12; width: 2; color: ink }
+                                    box { at: 10, 17; size: 18, 13; corner: 3; color: mix(ink, mint, with_exit) }
+                                }
+                            }
+                            group {
+                                span: 2
+                                Tile("Wardrobe and wallpaper", "Hats, glasses and the background", to_wardrobe, cell.w) {
+                                    group { size: 30, 22
+                                        box { at: 15, 11; size: 28, 20; corner: 4; stroke: 1.6; color: ink }
+                                        path { at: 3, 19; color: ink; move 0, 0; line 8, -9; line 13, -3; line 17, -7; line 24, 0; close }
+                                        ellipse { at: 22, 6; radius: 2.4; color: mint }
+                                    }
+                                }
+                            }
                         }
-                        box { at: ix - 4, ty - 12; size: 3, 7; corner: 1.5; color: ink }
-                        box { at: ix + 4, ty - 12; size: 3, 7; corner: 1.5; color: ink }
                     }
-                    //  2 · the language.
-                    text "Aa" { at: ix, ty - 12; anchor: center; size: 17; weight: 700; color: ink; show: t == 2 }
-                    //  3 · the lock: a padlock.
-                    group {
-                        show: t == 3
-                        arc { at: ix, ty - 16; radius: 6; span: 180deg; width: 2; color: ink }
-                        line { from: ix - 6, ty - 16; to: ix - 6, ty - 12; width: 2; color: ink }
-                        line { from: ix + 6, ty - 16; to: ix + 6, ty - 12; width: 2; color: ink }
-                        box { at: ix, ty - 7; size: 18, 13; corner: 3; color: mix(ink, mint, if(with_exit, 1, 0)) }
-                    }
-                    //  4 · her wardrobe and the wallpaper: a hat over a landscape.
-                    group {
-                        show: t == 4
-                        box { at: ix, ty - 10; size: 28, 20; corner: 4; stroke: 1.6; color: ink }
-                        path { at: ix - 12, ty - 2; color: ink; move 0, 0; line 8, -9; line 13, -3; line 17, -7; line 24, 0; close }
-                        ellipse { at: ix + 7, ty - 15; radius: 2.4; color: mint }
-                    }
-                    //  Its name and its value.
-                    let nx = tx - tw / 2 + 18
-                    text "Where she lives" { at: nx, ty + 26; anchor: left center; size: 13; weight: 600; color: ink; show: t == 0 }
-                    text "Her look" { at: nx, ty + 26; anchor: left center; size: 13; weight: 600; color: ink; show: t == 1 }
-                    text "Language" { at: nx, ty + 26; anchor: left center; size: 13; weight: 600; color: ink; show: t == 2 }
-                    text "The lock" { at: nx, ty + 26; anchor: left center; size: 13; weight: 600; color: ink; show: t == 3 }
-                    text "Wardrobe and wallpaper" { at: nx, ty + 26; anchor: left center; size: 13; weight: 600; color: ink; show: t == 4 }
-                    let vy = ty + 43
-                    text "Follows you" { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 0 and following }
-                    text screen.0.name { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 0 and not following and home == 0 }
-                    text screen.1.name { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 0 and not following and home == 1 }
-                    text "Liquid" { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 1 and skin == lens }
-                    text "Light liquid" { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 1 and skin == liquid }
-                    text "Classic" { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 1 and skin == classic }
-                    text "System" { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 2 and language == system }
-                    text "English" { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 2 and language == english }
-                    text "Español" { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 2 and language == spanish }
-                    text "Safety net on" { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 3 and with_exit }
-                    text "Password only" { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 3 and not with_exit }
-                    text "Hats, glasses and the background" { at: nx, vy; anchor: left center; size: 11; color: mint; show: t == 4 }
-                    path { at: tx + tw / 2 - 22, ty + 29; color: ink; stroke: 1.8; opacity: 40% + tile.$t * 50%
-                           move 0, 0; line 5, 5; line 0, 10 }
-                    zone box tile_zone.$t { at: tx, ty; size: tw, 106; corner: 18; cursor: pointer; active: st.on and section == menu }
-                    on enter tile_zone.$t { tile.$t: 1; impulse tile.$t 3 }
-                    on leave tile_zone.$t { tile.$t: 0 }
-                }
-                on press tile_zone.0 { section = home }
-                on press tile_zone.1 { section = look }
-                on press tile_zone.2 { section = language }
-                on press tile_zone.3 { section = lock }
-                on press tile_zone.4 { emit customize; page = wardrobe }
-            }
 
-            //  The subject's page slides in from the right as the tiles go.
-            group {
-                show: page == settings and section != menu
-                opacity: sect
-                move: (1 - sect) * 24, 0
-
-                // ── where she lives ──
-                //  The two monitors drawn as two pools, to scale, with their names,
-                //  and her swimming in the one she is in; pressing a pool sends her
-                //  there. «Follow me» sets her to go wherever the focus is.
-                group {
-                    show: section == home
-                    text "Choose her monitor, or let her follow you." { at: card.x - 228, card.top + 122; anchor: left center; size: 12; color: st.faint }
-                    repeat m in 0..2 {
-                        let px = card.x - 114 + m * 228
-                        let py = card.top + 222
-                        prop pool.$m = 0 ~140ms
-                        let is_home.$m = if(not following and home == m, 1, 0)
-                        text screen.$m.name { at: px, py - 76; anchor: center; size: 12; weight: 600; color: mix(st.faint, ink, is_home.$m) }
-                        box { at: px, py; size: 208, 118; corner: 12; color: mix(mix(#1b1f22, #202528, pool.$m), #1a2a25, is_home.$m) }
-                        box { at: px, py; size: 208, 118; corner: 12; stroke: 1.4; color: mint; opacity: is_home.$m * 85% + pool.$m * 25% }
-                        group {
-                            clip inset 0 box { at: px, py; size: 208, 118; corner: 12 }
-                            box { at: px, py + 46; size: 208, 44; color: mix(#1f3a34, #24524a, is_home.$m); opacity: 55% }
+                    // ── where she lives ──
+                    //  The two monitors drawn as two pools, to scale, with their
+                    //  names, and her swimming in the one she is in; pressing a pool
+                    //  sends her there. «Follow me» sets her to go wherever the focus is.
+                    page home "Where she lives" {
+                        text "Choose her monitor, or let her follow you." { at: card.x - 228, card.top + 122; anchor: left center; size: 12; color: st.faint }
+                        repeat m in 0..2 {
+                            let px = card.x - 114 + m * 228
+                            let py = card.top + 222
+                            let is_home.$m = if(not following and home == m, 1, 0)
+                            text screen.$m.name { at: px, py - 76; anchor: center; size: 12; weight: 600; color: mix(st.faint, ink, is_home.$m) }
+                            box { at: px, py; size: 208, 118; corner: 12; color: mix(mix(#1b1f22, #202528, pool_zone.$m.hover), #1a2a25, is_home.$m) }
+                            box { at: px, py; size: 208, 118; corner: 12; stroke: 1.4; color: mint; opacity: is_home.$m * 85% + pool_zone.$m.hover * 25% }
+                            group {
+                                clip inset 0 box { at: px, py; size: 208, 118; corner: 12 }
+                                box { at: px, py + 46; size: 208, 44; color: mix(#1f3a34, #24524a, is_home.$m); opacity: 55% }
+                            }
+                            group {
+                                opacity: if(m == 0, if(hosts.0, 1, 0), if(hosts.1, 1, 0))
+                                body {
+                                    color: coal
+                                    rim: 14%
+                                    ellipse { at: px + 3 * sway, py + 26 + 1.5 * sway; radius: 12 }
+                                }
+                                box { at: px - 4 + 3 * sway, py + 26 + 1.5 * sway; size: 3, 6; corner: 1.5; color: ink }
+                                box { at: px + 4 + 3 * sway, py + 26 + 1.5 * sway; size: 3, 6; corner: 1.5; color: ink }
+                            }
+                            text "Her home" { at: px, py + 76; anchor: center; size: 10.5; weight: 600; color: mint; opacity: is_home.$m }
+                            zone box pool_zone.$m { at: px, py; size: 208, 118; corner: 12; cursor: pointer }
+                            on press pool_zone.$m { home = m; following = false }
                         }
-                        group {
-                            opacity: if(m == 0, if(hosts.0, 1, 0), if(hosts.1, 1, 0))
+                        box { at: card.x, card.top + 360; size: 456, 64; corner: 16; color: mix(#202021, #1a2a25, following) }
+                        box { at: card.x, card.top + 360; size: 456, 64; corner: 16; stroke: 1.2; color: mint; opacity: following * 70% }
+                        text "Follow me" { at: card.x - 206, card.top + 350; anchor: left center; size: 13; weight: 600; color: ink }
+                        text "She goes to the monitor where you are working" { at: card.x - 206, card.top + 369; anchor: left center; size: 11; color: st.faint }
+                        column { at: card.x + 174, card.top + 348
+                            Switch(following, flip_follow)
+                        }
+                    }
+
+                    // ── her look ──
+                    //  Three swatches, and in each one she herself painted that way:
+                    //  not a photo of how it would be, but really her.
+                    page look "Her look" {
+                        text "Made of glass like Apple's, or the usual one." { at: card.x - 228, card.top + 122; anchor: left center; size: 12; color: st.faint }
+                        repeat t in 0..3 {
+                            let fx = card.x - 152 + t * 152
+                            let fy = card.top + 250
+                            let chosen.$t = if(t == 0, skin == lens, if(t == 1, skin == liquid, skin == classic))
+                            box { at: fx, fy; size: 140, 180; corner: 18; color: mix(#25282b, #2c3033, swatch.$t.hover) }
+                            box { at: fx, fy; size: 140, 180; corner: 18; stroke: 1.5; color: mint; opacity: chosen.$t * 85% + swatch.$t.hover * 20% }
                             body {
                                 color: coal
                                 rim: 14%
-                                ellipse { at: px + 3 * sway, py + 26 + 1.5 * sway; radius: 12 }
+                                glass: if(t < 2, 1, 0)
+                                lens: t == 0
+                                ellipse { at: fx + 3 * sway, fy - 26 + 1.5 * sway; radius: 32 }
                             }
-                            box { at: px - 4 + 3 * sway, py + 26 + 1.5 * sway; size: 3, 6; corner: 1.5; color: ink }
-                            box { at: px + 4 + 3 * sway, py + 26 + 1.5 * sway; size: 3, 6; corner: 1.5; color: ink }
+                            box { at: fx - 7 + 3 * sway, fy - 26 + 1.5 * sway; size: 5, 11; corner: 2.5; color: ink }
+                            box { at: fx + 7 + 3 * sway, fy - 26 + 1.5 * sway; size: 5, 11; corner: 2.5; color: ink }
+                            text pick(t, "Liquid", "Light liquid", "Classic") { at: fx, fy + 38; anchor: center; size: 13; weight: 600; color: ink }
+                            text pick(t, "Bends what's behind", "Blurs it", "Opaque, no glass") { at: fx, fy + 58; anchor: center; size: 10.5; color: st.faint }
+                            ellipse { at: fx, fy + 76; radius: 4; color: mint; opacity: chosen.$t }
+                            zone box swatch.$t { at: fx, fy; size: 140, 180; corner: 18; cursor: pointer }
                         }
-                        text "Her home" { at: px, py + 76; anchor: center; size: 10.5; weight: 600; color: mint; opacity: is_home.$m }
-                        zone box pool_zone.$m { at: px, py; size: 208, 118; corner: 12; cursor: pointer; active: st.on and section == home }
-                        on enter pool_zone.$m { pool.$m: 1 }
-                        on leave pool_zone.$m { pool.$m: 0 }
-                        on press pool_zone.$m { home = m; following = false }
+                        on press swatch.0 { skin = lens }
+                        on press swatch.1 { skin = liquid }
+                        on press swatch.2 { skin = classic }
+                        text "Liquid reads the screen behind her to bend it: it costs a little more." { at: card.x, card.top + 372; anchor: center; size: 11; width: 440; lines: 1; color: st.faint; opacity: 85% }
                     }
-                    //  «Follow me»: a card with its switch.
-                    prop followme.glow = 0 ~140ms
-                    prop follow.pos = 0 ~200ms
-                    follow follow.pos = if(following, 1, 0)
-                    box { at: card.x, card.top + 360; size: 456, 64; corner: 16; color: mix(mix(#202021, #262728, followme.glow), #1a2a25, follow.pos) }
-                    box { at: card.x, card.top + 360; size: 456, 64; corner: 16; stroke: 1.2; color: mint; opacity: follow.pos * 70% }
-                    path { at: card.x - 206, card.top + 352; color: mix(st.faint, mint, follow.pos); stroke: 1.8
-                           move 0, 4; line 16, 4; line 12, 0 }
-                    path { at: card.x - 206, card.top + 364; color: mix(st.faint, mint, follow.pos); stroke: 1.8
-                           move 16, 0; line 0, 0; line 4, 4 }
-                    text "Follow me" { at: card.x - 176, card.top + 350; anchor: left center; size: 13; weight: 600; color: ink }
-                    text "She goes to the monitor where you are working" { at: card.x - 176, card.top + 369; anchor: left center; size: 11; color: st.faint }
-                    box { at: card.x + 196, card.top + 360; size: 44, 24; corner: 12; color: mix(#3a3d40, mint, follow.pos) }
-                    ellipse { at: card.x + 186 + follow.pos * 20, card.top + 360; radius: 9; color: #f6f6f5 }
-                    zone box follow_me { at: card.x, card.top + 360; size: 456, 64; corner: 16; cursor: pointer; active: st.on and section == home }
-                    on enter follow_me { followme.glow: 1 }
-                    on leave follow_me { followme.glow: 0 }
-                    on press follow_me { toggle following }
-                }
 
-                // ── her look ──
-                //  Three swatches, and in each one she herself painted that way:
-                //  not a photo of how it would be, but really her, with her glass
-                //  bending whatever is behind the card or with the usual one.
-                group {
-                    show: section == look
-                    text "Made of glass like Apple's, or the usual one." { at: card.x - 228, card.top + 122; anchor: left center; size: 12; color: st.faint }
-                    repeat t in 0..3 {
-                        let fx = card.x - 152 + t * 152
-                        let fy = card.top + 250
-                        prop swatch.$t = 0 ~140ms
-                        let chosen.$t = if(t == 0, skin == lens, if(t == 1, skin == liquid, skin == classic))
-                        box { at: fx, fy; size: 140, 180; corner: 18; color: st.col; opacity: st.op + swatch.$t * 5% }
-                        box { at: fx, fy; size: 140, 180; corner: 18; stroke: 1.5; color: mint; opacity: chosen.$t * 85% + swatch.$t * 20% }
-                        body {
-                            color: coal
-                            rim: 14%
-                            glass: if(t < 2, 1, 0)
-                            lens: t == 0
-                            ellipse { at: fx + 3 * sway, fy - 26 + 1.5 * sway; radius: 32 }
+                    // ── the language ──
+                    //  Three rows, each name written in its own language.
+                    page language "Language" {
+                        text "The language she speaks in." { at: card.x - 228, card.top + 122; anchor: left center; size: 12; color: st.faint }
+                        repeat l in 0..3 {
+                            let ly = card.top + 178 + l * 74
+                            let lang.on.$l = if(l == 0, language == system, if(l == 1, language == english, language == spanish))
+                            box { at: card.x, ly; size: 456, 64; corner: 16; color: mix(mix(#25282b, #2c3033, lang_zone.$l.hover), #1a2a25, lang.on.$l) }
+                            box { at: card.x, ly; size: 456, 64; corner: 16; stroke: 1.3; color: mint; opacity: lang.on.$l * 80% + lang_zone.$l.hover * 20% }
+                            ellipse { at: card.x - 196, ly; radius: 20; color: ink; opacity: 8% }
+                            text pick(l, "Aa", "EN", "ES") { at: card.x - 196, ly; anchor: center; size: 13; weight: 700; color: ink }
+                            text pick(l, "System", "English", "Español") { at: card.x - 164, ly - 9; anchor: left center; size: 13.5; weight: 600; color: ink }
+                            text pick(l, "The one your session speaks", "Always in English", "Siempre en español") { at: card.x - 164, ly + 10; anchor: left center; size: 11; color: st.faint }
+                            ellipse { at: card.x + 200, ly; radius: 9; stroke: 1.6; color: mix(st.faint, mint, lang.on.$l) }
+                            ellipse { at: card.x + 200, ly; radius: 5 * lang.on.$l; color: mint }
+                            zone box lang_zone.$l { at: card.x, ly; size: 456, 64; corner: 16; cursor: pointer }
                         }
-                        box { at: fx - 7 + 3 * sway, fy - 26 + 1.5 * sway; size: 5, 11; corner: 2.5; color: ink }
-                        box { at: fx + 7 + 3 * sway, fy - 26 + 1.5 * sway; size: 5, 11; corner: 2.5; color: ink }
-                        text "Liquid" { at: fx, fy + 38; anchor: center; size: 13; weight: 600; color: ink; show: t == 0 }
-                        text "Light liquid" { at: fx, fy + 38; anchor: center; size: 13; weight: 600; color: ink; show: t == 1 }
-                        text "Classic" { at: fx, fy + 38; anchor: center; size: 13; weight: 600; color: ink; show: t == 2 }
-                        text "Bends what's behind" { at: fx, fy + 58; anchor: center; size: 10.5; color: st.faint; show: t == 0 }
-                        text "Blurs it" { at: fx, fy + 58; anchor: center; size: 10.5; color: st.faint; show: t == 1 }
-                        text "Opaque, no glass" { at: fx, fy + 58; anchor: center; size: 10.5; color: st.faint; show: t == 2 }
-                        ellipse { at: fx, fy + 76; radius: 4; color: mint; opacity: chosen.$t }
-                        zone box swatch.$t { at: fx, fy; size: 140, 180; corner: 18; cursor: pointer; active: st.on and section == look }
-                        on enter swatch.$t { swatch.$t: 1 }
-                        on leave swatch.$t { swatch.$t: 0 }
+                        on press lang_zone.0 { language = system }
+                        on press lang_zone.1 { language = english }
+                        on press lang_zone.2 { language = spanish }
                     }
-                    on press swatch.0 { skin = lens }
-                    on press swatch.1 { skin = liquid }
-                    on press swatch.2 { skin = classic }
-                    text "Liquid reads the screen behind her to bend it: it costs a little more." { at: card.x, card.top + 372; anchor: center; size: 11; width: 440; lines: 1; color: st.faint; opacity: 85% }
-                }
 
-                // ── the language ──
-                //  Three rows, each name written in its own language, and a badge
-                //  with its letters. «System» follows the session's language.
-                group {
-                    show: section == language
-                    text "The language she speaks in." { at: card.x - 228, card.top + 122; anchor: left center; size: 12; color: st.faint }
-                    repeat l in 0..3 {
-                        let ly = card.top + 178 + l * 74
-                        prop lang.glow.$l = 0 ~140ms
-                        let lang.on.$l = if(l == 0, language == system, if(l == 1, language == english, language == spanish))
-                        box { at: card.x, ly; size: 456, 64; corner: 16; color: mix(st.col, #1a2a25, lang.on.$l); opacity: st.op + lang.glow.$l * 6% + lang.on.$l * 40% }
-                        box { at: card.x, ly; size: 456, 64; corner: 16; stroke: 1.3; color: mint; opacity: lang.on.$l * 80% + lang.glow.$l * 20% }
-                        ellipse { at: card.x - 196, ly; radius: 20; color: ink; opacity: 8% }
-                        text "Aa" { at: card.x - 196, ly; anchor: center; size: 14; weight: 700; color: ink; show: l == 0 }
-                        text "EN" { at: card.x - 196, ly; anchor: center; size: 13; weight: 700; color: ink; show: l == 1 }
-                        text "ES" { at: card.x - 196, ly; anchor: center; size: 13; weight: 700; color: ink; show: l == 2 }
-                        text "System" { at: card.x - 164, ly - 9; anchor: left center; size: 13.5; weight: 600; color: ink; show: l == 0 }
-                        text "English" { at: card.x - 164, ly - 9; anchor: left center; size: 13.5; weight: 600; color: ink; show: l == 1 }
-                        text "Español" { at: card.x - 164, ly - 9; anchor: left center; size: 13.5; weight: 600; color: ink; show: l == 2 }
-                        text "The one your session speaks" { at: card.x - 164, ly + 10; anchor: left center; size: 11; color: st.faint; show: l == 0 }
-                        text "Always in English" { at: card.x - 164, ly + 10; anchor: left center; size: 11; color: st.faint; show: l == 1 }
-                        text "Siempre en español" { at: card.x - 164, ly + 10; anchor: left center; size: 11; color: st.faint; show: l == 2 }
-                        ellipse { at: card.x + 200, ly; radius: 9; stroke: 1.6; color: mix(st.faint, mint, lang.on.$l) }
-                        ellipse { at: card.x + 200, ly; radius: 5 * lang.on.$l; color: mint }
-                        zone box lang_zone.$l { at: card.x, ly; size: 456, 64; corner: 16; cursor: pointer; active: st.on and section == language }
-                        on enter lang_zone.$l { lang.glow.$l: 1 }
-                        on leave lang_zone.$l { lang.glow.$l: 0 }
+                    // ── the lock ──
+                    //  A big padlock, open while the safety net is on, and what that
+                    //  means said plainly, with its switch.
+                    page lock "The lock" {
+                        prop safety.pos = 0 ~200ms
+                        follow safety.pos = if(with_exit, 1, 0)
+                        arc { at: card.x, card.top + 172 - 6 * safety.pos; radius: 18; span: 180deg; width: 5; color: ink }
+                        line { from: card.x - 18, card.top + 172 - 6 * safety.pos; to: card.x - 18, card.top + 186 - 6 * safety.pos; width: 5; color: ink }
+                        line { from: card.x + 18, card.top + 172; to: card.x + 18, card.top + 186; width: 5; color: ink; opacity: 1 - safety.pos }
+                        box { at: card.x, card.top + 206; size: 54, 40; corner: 9; color: mix(ink, mint, safety.pos) }
+                        ellipse { at: card.x, card.top + 202; radius: 4.5; color: coal }
+                        box { at: card.x, card.top + 211; size: 3.5, 9; corner: 1.5; color: coal }
+                        text "Her lock screen opens with your password." { at: card.x, card.top + 256; anchor: center; size: 12.5; weight: 500; color: ink }
+                        text "While you try it out, a safety net: Esc also opens it, and it opens by itself after a minute." { at: card.x, card.top + 284; anchor: center; size: 11; width: 400; lines: 2; align: center; color: st.faint }
+                        box { at: card.x, card.top + 360; size: 456, 64; corner: 16; color: mix(#202021, #1a2a25, safety.pos) }
+                        box { at: card.x, card.top + 360; size: 456, 64; corner: 16; stroke: 1.2; color: mint; opacity: safety.pos * 70% }
+                        text "Safety net" { at: card.x - 206, card.top + 350; anchor: left center; size: 13; weight: 600; color: ink }
+                        text "Remove it once you trust your password. It lasts until a restart" { at: card.x - 206, card.top + 369; anchor: left center; size: 11; width: 370; lines: 1; color: st.faint }
+                        column { at: card.x + 174, card.top + 348
+                            Switch(with_exit, flip_safety)
+                        }
                     }
-                    on press lang_zone.0 { language = system }
-                    on press lang_zone.1 { language = english }
-                    on press lang_zone.2 { language = spanish }
-                }
-
-                // ── the lock ──
-                //  A big padlock and what the safety net means, said plainly,
-                //  with its switch.
-                group {
-                    show: section == lock
-                    prop safety.pos = 0 ~200ms
-                    follow safety.pos = if(with_exit, 1, 0)
-                    //  The padlock, open while the net is on.
-                    arc { at: card.x, card.top + 172 - 6 * safety.pos; radius: 18; span: 180deg; width: 5; color: ink }
-                    line { from: card.x - 18, card.top + 172 - 6 * safety.pos; to: card.x - 18, card.top + 186 - 6 * safety.pos; width: 5; color: ink }
-                    line { from: card.x + 18, card.top + 172; to: card.x + 18, card.top + 186; width: 5; color: ink; opacity: 1 - safety.pos }
-                    box { at: card.x, card.top + 206; size: 54, 40; corner: 9; color: mix(ink, mint, safety.pos) }
-                    ellipse { at: card.x, card.top + 202; radius: 4.5; color: coal }
-                    box { at: card.x, card.top + 211; size: 3.5, 9; corner: 1.5; color: coal }
-                    text "Her lock screen opens with your password." { at: card.x, card.top + 256; anchor: center; size: 12.5; weight: 500; color: ink }
-                    text "While you try it out, a safety net: Esc also opens it, and it opens by itself after a minute." { at: card.x, card.top + 284; anchor: center; size: 11; width: 400; lines: 2; align: center; color: st.faint }
-                    prop safety.glow = 0 ~140ms
-                    box { at: card.x, card.top + 360; size: 456, 64; corner: 16; color: mix(mix(#202021, #262728, safety.glow), #1a2a25, safety.pos) }
-                    box { at: card.x, card.top + 360; size: 456, 64; corner: 16; stroke: 1.2; color: mint; opacity: safety.pos * 70% }
-                    text "Safety net" { at: card.x - 206, card.top + 350; anchor: left center; size: 13; weight: 600; color: ink }
-                    text "Remove it once you trust your password. It lasts until a restart" { at: card.x - 206, card.top + 369; anchor: left center; size: 11; width: 370; lines: 1; color: st.faint }
-                    box { at: card.x + 196, card.top + 360; size: 44, 24; corner: 12; color: mix(#3a3d40, mint, safety.pos) }
-                    ellipse { at: card.x + 186 + safety.pos * 20, card.top + 360; radius: 9; color: #f6f6f5 }
-                    zone box safety_zone { at: card.x, card.top + 360; size: 456, 64; corner: 16; cursor: pointer; active: st.on and section == lock }
-                    on enter safety_zone { safety.glow: 1 }
-                    on leave safety_zone { safety.glow: 0 }
-                    on press safety_zone { toggle with_exit }
                 }
             }
 
