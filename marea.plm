@@ -2809,14 +2809,18 @@ scene Marea {
         let y0 = card.top + 23
 
         text "MAREA" { at: x0, y0; anchor: left center; size: 9; weight: 600; color: ink; opacity: 38% }
-        text "Control center" { at: x0, y0 + 22; anchor: left center; size: 18; weight: 500; color: ink }
+        //  The big title says where you are: «Control center» on the front
+        //  page, and the page's own name —with its way back beside it— on the
+        //  others (see the page's header, below).
+        text "Control center" { at: x0 + 22 * paging, y0 + 22; anchor: left center; size: 18; weight: 500; color: ink; opacity: 1 - clamp(paging * 2, 0, 1) }
         //  The gear and the cross, top right.
         prop gear.glow = 0 ~140ms
         prop cross.glow = 0 ~140ms
         let gear.x = card.x + 168
         let cross.x = card.x + 204
         group {
-            opacity: 55% + gear.glow * 45%
+            //  Inside a page its place is the page's own buttons'.
+            opacity: (55% + gear.glow * 45%) * (1 - clamp(paging * 2, 0, 1))
             arc { at: gear.x, y0 + 14; radius: 7; span: 300deg; width: 1.8; color: ink }
             ellipse { at: gear.x, y0 + 14; radius: 2.6; color: ink }
         }
@@ -2825,7 +2829,7 @@ scene Marea {
             line { from: cross.x - 6, y0 + 8; to: cross.x + 6, y0 + 20; width: 1.8; color: ink }
             line { from: cross.x + 6, y0 + 8; to: cross.x - 6, y0 + 20; width: 1.8; color: ink }
         }
-        zone box gear { at: gear.x, y0 + 14; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 }
+        zone box gear { at: gear.x, y0 + 14; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 and page == none }
         zone box close_btn { at: cross.x, y0 + 14; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 }
         on enter gear { gear.glow: 1 }
         on leave gear { gear.glow: 0 }
@@ -3087,12 +3091,13 @@ scene Marea {
         let pg.own = if(page == wardrobe or page == systray or page == settings or page == agents or page == calendar, 0, 1)
         let pg.ox = card.x + 111 * pg.own
         let pg.oy = card.top + 231 + (-126 + (pg.k - 1) * 66) * pg.own
-        //  The page's box starts 68 below the card's top edge, with air under
-        //  «Control center» —at 56 it was glued to it—, and the pages of their
+        //  The page's box starts where its content does, 96 below the card's
+        //  top edge: the page's name and its buttons live in the card's own
+        //  header now, not in a row of the box. And the pages of their
         //  own (agents, calendar, settings…) reach down to where their content
         //  ends instead of letting it spill out of the box.
-        let pg.to.h = 338 + 88 * (1 - pg.own)
-        let pg.to.y = card.top + 68 + pg.to.h / 2
+        let pg.to.h = 310 + 88 * (1 - pg.own)
+        let pg.to.y = card.top + 96 + pg.to.h / 2
         let pg.x = pg.ox + (card.x - pg.ox) * paging
         let pg.y = pg.oy + (pg.to.y - pg.oy) * paging
         let pg.w = 234 + 222 * paging
@@ -3102,21 +3107,21 @@ scene Marea {
         group {
             opacity: clamp(paging * 3 - 2, 0, 1)
             let px0 = card.x - 208
-            //  The page's header: back, and what it is about.
-            path { at: card.x - 228, card.top + 89; color: ink; stroke: 1.8; opacity: 70%
+            //  The page's header, in the card's own: back, and where you are.
+            path { at: card.x - 228, card.top + 40; color: ink; stroke: 1.8; opacity: 70%
                    move 5, 0; line 0, 5; line 5, 10 }
-            text "Wi-Fi" { at: px0, card.top + 94; anchor: left center; size: 14; weight: 500; color: ink; show: page == wifi }
-            text "Bluetooth" { at: px0, card.top + 94; anchor: left center; size: 14; weight: 500; color: ink; show: page == bluetooth }
-            text "Focus" { at: px0, card.top + 94; anchor: left center; size: 14; weight: 500; color: ink; show: page == concentration }
-            text "Her wardrobe" { at: px0, card.top + 94; anchor: left center; size: 14; weight: 500; color: ink; show: page == wardrobe }
-            text "Sound" { at: px0, card.top + 94; anchor: left center; size: 14; weight: 500; color: ink; show: page == sound }
-            text "Settings" { at: px0, card.top + 94; anchor: left center; size: 14; weight: 500; color: ink; show: page == settings }
-            text "Agents" { at: px0, card.top + 94; anchor: left center; size: 14; weight: 500; color: ink; show: page == agents }
-            text cal.month { at: px0, card.top + 94; anchor: left center; size: 14; weight: 600; color: ink; show: page == calendar }
-            text systray.title { at: px0, card.top + 94; anchor: left center; size: 14; weight: 500; width: 400; lines: 1; color: ink; show: page == systray }
-            text "Shall we take a break?" { at: px0, card.top + 94; anchor: left center; size: 14; weight: 500; color: ink; show: page == session and confirming == none }
-            text "Confirm" { at: px0, card.top + 94; anchor: left center; size: 14; weight: 500; color: ink; show: page == session and confirming != none }
-            zone box back_arrow { at: card.x - 224, card.top + 94; size: 34, 34; corner: 17; cursor: pointer; active: paging > 0.9 }
+            text "Wi-Fi" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == wifi }
+            text "Bluetooth" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == bluetooth }
+            text "Focus" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == concentration }
+            text "Her wardrobe" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == wardrobe }
+            text "Sound" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == sound }
+            text "Settings" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
+            text "Agents" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == agents }
+            text cal.month { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == calendar }
+            text systray.title { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; width: 300; lines: 1; color: ink; show: page == systray }
+            text "Shall we take a break?" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == session and confirming == none }
+            text "Confirm" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == session and confirming != none }
+            zone box back_arrow { at: card.x - 224, card.top + 45; size: 34, 34; corner: 17; cursor: pointer; active: paging > 0.9 }
             //  A step back is ONE step: from the question you go back to the list,
             //  not to the control center. The guards read the previous frame, so
             //  the two do not step on each other.
@@ -3266,12 +3271,12 @@ scene Marea {
                 show: page == settings
                 prop tab = 0 ~quick
                 follow tab = if(section == appearance, 1, 0)
-                box { at: card.x + 132, card.top + 94; size: 184, 30; corner: 15; color: ink; opacity: 8% }
-                box { at: card.x + 87 + tab * 90, card.top + 94; size: 88, 24; corner: 12; color: ink; opacity: 16% }
-                text "General" { at: card.x + 87, card.top + 94; anchor: center; size: 11.5; weight: 500; color: ink; opacity: 55% + (1 - tab) * 45% }
-                text "Appearance" { at: card.x + 177, card.top + 94; anchor: center; size: 11.5; weight: 500; color: ink; opacity: 55% + tab * 45% }
-                zone box tab.general { at: card.x + 87, card.top + 94; size: 90, 30; corner: 15; cursor: pointer; active: page == settings and paging > 0.9 }
-                zone box tab.appearance { at: card.x + 177, card.top + 94; size: 90, 30; corner: 15; cursor: pointer; active: page == settings and paging > 0.9 }
+                box { at: card.x + 95, card.top + 40; size: 184, 30; corner: 15; color: ink; opacity: 8% }
+                box { at: card.x + 50 + tab * 90, card.top + 40; size: 88, 24; corner: 12; color: ink; opacity: 16% }
+                text "General" { at: card.x + 50, card.top + 40; anchor: center; size: 11.5; weight: 500; color: ink; opacity: 55% + (1 - tab) * 45% }
+                text "Appearance" { at: card.x + 140, card.top + 40; anchor: center; size: 11.5; weight: 500; color: ink; opacity: 55% + tab * 45% }
+                zone box tab.general { at: card.x + 50, card.top + 40; size: 90, 30; corner: 15; cursor: pointer; active: page == settings and paging > 0.9 }
+                zone box tab.appearance { at: card.x + 140, card.top + 40; size: 90, 30; corner: 15; cursor: pointer; active: page == settings and paging > 0.9 }
                 on press tab.general { section = general }
                 on press tab.appearance { section = appearance }
             }
@@ -3469,11 +3474,11 @@ scene Marea {
                 //  Read again: the arrow turns once.
                 group {
                     opacity: 55% + refresh.glow * 45%
-                    arc { at: card.x + 204, card.top + 94; radius: 7; span: 290deg; width: 1.8; rotate: refresh.turn * 1deg; color: ink }
-                    path { at: card.x + 204 + 7 * cos(refresh.turn - 55), card.top + 94 + 7 * sin(refresh.turn - 55); color: ink; rotate: (refresh.turn + 35) * 1deg
+                    arc { at: card.x + 168, card.top + 37; radius: 7; span: 290deg; width: 1.8; rotate: refresh.turn * 1deg; color: ink }
+                    path { at: card.x + 168 + 7 * cos(refresh.turn - 55), card.top + 37 + 7 * sin(refresh.turn - 55); color: ink; rotate: (refresh.turn + 35) * 1deg
                            move -3, -3; line 3, 0; line -3, 3; close }
                 }
-                zone box refresh_btn { at: card.x + 204, card.top + 94; size: 30, 30; corner: 15; cursor: pointer; active: page == agents and paging > 0.9 }
+                zone box refresh_btn { at: card.x + 168, card.top + 37; size: 30, 30; corner: 15; cursor: pointer; active: page == agents and paging > 0.9 }
                 on enter refresh_btn { refresh.glow: 1 }
                 on leave refresh_btn { refresh.glow: 0 }
                 on press refresh_btn { refresh.turn: refresh.turn + 360; emit agents_refresh }
@@ -3666,15 +3671,15 @@ scene Marea {
                 prop cal.prev.glow = 0 ~140ms
                 prop cal.next.glow = 0 ~140ms
                 prop cal.today.glow = 0 ~140ms
-                path { at: card.x + 134, card.top + 89; color: ink; stroke: 1.8; opacity: 55% + cal.prev.glow * 45%
+                path { at: card.x + 92, card.top + 32; color: ink; stroke: 1.8; opacity: 55% + cal.prev.glow * 45%
                        move 5, 0; line 0, 5; line 5, 10 }
-                box { at: card.x + 170, card.top + 94; size: 46, 24; corner: 12; color: ink; opacity: 8% + cal.today.glow * 10% }
-                text "Today" { at: card.x + 170, card.top + 94; anchor: center; size: 11; weight: 500; color: ink }
-                path { at: card.x + 202, card.top + 89; color: ink; stroke: 1.8; opacity: 55% + cal.next.glow * 45%
+                box { at: card.x + 128, card.top + 37; size: 46, 24; corner: 12; color: ink; opacity: 8% + cal.today.glow * 10% }
+                text "Today" { at: card.x + 128, card.top + 37; anchor: center; size: 11; weight: 500; color: ink }
+                path { at: card.x + 160, card.top + 32; color: ink; stroke: 1.8; opacity: 55% + cal.next.glow * 45%
                        move 0, 0; line 5, 5; line 0, 10 }
-                zone box cal_prev_btn { at: card.x + 137, card.top + 94; size: 28, 28; corner: 14; cursor: pointer; active: page == calendar and paging > 0.9 }
-                zone box cal_today_btn { at: card.x + 170, card.top + 94; size: 46, 26; corner: 13; cursor: pointer; active: page == calendar and paging > 0.9 }
-                zone box cal_next_btn { at: card.x + 205, card.top + 94; size: 28, 28; corner: 14; cursor: pointer; active: page == calendar and paging > 0.9 }
+                zone box cal_prev_btn { at: card.x + 95, card.top + 37; size: 28, 28; corner: 14; cursor: pointer; active: page == calendar and paging > 0.9 }
+                zone box cal_today_btn { at: card.x + 128, card.top + 37; size: 46, 26; corner: 13; cursor: pointer; active: page == calendar and paging > 0.9 }
+                zone box cal_next_btn { at: card.x + 163, card.top + 37; size: 28, 28; corner: 14; cursor: pointer; active: page == calendar and paging > 0.9 }
                 on enter cal_prev_btn { cal.prev.glow: 1 }
                 on leave cal_prev_btn { cal.prev.glow: 0 }
                 on enter cal_next_btn { cal.next.glow: 1 }
