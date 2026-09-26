@@ -472,7 +472,7 @@ scene Marea {
     //  And «once per episode» can no longer hang from the face, because the face
     //  comes back: its own fact carries it, which is cleared when none is left.
     fact alarmed = false
-    on urge while not haven and not alarmed { alarmed = true; face = alert; play alarm_jump; filter = 0; tray_by_itself = true; emit open_tray }
+    on urge while not haven and not alarmed { alarmed = true; face = alert; sign: 0 ~100ms; play alarm_jump; filter = 0; tray_by_itself = true; emit open_tray }
     on still face for 1.6s while face == alert { face = eye }
     //  In the Haven an allowed urgency **does not open the tray or steal the
     //  focus**: an amber pearl appears over the membrane and only the eye beside
@@ -550,6 +550,28 @@ scene Marea {
     text row.4.age = "3 h"
     text row.5.age = "yesterday"
     prop arrive = 0 ~220ms             // the card, coming in
+    //  The arriving card's life, beat by beat: the drop falling from the top
+    //  edge and unfolding (land), its words being written (write), how much of
+    //  its reading has gone (read.t, which the pointer stops), the chips that
+    //  come out under the pointer, the symbol in her eyes, and the pile opening.
+    prop land = 0 ~16ms
+    prop write = 0 ~16ms
+    prop read.t = 0
+    spin read.t by if(phase == 1 and not hovered and land > 0.95, 1 / if(burst > 1, 4.2, 3.2), 0)
+    prop chips = 0 ~180ms
+    follow chips = if(hovered and phase == 1, 1, 0)
+    prop sign = 0 ~200ms
+    prop pile.open = 0 ~gentle
+    follow pile.open = if(hovered and burst > 1 and phase == 1, 1, 0)
+    prop urgent.beat = 0
+    spin urgent.beat by if(reading_urgent and phase == 1, 1.2, 0)
+    fact reading_urgent = false
+    fact acts = 0
+    fact notice.icon = false
+    text act.1 = ""
+    text act.2 = ""
+    model notice_face max 1 { icon: image 24, 24 }
+    event notice_act ->                // a chip of the arriving card: 0 open, 1 done, 2 and 3 its own
     //  One per card in the pile: they fly together but not at the same time.
     repeat j in 0..3 { prop fly.$j = 0 ~280ms }
     prop attentive = 0 ~gentle         // looking at the card
@@ -1611,9 +1633,9 @@ scene Marea {
         //  ring before the ring goes.
         let shrink = 1 - powerdown
         let v.w = w.w * shrink
-        let v.h = w.h * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - clamp(hands, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
+        let v.h = w.h * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - clamp(hands, 0, 1)) * (1 - clamp(sign, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
         let v.rw = w.rw * shrink
-        let v.rh = w.rh * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - clamp(hands, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
+        let v.rh = w.rh * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - clamp(hands, 0, 1)) * (1 - clamp(sign, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
 
         //  The magnifying glass is centred as a whole, not by its ring: the ring
         //  sat where the eyes do and the handle hung off it down to the right,
@@ -1666,6 +1688,40 @@ scene Marea {
             line { from: x, eye.y; to: x + 5.5 * sin(hand.h) * hands, eye.y - 5.5 * cos(hand.h) * hands; width: 2.8; color: ink; opacity: min(hands * 3, 1) }
             line { from: x, eye.y; to: x + 9 * sin(hand.m) * hands, eye.y - 9 * cos(hand.m) * hands; width: 2; color: ink; opacity: min(hands * 3, 1) }
             ellipse { at: x, eye.y; radius: 1.9 * hands; color: ink; opacity: min(hands * 3, 1) }
+            //  What has just arrived, in her eyes for a moment: the pills flatten
+            //  and the symbol of its kind grows in their place. A speech bubble
+            //  for messages, an envelope for work, a calendar page, a gear for
+            //  the system.
+            group {
+                opacity: min(sign * 3, 1)
+                pivot: x, eye.y
+                scale: sign, sign
+                group {
+                    show: reading_cat == 1
+                    box { at: x, eye.y - 1; size: 17, 12; corner: 4.5; stroke: 1.9; color: ink }
+                    path { at: x - 4, eye.y + 4.5; color: ink; move 0, 0; line 5, 0; line -1.5, 4.5; close }
+                }
+                group {
+                    show: reading_cat == 2
+                    box { at: x, eye.y; size: 18, 12; corner: 1.8; stroke: 1.8; color: ink }
+                    line { from: x - 8, eye.y - 5; to: x, eye.y + 1; width: 1.6; color: ink }
+                    line { from: x + 8, eye.y - 5; to: x, eye.y + 1; width: 1.6; color: ink }
+                }
+                group {
+                    show: reading_cat == 3
+                    box { at: x, eye.y + 0.5; size: 15, 13; corner: 2; stroke: 1.8; color: ink }
+                    box { at: x, eye.y - 4; size: 15, 4; corner: 1; color: ink }
+                    line { from: x - 3.5, eye.y - 8.5; to: x - 3.5, eye.y - 5; width: 1.6; color: ink }
+                    line { from: x + 3.5, eye.y - 8.5; to: x + 3.5, eye.y - 5; width: 1.6; color: ink }
+                }
+                group {
+                    show: reading_cat == 4
+                    ellipse { at: x, eye.y; radius: 5; stroke: 2.2; color: ink }
+                    repeat t in 0..6 {
+                        box { at: x + 7 * cos(t * 60), eye.y + 7 * sin(t * 60); size: 3.2, 3.2; corner: 0.8; rotate: t * 60deg; color: ink }
+                    }
+                }
+            }
             //  Reading water: the pills flatten the same way and a little wave
             //  grows in each place, a ∩ and a ∪ side by side, rocking.
             repeat e in 0..2 {
@@ -2125,31 +2181,114 @@ scene Marea {
     let arrival.dx = cx + 31.7 * cos(-24) - arrival.x0
     let arrival.dy = 31.7 * sin(-24)
 
+    //  It arrives as a drop: it falls from the top edge of the screen —her
+    //  water's surface—, splashes beside her and unfolds into the card (land:
+    //  falling a, splash b, unfolding c). With several, the pile is a fan of
+    //  cards held in a hand, which opens under the pointer.
+    let land.a = clamp(land / 0.45, 0, 1)
+    let land.b = clamp((land - 0.45) / 0.25, 0, 1)
+    let land.c = clamp((land - 0.55) / 0.45, 0, 1)
     repeat j in 0..3 {
         //  `behind` is how many it has on top: 0 is the front one.
         let behind = 2 - j
         let flight = fly.$j
+        let front = if(behind == 0, 1, 0)
         let aw = (250 - behind * 22) + (8.3 - 250 + behind * 22) * flight
-        let ah = 44 + (8.3 - 44) * flight
-        let ax = arrival.x0 + arrival.dx * flight + (1 - arrive) * 30
-        let ay = cy_actual + arrival.dy * (1 - (1 - flight) * (1 - flight)) + behind * 8 * (1 - flight)
+        let ah.rest = 44 + 30 * chips * front
+        let ah = ah.rest + (8.3 - ah.rest) * flight
+        //  Under the pointer the ones behind slide out to the right and turn,
+        //  like cards held in a hand: they peek out beside the front one instead
+        //  of hiding under it. Not upwards: she lives at the screen's top edge.
+        let ax = arrival.x0 + arrival.dx * flight + (1 - arrive) * 30 + behind * 26 * pile.open * (1 - flight)
+        let ay = cy_actual + 15 * chips * front + arrival.dy * (1 - (1 - flight) * (1 - flight)) + behind * (8 + 10 * pile.open) * (1 - flight)
+        //  Only the front one falls: the others were already there.
+        let fall.y = -12 + (ay + 12) * land.a * land.a
+        let at.y = if(front > 0.5, fall.y, ay)
+        let unf = if(front > 0.5, land.c, 1)
+        let w = 10 + (aw - 10) * unf
+        let h = 10 + (ah - 10) * unf
         body {
             //  The ones behind do not carry their colour until they fly: while
             //  they wait they are stacked paper, and the colour belongs to the one
-            //  being read.
-            color: mix(mix(#0c0f12, #171b1f, behind > 0), hue, flight)
+            //  being read. Falling, it is water: its colour.
+            color: mix(mix(mix(#0c0f12, #1f252a, behind > 0), hue, flight), hue, (1 - unf) * front)
             opacity: arrive
-            shadow: 0, 6, 14, 30%
+            shadow: 0, 6, 14, 30% * unf
             show: burst > behind
-            box { at: ax, ay; size: aw, ah; corner: min(ah / 2, 14 + (ah / 2 - 14) * flight) }
+            box { at: ax, at.y; size: w, h; corner: min(h / 2, 14 + (h / 2 - 14) * flight)
+                  rotate: behind * (2 + 5 * pile.open) * (1 - flight) * 1deg }
         }
+        //  Flying to its count, it leaves a trail of drops.
+        particles { at: ax, ay; count: 60; life: 0.2s .. 0.45s; speed: 5 .. 30; spread: 360deg; gravity: 0, 200
+                    size: 2.6, 0.8; colors: hue, #ffffff; opacity: 80%, 0%; emit: flight > 0.04 and flight < 0.95 and burst > behind }
+    }
+    //  The splash where it lands, and the ring it leaves on the water.
+    particles { at: arrival.x0 + (1 - arrive) * 30, cy_actual; area: 8, 0; count: 140; life: 0.25s .. 0.55s; speed: 40 .. 130
+                direction: -90deg; spread: 150deg; gravity: 0, 520; size: 3, 1; colors: hue, #ffffff; opacity: 90%, 0%
+                emit: land > 0.43 and land < 0.52 and arrive > 0.5 }
+    ellipse { at: arrival.x0 + (1 - arrive) * 30, cy_actual; radius: 6 + 40 * land.b; stroke: 1.5; color: hue
+              opacity: (1 - land.b) * 70% * if(land > 0.44, 1, 0) * arrive }
+
+    //  The front card, once it is a card: who in a bubble, the words written by
+    //  a wave, its reading as a water line that drains, and under the pointer
+    //  what can be done with it.
+    let f.x = arrival.x0 + (1 - arrive) * 30
+    let f.h = 44 + 30 * chips
+    let f.top = cy_actual + 15 * chips - f.h / 2
+    let f.left = f.x - 125
+    let f.show = arrive * clamp(land.c * 3 - 2, 0, 1)
+    //  Urgent: a coral edge that beats.
+    box { at: f.x, f.top + f.h / 2; size: 250, f.h; corner: 14; stroke: 1.6; color: #ef7a66
+          opacity: f.show * (1 - clamp(fly.2 * 5, 0, 1)) * if(reading_urgent, 0.45 + 0.4 * sin(urgent.beat * 360), 0) }
+    group {
+        opacity: f.show * (1 - clamp(fly.2 * 5, 0, 1))
+        //  Who: its icon in a bubble of glass with a halo of its colour; without
+        //  one, a drop of that colour.
         group {
-            show: behind == 0
-            opacity: arrive * (1 - clamp(flight * 5, 0, 1))
-            box { at: ax - 120, ay; size: 3, 28; corner: 1.5; color: hue }
-            text who { at: ax - 110, ay - 8; anchor: left center; size: 11.5; weight: 600; color: #f6f6f5 }
-            text line { at: ax - 110, ay + 8; anchor: left center; size: 10.5; width: 190; lines: 1; color: #a9adb3 }
-            text "now" { at: ax + 113, ay - 8; anchor: right center; size: 9.5; color: #8b8f95 }
+            glow: 8, 60%, hue
+            ellipse { at: f.left + 21, f.top + 22; radius: 13; color: mix(#0c0f12, hue, 0.28) }
+        }
+        ellipse { at: f.left + 21, f.top + 22; radius: 13; stroke: 1.2; color: hue; opacity: 75% }
+        ellipse { at: f.left + 17, f.top + 17; radius: 4; color: #ffffff; opacity: 14% }
+        //  Under it always: if the icon does not load, the drop is there.
+        ellipse { at: f.left + 21, f.top + 22; radius: 4; color: hue }
+        component NoticeIcon(i: record) {
+            size: 18, 18
+            image i.icon { at: 0, 0; size: 18, 18 }
+        }
+        column notice_icon {
+            at: f.left + 12, f.top + 13
+            show: notice.icon
+            for i in notice_face { NoticeIcon(i) }
+        }
+        //  The words, written by a wave passing left to right: each letter rises
+        //  into its place as it arrives.
+        text who { at: f.left + 42, f.top + 14; anchor: left center; size: 11.5; weight: 600; width: 160; lines: 1; color: #f6f6f5
+                   letter_opacity: clamp(write * (letters + 8) - letter, 0, 1)
+                   letter_move: 0, (1 - clamp(write * (letters + 8) - letter, 0, 1)) * 6 }
+        text line { at: f.left + 42, f.top + 30; anchor: left center; size: 10.5; width: 196; lines: 1; color: #a9adb3
+                    letter_opacity: clamp((write * 1.4 - 0.4) * (letters + 8) - letter, 0, 1)
+                    letter_move: 0, (1 - clamp((write * 1.4 - 0.4) * (letters + 8) - letter, 0, 1)) * 6 }
+        text "now" { at: f.left + 238, f.top + 14; anchor: right center; size: 9.5; color: #8b8f95 }
+        //  Its reading, as water draining: when the line runs out it goes. The
+        //  pointer over it stops it.
+        box { from: f.left + 14, f.top + f.h - 6; size: 222 * clamp(1 - read.t, 0, 1), 2.4; corner: 1.2; color: hue; opacity: 80% }
+        ellipse { at: f.left + 14 + 222 * clamp(1 - read.t, 0, 1), f.top + f.h - 4.8; radius: 2.3; color: hue; opacity: 90% * if(read.t < 0.99, 1, 0) }
+        //  What can be done with it, like little drops: open it, done with it,
+        //  and its own actions.
+        group {
+            opacity: clamp(chips * 2 - 1, 0, 1)
+            repeat i in 0..4 {
+                prop chip.glow.$i = 0 ~140ms
+                group {
+                    show: i < 2 or acts > i - 2
+                    box { at: f.left + 41 + i * 58, f.top + 58; size: 54, 22; corner: 11; color: #ffffff; opacity: 9% + chip.glow.$i * 12% }
+                    text "Open" { at: f.left + 41 + i * 58, f.top + 58; anchor: center; size: 10.5; weight: 500; color: #f6f6f5; show: i == 0 }
+                    text "Done" { at: f.left + 41 + i * 58, f.top + 58; anchor: center; size: 10.5; weight: 500; color: #f6f6f5; show: i == 1 }
+                    text act.1 { at: f.left + 41 + i * 58, f.top + 58; anchor: center; size: 10.5; weight: 500; width: 48; lines: 1; color: #f6f6f5; show: i == 2 }
+                    text act.2 { at: f.left + 41 + i * 58, f.top + 58; anchor: center; size: 10.5; weight: 500; width: 48; lines: 1; color: #f6f6f5; show: i == 3 }
+                }
+            }
         }
     }
     //  And the ones that do not fit, said and not drawn: «+N more» below the pile.
@@ -4154,8 +4293,12 @@ scene Marea {
     //  And an urgent one does wake her, and opens the tray. It is the only thing
     //  allowed to do it.
     on urge while asleep { asleep = false }
-    on notice while not haven and not asleep and phase == 0 and out > 0.9 { reading_cat = cat; phase = 1; burst = 1; seq = seq + 1; arrival_seq = seq; mark = mark + 1; needed = true; wanted = true; play startle; arrive: 1 ~220ms }
-    on notice while not haven and not asleep and phase == 0 and out <= 0.9 { reading_cat = cat; phase = 1; burst = 1; seq = seq + 1; arrival_seq = seq; needed = true; wanted = true; play startle; arrive: 1 ~220ms after 560ms }
+    on notice while not haven and not asleep and phase == 0 and out > 0.9 { reading_cat = cat; phase = 1; burst = 1; seq = seq + 1; arrival_seq = seq; mark = mark + 1; needed = true; wanted = true; play startle; arrive: 1 ~220ms
+        land: 0 ~16ms; land: 1 ~850ms after 16ms; write: 0 ~16ms; write: 1 ~1100ms after 560ms; read.t: 0 ~16ms
+        sign: 1 ~200ms; sign: 0 ~260ms after 1600ms }
+    on notice while not haven and not asleep and phase == 0 and out <= 0.9 { reading_cat = cat; phase = 1; burst = 1; seq = seq + 1; arrival_seq = seq; needed = true; wanted = true; play startle; arrive: 1 ~220ms after 560ms
+        land: 0 ~16ms; land: 1 ~850ms after 580ms; write: 0 ~16ms; write: 1 ~1100ms after 1120ms; read.t: 0 ~16ms
+        sign: 1 ~200ms after 560ms; sign: 0 ~260ms after 2160ms }
     on change out > 0.9 while phase == 1 { mark = mark + 1 }
     //  And the start **once she can be seen**. Sunk, the gesture happened under
     //  the water —620 ms of journey— and by the time she peeked out it was over:
@@ -4165,14 +4308,22 @@ scene Marea {
     //  Another one while it is still being read: it stacks, and the reading
     //  starts over. Not one more jump: the gesture is already on, and a mascot
     //  that jumps for every message in a group ends up switched off.
-    on notice while not haven and phase == 1 { seq = seq + 1; burst = burst + 1; mark = mark + 1 }
+    on notice while not haven and phase == 1 { seq = seq + 1; burst = burst + 1; mark = mark + 1; read.t: 0 ~16ms; write: 0 ~16ms; write: 1 ~900ms after 60ms }
     //  With the burst already flying, the one that arrives goes straight to its drop.
     on notice while not haven and phase == 2 { seq = seq + 1; emit direct }
 
     //  3.2 s to read it, which the pointer over it stops: when it leaves, it
     //  counts again. It is `on still` again: «when it has gone that long without
     //  anything starting the reading over».
-    zone box notice_zone { at: arrival.x0, cy_actual + 7; size: 250, 58; corner: 14; cursor: pointer; active: phase == 1 }
+    zone box notice_zone { at: arrival.x0, cy_actual + 7 + 15 * chips; size: 250, 58 + 30 * chips; corner: 14; cursor: pointer; active: phase == 1 }
+    //  Its chips, on top of it: the press belongs to the zone declared last.
+    repeat i in 0..4 {
+        zone box chip.$i { at: f.left + 41 + i * 58, f.top + 58; size: 54, 22; corner: 11; cursor: pointer
+                           active: chips > 0.8 and phase == 1 and (i < 2 or acts > i - 2) }
+        on press chip.$i { emit notice_act(i); phase = 2 }
+        on enter chip.$i { chip.glow.$i: 1 }
+        on leave chip.$i { chip.glow.$i: 0 }
+    }
     on enter notice_zone { hovered = true }
     on leave notice_zone { hovered = false; mark = mark + 1 }
     //  And the arriving card itself: pressing it opens the swell.
@@ -4185,8 +4336,9 @@ scene Marea {
     //  what was seen when an urgent one opened it—. It does not disappear: it
     //  flies off to its drop, which is the journey it had to make anyway.
     on change tray_open while tray_open and phase == 1 { phase = 2 }
-    on still mark for 3.2s while phase == 1 and not hovered and burst < 2 { phase = 2 }
-    on still mark for 4.2s while phase == 1 and not hovered and burst > 1 { phase = 2 }
+    //  The reading ends when its water line runs out: 3.2 s, or 4.2 with
+    //  several; the pointer over the card stops it where it is.
+    on change read.t >= 1 while phase == 1 and read.t >= 1 { phase = 2 }
     //  And they fly together, each one a little after the previous one.
     on change phase while phase == 2 {
         fly.2: 1 ~280ms
@@ -4198,6 +4350,7 @@ scene Marea {
         phase = 0
         wanted = false
         arrive: 0 ~16ms
+        land: 0 ~16ms; write: 0 ~16ms; read.t: 0 ~16ms
         fly.0: 0 ~16ms after 40ms
         fly.1: 0 ~16ms after 40ms
         fly.2: 0 ~16ms after 40ms

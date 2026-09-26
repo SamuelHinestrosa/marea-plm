@@ -39,6 +39,7 @@ library SpanishUi {
         "System" = "Sistema"
         "View all" = "Ver todo"
         "Done" = "Hecho"
+        "Open" = "Abrir"
         "Dismiss" = "Descartar"
         "History" = "Historial"
         "Settings" = "Ajustes"

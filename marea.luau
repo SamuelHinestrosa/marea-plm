@@ -460,12 +460,28 @@ local function classify(app)
     return 4
 end
 
+--  The actions of the notice that arrives, for its chips: its own ones, not
+--  the default (that is «Open»), two at most.
+local arriving_actions = {}
+
 local function arrive(n)
     n.cat = CATEGORY_OF[n.app] or classify(n.app)
     table.insert(rows, 1, n)
     while #rows > 5 do table.remove(rows) end
     render()
     fact.cat = n.cat
+    --  What its card shows besides the words: its icon, whether it is urgent,
+    --  and what can be done with it without opening anything.
+    model.notice_face = { { icon = n.icon or "" } }
+    fact["notice.icon"] = (n.icon or "") ~= ""
+    fact.reading_urgent = n.urgent == true
+    arriving_actions = {}
+    for _, a in ipairs(n.actions or {}) do
+        if a.key ~= "default" and #arriving_actions < 2 then arriving_actions[#arriving_actions + 1] = a end
+    end
+    text["act.1"] = arriving_actions[1] and arriving_actions[1].label or ""
+    text["act.2"] = arriving_actions[2] and arriving_actions[2].label or ""
+    fact.acts = #arriving_actions
     text.who = shown(n, n.title)
     text.line = shown(n, n.detail)
     emit("notice")
@@ -577,7 +593,7 @@ local function from_service(list)
             --  rearranged, and they go.
             remove_done()
             arrive({ id = n.id, app = string.upper(n.app ~= "" and n.app or tr("notice")), title = n.title, detail = n.body,
-                     urgent = (n.urgency or 1) >= 2, actions = n.actions })
+                     urgent = (n.urgency or 1) >= 2, actions = n.actions, icon = n.icon })
         end
     end
 end
@@ -755,12 +771,29 @@ on("dismiss", function(k)
 end)
 --  A tap opens it where it lives: its default action, if it brings one. If it
 --  brings none, tapping it can do no more than mark it as seen.
-on("open_notice", function(k)
+local function open_row(k)
     local f = rows[k]
     if f == nil or f.id == nil then return end
     local can_open = false
     for _, a in ipairs(f.actions or {}) do can_open = can_open or a.key == "default" end
     if can_open then sys.call("notifications.invoke", f.id, "default") else sys.call("notifications.dismiss", f.id) end
+end
+on("open_notice", open_row)
+--  The arriving card's chips: 0 open it, 1 done with it, 2 and 3 its own
+--  actions. It is always the newest one, the one on top.
+on("notice_act", function(i)
+    i = math.floor(i or 0)
+    local f = rows[1]
+    if f == nil then return end
+    if i == 0 then
+        open_row(1)
+    elseif i == 1 then
+        f.done = true
+        if f.id then sys.call("notifications.dismiss", f.id) end
+    else
+        local a = arriving_actions[i - 1]
+        if a and f.id then sys.call("notifications.invoke", f.id, a.key) end
+    end
 end)
 on("tray", function() log("the tray would open at the newest one") end)
 -- ── the calendar ───────────────────────────────────────────────────
