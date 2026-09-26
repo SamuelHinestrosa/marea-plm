@@ -932,7 +932,11 @@ scene Marea {
         180ms out_back
     }
 
-    follow out = if(hidden and not needed and not celebrating and not reel_open and not raging and not adventuring, 0, 1)
+    //  And with something of hers open she is out, however it was opened.
+    //  Only a press on her set `needed`: a card opened from the finder, a
+    //  shortcut or the logic came out of a ball that was still sunk for the
+    //  face, and her eyes sat 4.5 px low in it.
+    follow out = if(hidden and not needed and not open and not tray_open and not celebrating and not reel_open and not raging and not adventuring, 0, 1)
 
     // ── the photograph ───────────────────────────────────────────
     //  She does not switch off all at once before the screen freezes: she
@@ -3672,6 +3676,9 @@ scene Marea {
     //  comes out in that time, she does not go back.
     let anything_out = open or searching or tray_open
     on change open while open { tray_open = false; searching = false }
+    //  Whatever opened the card —a press, the finder, a shortcut—, she wakes
+    //  up for it: a card beside a sleeping ball was a page nobody was showing.
+    on change open while open and asleep { asleep = false }
     on change tray_open while tray_open { open = false; searching = false; menu_open = false }
     on still anything_out for 200ms while not anything_out { offset: 0 ~homing }
 
