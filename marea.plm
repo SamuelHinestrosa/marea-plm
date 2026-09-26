@@ -335,7 +335,14 @@ scene Marea {
     //  Falling asleep takes 1.24 s and waking up 380 ms: nobody wakes up slowly
     //  when they are called.
     on change asleep while asleep { drowsy: 1 ~1240ms; play nod }
-    on change asleep while not asleep { drowsy: 0 ~380ms }
+    on change asleep while not asleep { drowsy: 0 ~380ms; dozed = false }
+    //  Dozing off on her own is not the same as being sent to bed. If she
+    //  nodded off because nobody was there, the mouse moving anywhere —on
+    //  another window, on the other monitor— is somebody back, and she wakes.
+    //  Sent to bed with «Sleep», she sleeps until you come to her: otherwise
+    //  moving away from the button would wake her.
+    fact dozed = false
+    on change cursor.x + cursor.y * 8192 while asleep and dozed { asleep = false }
     //  The «z», one every 3.6 s: it rises, opens and dissolves. Only when asleep,
     //  so the clock does not even run while she is not.
     every 3.6s while asleep { zee: 0 ~16ms; zee: 1 ~3400ms after 40ms }
@@ -3805,10 +3812,13 @@ scene Marea {
     //  her menu need her just like the card. She sank with the swell open —2.6 s
     //  after letting go of her— and the tray was left hanging from half a ball.
     on still wanted for 2.6s while not wanted and not note and not open and not tray_open and not searching and not menu_open { needed = false }
-    //  And she falls asleep by herself 45 s after nothing needs her. Not in the
-    //  Haven: automatic sleep stays suspended while it lasts, which is what the
-    //  contract says —she is concentrating, not absent—.
-    on still needed for 45s while not needed and not haven and not open and not tray_open and not asleep { asleep = true }
+    //  And she falls asleep by herself after 45 s with nobody there: nothing
+    //  needs her and the mouse has not moved anywhere. Only by nothing needing
+    //  her she dozed off while you worked, and now that the mouse wakes her she
+    //  would nod off and wake up every 45 s. Not in the Haven: automatic sleep
+    //  stays suspended while it lasts, which is what the contract says —she is
+    //  concentrating, not absent—.
+    on idle for 45s while not needed and not haven and not open and not tray_open and not asleep { asleep = true; dozed = true }
     //  The click opens; brushing past does not. Before, 450 ms of brushing were
     //  enough for a whole panel to cover what you were reading.
     on press body_zone { press: 1; toggle open }
