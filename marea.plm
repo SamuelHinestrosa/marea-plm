@@ -31,7 +31,7 @@ scene Marea {
         //  Switching network or headphones is something pleamar cannot do yet
         //  (its B15), so the logic does it with the system's tools. And `fd`
         //  finds the files and the folders.
-        run: "nmcli", "bluetoothctl", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl"
+        run: "node", "nmcli", "bluetoothctl", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl"
     }
     service clock as now { time: text = "--:--"; date: text }
     service audio as sound { volume: number; muted: bool; input: number; input_muted: bool }
@@ -43,7 +43,7 @@ scene Marea {
     //  Pressing a card opens its page, and **the page comes out of the card**:
     //  it grows from its place until it fills the panel. It is not a screen that
     //  replaces another; it is the same card, opened.
-    fact page: none | wifi | bluetooth | concentration | wardrobe | sound | session | systray | settings = none
+    fact page: none | wifi | bluetooth | concentration | wardrobe | sound | session | systray | settings | agents = none
     //  Her look, which is chosen in Settings and saved: glass that bends what is
     //  behind like Apple's, glass that only blurs it —lighter, the compositor
     //  does it—, or the usual one, opaque.
@@ -598,6 +598,28 @@ scene Marea {
     event set_brightness ->
     event set_volume ->
     event open_page ->                 // with which of the six, as payload
+    //  The agents' reservoirs: two agents (1 Claude Code, 2 Codex; 0 none), up
+    //  to three windows each. The logic reads them; the scene draws them.
+    event agents_refresh ->
+    event agents_read
+    fact ag.worst = 101                // the least left of the active windows, in %; 101, unknown
+    fact agents.face = false
+    let ag.shown = if(ag.worst > 100, 0.5, ag.worst / 100)
+    let ag.tone = mix(mix(mix(#ef7a66, #f0b85a, clamp((ag.worst - 12) / 8, 0, 1)), mint, clamp((ag.worst - 40) / 15, 0, 1)), #8b8f95, ag.worst > 100)
+    repeat a in 1..3 {
+        fact ag.kind.$a = 0
+        text ag.name.$a = ""
+        text ag.sub.$a = ""
+        repeat l in 1..4 {
+            fact ag.on.$a.$l = false
+            fact ag.active.$a.$l = false
+            fact ag.pending.$a.$l = false
+            fact ag.used.$a.$l = -1
+            fact ag.elapsed.$a.$l = 0
+            text ag.lname.$a.$l = ""
+            text ag.lrenew.$a.$l = ""
+        }
+    }
     repeat k in 1..7 {
         fact switched_on.$k = false
         prop lit.$k = 0 ~180ms
@@ -2629,8 +2651,23 @@ scene Marea {
             on press touch { emit systray_activate(i.index) }
             on press right touch { emit systray_menu(i.index) }
         }
+        //  The agents' reservoirs: a little tube beside the gear, as full as the
+        //  tightest window has left, and of its colour. It says «how am I doing»
+        //  without opening anything; pressing it opens the page.
+        prop agents.glow = 0 ~140ms
+        let agents.x = gear.x - 36
+        group {
+            opacity: (55% + agents.glow * 45%) * overview
+            box { at: agents.x, y0 + 14; size: 11, 18; corner: 4; stroke: 1.5; color: ink }
+            box { from: agents.x - 3.5, y0 + 21 - 12 * ag.shown; size: 7, 12 * ag.shown; corner: 2; color: ag.tone }
+        }
+        zone box agents_btn { at: agents.x, y0 + 14; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 and page == none }
+        on enter agents_btn { agents.glow: 1 }
+        on leave agents_btn { agents.glow: 0 }
+        on press agents_btn { page = agents; emit agents_refresh }
+
         row systray_row ~quick {
-            at: gear.x - 22, y0 + 14
+            at: gear.x - 58, y0 + 14
             anchor: right middle
             gap: 4
             opacity: overview
@@ -2848,7 +2885,7 @@ scene Marea {
         //  The first three come out of their card; the wardrobe has no card
         //  —it is entered through her menu—, so it grows from the centre of the
         //  panel.
-        let pg.own = if(page == wardrobe or page == systray or page == settings, 0, 1)
+        let pg.own = if(page == wardrobe or page == systray or page == settings or page == agents, 0, 1)
         let pg.ox = card.x + 111 * pg.own
         let pg.oy = card.top + 231 + (-126 + (pg.k - 1) * 66) * pg.own
         let pg.x = pg.ox + (card.x - pg.ox) * paging
@@ -2869,6 +2906,7 @@ scene Marea {
             text "Her wardrobe" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: page == wardrobe }
             text "Sound" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: page == sound }
             text "Settings" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: page == settings }
+            text "Agents" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: page == agents }
             text systray.title { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; width: 400; lines: 1; color: ink; show: page == systray }
             text "Shall we take a break?" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: page == session and confirming == none }
             text "Confirm" { at: px0, card.top + 88; anchor: left center; size: 14; weight: 500; color: ink; show: page == session and confirming != none }
@@ -3169,6 +3207,130 @@ scene Marea {
 
                 text "You change the wallpaper from her menu: Customize." { at: card.x, card.top + 474; anchor: center; size: 10.5; color: #8b8f95; opacity: 70% }
             }
+
+
+            // ── the agents' reservoirs ───────────────────────────
+            //  What is left of Claude Code's and Codex's windows, as water in
+            //  glass tubes: as full as there is left, and of the colour of the
+            //  margin —mint, amber, coral—, never of the brand. Each tube is
+            //  its own window: nothing is added up between them. Coming in, they
+            //  fill one after another; a new reading makes them sway; the mouse
+            //  over one stirs its water. An unknown number is an empty tube with
+            //  a dashed line, not a zero.
+            shader reservoir = file "shaders/reservoir.wgsl"
+            prop reveal = 0 ~1500ms
+            follow reveal = if(page == agents, 1, 0)
+            //  Claude's rays turn slowly, only while the page is there: a
+            //  `time` would keep her painting all day for a page nobody sees.
+            prop rays = 0
+            spin rays by if(page == agents, 12, 0)
+            prop refresh.turn = 0 ~slow
+            prop refresh.glow = 0 ~140ms
+            group {
+                show: page == agents
+                //  Read again: the arrow turns once.
+                group {
+                    opacity: 55% + refresh.glow * 45%
+                    arc { at: card.x + 204, card.top + 88; radius: 7; span: 290deg; width: 1.8; rotate: refresh.turn * 1deg; color: ink }
+                    path { at: card.x + 204 + 7 * cos(refresh.turn - 55), card.top + 88 + 7 * sin(refresh.turn - 55); color: ink; rotate: (refresh.turn + 35) * 1deg
+                           move -3, -3; line 3, 0; line -3, 3; close }
+                }
+                zone box refresh_btn { at: card.x + 204, card.top + 88; size: 30, 30; corner: 15; cursor: pointer; active: page == agents and paging > 0.9 }
+                on enter refresh_btn { refresh.glow: 1 }
+                on leave refresh_btn { refresh.glow: 0 }
+                on press refresh_btn { refresh.turn: refresh.turn + 360; emit agents_refresh }
+
+                text "Reading your windows…" { at: card.x, card.top + 250; anchor: center; size: 11.5; color: #8b8f95
+                                              show: ag.kind.1 < 1 and ag.kind.2 < 1 }
+
+                repeat a in 1..3 {
+                    let ay = card.top + 112 + (a - 1) * 190
+                    let ax0 = card.x - 228
+                    group {
+                        show: ag.kind.$a > 0
+                        //  Each agent comes in a moment after the one before.
+                        opacity: clamp((reveal - (a - 1) * 0.12) * 3, 0, 1)
+                        move: 0, (1 - clamp((reveal - (a - 1) * 0.12) * 3, 0, 1)) * 12
+                        box { at: card.x, ay + 88; size: 456, 178; corner: 16; color: mix(#202122, ink, glassiness); opacity: mix(1, veil, glassiness) }
+                        //  Who it is. Claude: its burst of rays, turning very
+                        //  slowly. Codex: a hexagon with its prompt.
+                        group {
+                            show: ag.kind.$a == 1
+                            repeat r in 0..10 {
+                                line { from: ax0 + 26 + 3 * cos(r * 36 + rays), ay + 24 + 3 * sin(r * 36 + rays)
+                                       to: ax0 + 26 + 10 * cos(r * 36 + rays), ay + 24 + 10 * sin(r * 36 + rays)
+                                       width: 2.4; color: #d97757 }
+                            }
+                        }
+                        group {
+                            show: ag.kind.$a == 2
+                            path { at: ax0 + 26, ay + 24; stroke: 1.8; color: ink
+                                   move 0, -11; line 9.5, -5.5; line 9.5, 5.5; line 0, 11; line -9.5, 5.5; line -9.5, -5.5; close }
+                            path { at: ax0 + 22, ay + 24; stroke: 1.6; color: ink; move 0, -3.5; line 3.5, 0; line 0, 3.5 }
+                            line { from: ax0 + 27, ay + 27.5; to: ax0 + 31, ay + 27.5; width: 1.6; color: ink }
+                        }
+                        text ag.name.$a { at: ax0 + 46, ay + 17; anchor: left center; size: 15; weight: 600; color: ink }
+                        text ag.sub.$a { at: ax0 + 46, ay + 35; anchor: left center; size: 11; width: 380; lines: 1; color: faint; opacity: 75% }
+
+                        repeat l in 1..4 {
+                            let sx = ax0 + 16 + (l - 1) * 146
+                            let used = ag.used.$a.$l
+                            let known = if(used > -0.5, 1, 0)
+                            let avail = clamp(100 - used, 0, 100)
+                            //  The colour of the margin: coral under 15 %, amber
+                            //  up to 50 %, mint above.
+                            let tone = mix(mix(#ef7a66, #f0b85a, clamp((avail - 12) / 8, 0, 1)), mint, clamp((avail - 40) / 15, 0, 1))
+                            prop lvl.$a.$l = 0 ~calm
+                            follow lvl.$a.$l = avail / 100
+                            prop sway.$a.$l = 0 ~lively
+                            prop hover.$a.$l = 0 ~140ms
+                            //  They fill one after another as the page comes in.
+                            let fill = clamp((reveal - 0.15 - (a - 1) * 0.12 - (l - 1) * 0.08) * 2.2, 0, 1)
+                            let eased = fill * fill * (3 - 2 * fill)
+                            group {
+                                show: ag.on.$a.$l
+                                opacity: 45% + 55% * if(ag.active.$a.$l, 1, 0)
+                                //  A halo when there is little left: the tube says it
+                                //  without a notice.
+                                group {
+                                    glow: 10, if(avail < 15 and known > 0.5, 70%, 0), #ef7a66
+                                    shader reservoir { at: sx, ay + 52; size: 46, 112; corner: 13
+                                                       values: if(known > 0.5, lvl.$a.$l * eased, -1), sway.$a.$l + clamp(vel(lvl.$a.$l) * 0.3, -0.6, 0.6), a * 3.7 + l * 1.3, if(ag.pending.$a.$l, 1, 0), hover.$a.$l, if(avail < 15 and known > 0.5, 1, 0)
+                                                       colors: tone, mix(tone, #0b1a22, 0.62) }
+                                }
+                                //  A reading splashes: drops jump off the surface of
+                                //  each tube and fall back into it.
+                                particles { at: sx + 23, ay + 56 + 104 * (1 - lvl.$a.$l * eased); area: 30, 0; count: 14
+                                            life: 0.35s .. 0.7s; speed: 40 .. 110; direction: -90deg; spread: 70deg
+                                            gravity: 0, 520; size: 2.6, 1.2; colors: tone, #ffffff; opacity: 90%, 0%
+                                            burst: agents_read }
+                                text ag.lname.$a.$l { at: sx + 58, ay + 62; anchor: left center; size: 11; weight: 500; width: 76; lines: 1; color: faint }
+                                text number(avail * eased, 0, "%") { at: sx + 58, ay + 90; anchor: left center; size: 26; weight: 700; color: tone; show: known > 0.5 }
+                                text "—" { at: sx + 58, ay + 90; anchor: left center; size: 26; weight: 700; color: #8b8f95; show: known < 0.5 }
+                                text "left" { at: sx + 58, ay + 112; anchor: left center; size: 10.5; color: faint; opacity: 70% }
+                                text ag.lrenew.$a.$l { at: sx + 58, ay + 134; anchor: left center; size: 10.5; width: 76; lines: 1; color: faint; opacity: 80% }
+                                //  How far into its window it is, and a dot at
+                                //  how much it has used: a dot ahead of the bar
+                                //  is spending faster than time goes.
+                                box { from: sx + 58, ay + 150; size: 72, 3; corner: 1.5; color: ink; opacity: 14% }
+                                box { from: sx + 58, ay + 150; size: 72 * ag.elapsed.$a.$l * eased, 3; corner: 1.5; color: ink; opacity: 45% }
+                                ellipse { at: sx + 58 + 72 * clamp(used / 100, 0, 1) * eased, ay + 151.5; radius: 3; color: tone; show: known > 0.5 }
+                            }
+                            zone box tank.$a.$l { at: sx + 23, ay + 108; size: 46, 112; corner: 13; active: page == agents and paging > 0.9 and ag.on.$a.$l }
+                            on enter tank.$a.$l { hover.$a.$l: 1; impulse sway.$a.$l 1.5 }
+                            on leave tank.$a.$l { hover.$a.$l: 0 }
+                            //  A new reading makes every tube sway, a little
+                            //  after its neighbour.
+                            on agents_read { impulse sway.$a.$l 2.4 }
+                        }
+                    }
+                }
+            }
+            //  And she reacts once, when the page comes in: little left
+            //  somewhere, the «!» face; everything with margin, the happy one.
+            on change paging > 0.9 while page == agents and paging > 0.9 and ag.worst < 15 { face = alert; agents.face = true }
+            on change paging > 0.9 while page == agents and paging > 0.9 and ag.worst >= 50 and ag.worst < 101 { face = happy; agents.face = true }
+            on still agents.face for 1.6s while agents.face { agents.face = false; face = eye }
 
             // ── the menu of a tray icon ──────────────────────────
             //  It is a page like the others, and that is why it holds what a

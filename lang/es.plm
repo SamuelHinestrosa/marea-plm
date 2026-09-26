@@ -5,6 +5,9 @@
 library SpanishUi {
     translations es {
         "CALENDAR" = "CALENDARIO"
+        "Agents" = "Agentes"
+        "Reading your windows…" = "Leyendo tus ventanas…"
+        "left" = "quedan"
         "MAIL" = "CORREO"
         "SYSTEM" = "SISTEMA"
         "Design review" = "Revisión de diseño"

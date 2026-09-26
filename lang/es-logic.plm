@@ -7,6 +7,17 @@
 library SpanishLogic {
     translations es {
         // the finder
+        // the agents' reservoirs
+        "5 hours" = "5 horas"
+        "Weekly" = "Semanal"
+        "server" = "servidor"
+        "on this machine" = "en este equipo"
+        "just now" = "ahora mismo"
+        "%s ago" = "hace %s"
+        "renewed?" = "¿renovada?"
+        "not started" = "sin empezar"
+        "in %s" = "en %s"
+
         "Application" = "Aplicación"
         "Folder" = "Carpeta"
         "File" = "Archivo"
