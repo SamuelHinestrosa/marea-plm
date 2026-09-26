@@ -152,15 +152,17 @@ scene Marea {
         //  second. Measured: 21.5 % of a core, against 8.6 % on a 60 Hz screen.
         //  What she costs has to be the same on any screen.
         rate: 60
-        //  Keyboard only while the menu is open, and on demand: it is asked for
-        //  on pressing and handed back on closing. «The click gives keyboard
-        //  focus, but does not leave them stuck to the screen.»
-        //  On pressing, not exclusive. `exclusive` reconfigures the surface and
-        //  the compositor sends a «the pointer has left»: with the mouse still,
-        //  the menu closed by itself 300 ms after opening it, because its grace
-        //  zone stopped having anyone inside. And it is not needed: the finder is
-        //  entered by pressing, so the surface already has the focus.
-        keyboard: on_demand while searching or menu_open or open or tray_open or reel_open
+        //  Keyboard only while something of hers is open, and handed back on
+        //  closing: «the click gives keyboard focus, but does not leave them
+        //  stuck to the screen». Exclusive once used to close the menu by
+        //  itself —reconfiguring the surface sends a «the pointer has left» and
+        //  its grace zone emptied—; nothing closes on leaving any more.
+        //  And while something of hers is open, the keyboard is hers from the
+        //  start: on demand, Hyprland only hands it over when the mouse MOVES over
+        //  her, and Esc went to the window under it. Exclusive does not cost the
+        //  click outside, because the catcher is hers too; and closing gives it
+        //  back.
+        keyboard: exclusive while searching or menu_open or open or tray_open or reel_open
         //  Above everything while something of hers is open —so the catcher
         //  below can take the click outside—, and in its layer the rest of the
         //  time, so a video in full screen still covers her.
