@@ -4426,32 +4426,41 @@ scene Marea {
         //  180° and the spring does not spin it the long way. Pointing left, the
         //  camera flips so its viewfinder stays on top. When you come near for
         //  «Stop», she puts it away: the panel comes out of that same side.
+        //  Held to one eye, like somebody looking through the viewfinder: the
+        //  eye on the side it points to, which the eyepiece covers. The same
+        //  place the Face puts that eye —its centre, 6.5 to the side, and where
+        //  it is looking—, so camera and eye move as one.
+        let cam.ex = rx - 5 * (wing.r * 2 - 1) + 6.5 * cam.flip + aim.x
+        let cam.ey = ry + 4 * (1 - wing.b * 2) + aim.y
         group {
             show: cam.hold > 0.01
-            pivot: rx, ry
+            pivot: cam.ex, cam.ey
             rotate: cam.aim * 1deg
             scale: cam.hold, cam.hold * cam.flip
             //  What it sees: a faint cone of light from the lens, fading out.
             group {
-                mask: radial rx + 52, ry radius 8 to 95
+                mask: radial cam.ex + 27, cam.ey radius 6 to 90
                 path { at: 0, 0; color: #ffffff; opacity: 7%
-                       move rx + 52, ry - 3; line rx + 150, ry - 30; line rx + 150, ry + 30; line rx + 52, ry + 3; close }
+                       move cam.ex + 27, cam.ey - 2.5; line cam.ex + 125, cam.ey - 30; line cam.ex + 125, cam.ey + 30; line cam.ex + 27, cam.ey + 2.5; close }
             }
-            //  The camera: body, lens hood and viewfinder melted into one piece,
-            //  with a rim of light.
+            //  The camera: eyepiece (on her eye), body, viewfinder and lens hood
+            //  melted into one piece, with a rim of light.
             body {
                 color: #2c3035
                 rim: 14%
-                box { at: rx + 32, ry + 1; size: 24, 15; corner: 3.5 }
-                box { at: rx + 47, ry + 1; size: 8, 12; corner: 2; blend: 2 }
-                box { at: rx + 28, ry - 8.5; size: 10, 5; corner: 2; blend: 2 }
+                //  Round, so it covers the eye whatever the angle: the eye is 13
+                //  tall and turns with the camera's aim.
+                ellipse { at: cam.ex, cam.ey; radius: 8 }
+                box { at: cam.ex + 12.5, cam.ey + 0.5; size: 14, 13; corner: 3.5; blend: 3 }
+                box { at: cam.ex + 9, cam.ey - 8; size: 8, 4.5; corner: 2; blend: 2 }
+                box { at: cam.ex + 21, cam.ey + 0.5; size: 6, 10.5; corner: 2; blend: 2 }
             }
             //  The lens, with its glint.
-            ellipse { at: rx + 50.5, ry + 1; radius: 4.2; color: #1d3f63 }
-            ellipse { at: rx + 50.5, ry + 1; radius: 4.2; stroke: 1.2; color: #6f7a85 }
-            ellipse { at: rx + 49.3, ry - 0.4; radius: 1.3; color: #ffffff; opacity: 75% }
+            ellipse { at: cam.ex + 24, cam.ey + 0.5; radius: 3.8; color: #1d3f63 }
+            ellipse { at: cam.ex + 24, cam.ey + 0.5; radius: 3.8; stroke: 1.1; color: #6f7a85 }
+            ellipse { at: cam.ex + 23, cam.ey - 0.8; radius: 1.2; color: #ffffff; opacity: 75% }
             //  REC: blinking once a second while the recorder really runs.
-            ellipse { at: rx + 25, ry - 3; radius: 1.9; color: #ff4b3e; opacity: if(taping, if(mod(secs, 2) < 1, 1, 0.2), 0.2) }
+            ellipse { at: cam.ex + 14.5, cam.ey - 3; radius: 1.8; color: #ff4b3e; opacity: if(taping, if(mod(secs, 2) < 1, 1, 0.2), 0.2) }
         }
 
         //  Pressing her stops it.
