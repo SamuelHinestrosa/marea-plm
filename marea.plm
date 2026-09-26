@@ -1486,7 +1486,13 @@ scene Marea {
         //  sat where the eyes do and the handle hung off it down to the right,
         //  so the glass as a figure was 3 px right and 5 low. Its box runs from
         //  the ring's edge (−8.7) to the handle's tip (+14.5) on both axes.
-        let eye.y = y + 2.5 + drowsy * 1.4 - 5.4 * magnifier
+        //  At her centre: the eyes and whatever figure they turn into. They used
+        //  to sit 2.5 below it, which on two pills reads as a face but every
+        //  symbol —the count, the padlock, the arrows— inherited it and came out
+        //  low in the ball. Measured against a circle fitted to her edge.
+        //  The camera carries its viewfinder on top, so its body goes a little
+        //  lower for the camera as a whole to be centred.
+        let eye.y = y + drowsy * 1.4 - 2.9 * magnifier + 2.4 * cam
         let l.x = x - sep - 1.9 * magnifier
         let r.x = x + sep - 1.9 * magnifier
         //  Round when it is round: half of the short side gives a standing pill,
@@ -1572,6 +1578,10 @@ scene Marea {
                 ellipse { at: l.x, eye.y; radius: 5.7 * power * shrink }
                 box { at: l.x, eye.y - 8.5 * power; size: 5.4 * power * shrink, 6 * power * shrink }
             }
+            //  The power symbol's stroke, again on top: the ring's hollow and its
+            //  opening were cut after it and ate it whole, so the power-off face
+            //  was a ring alone.
+            box { at: l.x, eye.y - 4.3 * power; size: 2.6 * power * shrink, 9.6 * power * shrink; corner: 1.3; color: ink; opacity: min(power * 3, 1) }
             //  And what is not a bent capsule: the door's handle, the arrow going
             //  out through it and the tip of the circular arrow. The turn is a
             //  single one —«do not spin endlessly for decoration»— and is made
@@ -1658,7 +1668,9 @@ scene Marea {
                 pivot: x, eye.y
                 scale: 1 + pop, 1 + pop
                 text number(max(left, 1), 0) {
-                    at: x, eye.y
+                    //  A digit's ink sits lower than its line's middle: raised so
+                    //  the number is centred, not its box.
+                    at: x, eye.y - 1.8
                     anchor: center
                     size: 24.6
                     weight: 300
