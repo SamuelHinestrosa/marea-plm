@@ -736,7 +736,9 @@ scene Marea {
     //  shape bends: there are no two animations fighting over the same eyes.
     follow num = if(face == count, 1, 0)
     follow cam = if(face == camera, 1, 0)
-    follow dot = if(face == rec, 1, 0)
+    //  In the corner she films with a camera of her own (see the nook), not
+    //  with a red eye: the disc is only for recording anywhere else.
+    follow dot = if(face == rec and not corner, 1, 0)
     follow alarm = if(face == alert, 1, 0)
     follow joy = if(face == happy, 1, 0)
     //  Reading water —the agents' tubes—: each eye a little wave, «~ ~», that
@@ -4073,7 +4075,8 @@ scene Marea {
     prop tuck = 0 ~lively
     follow tuck = if(corner, 1, 0)
 
-    on record { purpose = nook; play retire }
+    //  Filming is not something she does asleep.
+    on record { purpose = nook; asleep = false; play retire }
     //  «She already counts from the corner she is going to take».
     on gone while purpose == nook {
         away: 1 ~16ms
@@ -4141,7 +4144,7 @@ scene Marea {
     //  would nod off and wake up every 45 s. Not in the Haven: automatic sleep
     //  stays suspended while it lasts, which is what the contract says —she is
     //  concentrating, not absent—.
-    on idle for 45s while not needed and not haven and not open and not tray_open and not asleep { asleep = true; dozed = true }
+    on idle for 45s while not needed and not haven and not open and not tray_open and not corner and not asleep { asleep = true; dozed = true }
     //  The click opens; brushing past does not. Before, 450 ms of brushing were
     //  enough for a whole panel to cover what you were reading.
     on press body_zone { press: 1; toggle open }
@@ -4351,8 +4354,19 @@ scene Marea {
         prop rgaze.x = 0 ~gentle
         prop rgaze.y = 0 ~gentle
         look rgaze.x, rgaze.y at rx, ry reach 6, 3.5 within 260
-        let aim.x = if(wing.r, min(rgaze.x, 0), max(rgaze.x, 0))
-        let aim.y = if(wing.b, min(rgaze.y, 0), max(rgaze.y, 0))
+        prop cam.hold = 0 ~lively
+        let cam.sx = 1 - 2 * wing.r
+        let cam.sy = 1 - 2 * wing.b
+        let cam.dx = nook.cursor.x - rx
+        let cam.dy = nook.cursor.y - ry
+        let cam.base = atan2(cam.sy, cam.sx)
+        prop cam.rel = 0 ~gentle
+        follow cam.rel = clamp(atan2(cam.sx * cam.dy - cam.sy * cam.dx, cam.sx * cam.dx + cam.sy * cam.dy), -100, 100)
+        let cam.aim = cam.base + cam.rel
+        let cam.flip = if(cos(cam.aim) < 0, -1, 1)
+        //  Filming, she looks where the camera points.
+        let aim.x = mix(if(wing.r, min(rgaze.x, 0), max(rgaze.x, 0)), 5 * cos(cam.aim), cam.hold)
+        let aim.y = mix(if(wing.b, min(rgaze.y, 0), max(rgaze.y, 0)), 3 * sin(cam.aim), cam.hold)
 
         //  The clock and «Stop», which come out OF her when you come near. It is
         //  not a panel that appears beside her: it is the same body, stretching
@@ -4361,6 +4375,7 @@ scene Marea {
         fact nearby = false
         prop near = 0 ~lively
         follow near = if(nearby and tuck > 0.9, 1, 0)
+        follow cam.hold = if(face == rec and corner, 1, 0) * (1 - clamp(near * 2, 0, 1))
         let p.w = 124 * near
         //  And the panel comes out on the inner side of the screen, not always to
         //  the left.
@@ -4403,6 +4418,41 @@ scene Marea {
         }
         //  The face goes a little inwards, so the disc stays in sight.
         Face(rx - 5 * (wing.r * 2 - 1), ry + 4 * (1 - wing.b * 2), aim.x, aim.y)
+
+        //  The camera. Recording, she holds one out on her inner side and points
+        //  it at the mouse wherever it is —`nook.cursor`, the mouse in this
+        //  surface's own coordinates—. The angle is measured from the direction
+        //  that goes into the screen from her corner, so it never wraps round at
+        //  180° and the spring does not spin it the long way. Pointing left, the
+        //  camera flips so its viewfinder stays on top. When you come near for
+        //  «Stop», she puts it away: the panel comes out of that same side.
+        group {
+            show: cam.hold > 0.01
+            pivot: rx, ry
+            rotate: cam.aim * 1deg
+            scale: cam.hold, cam.hold * cam.flip
+            //  What it sees: a faint cone of light from the lens, fading out.
+            group {
+                mask: radial rx + 52, ry radius 8 to 95
+                path { at: 0, 0; color: #ffffff; opacity: 7%
+                       move rx + 52, ry - 3; line rx + 150, ry - 30; line rx + 150, ry + 30; line rx + 52, ry + 3; close }
+            }
+            //  The camera: body, lens hood and viewfinder melted into one piece,
+            //  with a rim of light.
+            body {
+                color: #2c3035
+                rim: 14%
+                box { at: rx + 32, ry + 1; size: 24, 15; corner: 3.5 }
+                box { at: rx + 47, ry + 1; size: 8, 12; corner: 2; blend: 2 }
+                box { at: rx + 28, ry - 8.5; size: 10, 5; corner: 2; blend: 2 }
+            }
+            //  The lens, with its glint.
+            ellipse { at: rx + 50.5, ry + 1; radius: 4.2; color: #1d3f63 }
+            ellipse { at: rx + 50.5, ry + 1; radius: 4.2; stroke: 1.2; color: #6f7a85 }
+            ellipse { at: rx + 49.3, ry - 0.4; radius: 1.3; color: #ffffff; opacity: 75% }
+            //  REC: blinking once a second while the recorder really runs.
+            ellipse { at: rx + 25, ry - 3; radius: 1.9; color: #ff4b3e; opacity: if(taping, if(mod(secs, 2) < 1, 1, 0.2), 0.2) }
+        }
 
         //  Pressing her stops it.
         zone box her_zone { at: rx, ry; size: 46, 46; corner: 23; cursor: pointer }
