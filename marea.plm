@@ -157,12 +157,11 @@ scene Marea {
         //  stuck to the screen». Exclusive once used to close the menu by
         //  itself —reconfiguring the surface sends a «the pointer has left» and
         //  its grace zone emptied—; nothing closes on leaving any more.
-        //  And while something of hers is open, the keyboard is hers from the
-        //  start: on demand, Hyprland only hands it over when the mouse MOVES over
-        //  her, and Esc went to the window under it. Exclusive does not cost the
-        //  click outside, because the catcher is hers too; and closing gives it
+        //  On demand: Hyprland hands it over when the mouse moves over her or
+        //  the catcher. Exclusive was tried —so Esc worked without moving the
+        //  mouse— and on closing the window below did not get the keyboard
         //  back.
-        keyboard: exclusive while searching or menu_open or open or tray_open or reel_open
+        keyboard: on_demand while searching or menu_open or open or tray_open or reel_open
         //  Above everything while something of hers is open —so the catcher
         //  below can take the click outside—, and in its layer the rest of the
         //  time, so a video in full screen still covers her.
