@@ -1482,9 +1482,13 @@ scene Marea {
         let v.rw = w.rw * shrink
         let v.rh = w.rh * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
 
-        let eye.y = y + 2.5 + drowsy * 1.4
-        let l.x = x - sep
-        let r.x = x + sep
+        //  The magnifying glass is centred as a whole, not by its ring: the ring
+        //  sat where the eyes do and the handle hung off it down to the right,
+        //  so the glass as a figure was 3 px right and 5 low. Its box runs from
+        //  the ring's edge (−8.7) to the handle's tip (+14.5) on both axes.
+        let eye.y = y + 2.5 + drowsy * 1.4 - 5.4 * magnifier
+        let l.x = x - sep - 1.9 * magnifier
+        let r.x = x + sep - 1.9 * magnifier
         //  Round when it is round: half of the short side gives a standing pill,
         //  a lying pill, drop, lens and disc without saying it five times. The
         //  camera's body is the only one that departs from it, because it has a
@@ -1498,7 +1502,9 @@ scene Marea {
 
         group {
             clip inset 1 ellipse { at: x, y; radius: 23 }
-            move: gx, gy + look.y + sink
+            //  A symbol does not look around: turned into the magnifying glass,
+            //  the gaze no longer carries it off the centre.
+            move: gx * (1 - magnifier), gy * (1 - magnifier) + look.y + sink
 
             //  The eyes, which here are everything: the level's track, the
             //  countdown's drop, the camera's lens and body, and the red disc's
