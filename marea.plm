@@ -310,7 +310,7 @@ scene Marea {
     text query = ""
     //  What is found, just as the logic delivers it: apps from the system's
     //  service, and files and folders from `fd`. The icon travels in the record.
-    model results max 7 { name: text; kind_label: text; icon: image 40, 40 }
+    model results max 7 { name: text; kind_label: text; icon: image 40, 40; glyph: number }
     fact selected = 0
     prop magnifier = 0 ~320ms          // the face, turning into a magnifying glass
     prop finder = 0 ~290ms             // the panel's geometry
@@ -603,7 +603,9 @@ scene Marea {
     event agents_refresh ->
     event agents_read
     fact ag.worst = 101                // the least left of the active windows, in %; 101, unknown
-    fact agents.face = false
+    //  Her face on opening the page: first she reads the water, then says
+    //  what she thinks of it.
+    fact agents.face: none | reading | verdict = none
     let ag.shown = if(ag.worst > 100, 0.5, ag.worst / 100)
     let ag.tone = mix(mix(mix(#ef7a66, #f0b85a, clamp((ag.worst - 12) / 8, 0, 1)), mint, clamp((ag.worst - 40) / 15, 0, 1)), #8b8f95, ag.worst > 100)
     repeat a in 1..3 {
@@ -713,7 +715,7 @@ scene Marea {
     //  ── what the face can be ────────────────────────────────────
     //  A fact with a type: the compiler checks what it is compared against, so
     //  `face == magnifier` does not get past the first reading.
-    fact face: eye | count | camera | rec | alert | happy | angry = eye
+    fact face: eye | count | camera | rec | alert | happy | angry | reading = eye
     fact left = 0                     // what is left of the countdown
     fact taping = false               // the recorder running FOR REAL
 
@@ -737,6 +739,12 @@ scene Marea {
     follow dot = if(face == rec, 1, 0)
     follow alarm = if(face == alert, 1, 0)
     follow joy = if(face == happy, 1, 0)
+    //  Reading water —the agents' tubes—: each eye a little wave, «~ ~», that
+    //  flows while she reads. The wave only runs with that face on.
+    prop eyewave = 0 ~240ms
+    follow eyewave = if(face == reading, 1, 0)
+    prop eyewave.phase = 0
+    spin eyewave.phase by if(face == reading, 1.3, 0)
     follow fury = if(face == angry, 1, 0)
     follow red = if(taping, 1, 0)
 
@@ -747,10 +755,10 @@ scene Marea {
     //  other monitor—, a glance at where it is, and back. When, the logic says
     //  (`glancing`): every so often, never on a beat. Asleep, she does not look.
     fact glancing = false
-    prop glance = 0 ~gentle
-    follow glance = if(glancing and not asleep, 1, 0)
-    let glance.d = max(length(cursor.x - cx, cursor.y - cy), 1)
-    look gaze.x, gaze.y at cx, cy reach 6, 3.5 within 260 rest glance * 6 * (cursor.x - cx) / glance.d, glance * 3.5 * (cursor.y - cy) / glance.d
+    prop mouse.glance = 0 ~gentle
+    follow mouse.glance = if(glancing and not asleep, 1, 0)
+    let mouse.glance.d = max(length(cursor.x - cx, cursor.y - cy), 1)
+    look gaze.x, gaze.y at cx, cy reach 6, 3.5 within 260 rest mouse.glance * 6 * (cursor.x - cx) / mouse.glance.d, mouse.glance * 3.5 * (cursor.y - cy) / mouse.glance.d
 
     //  Marea's breath. Ambient: any other gesture cuts it off.
     gesture breathe ambient {
@@ -879,7 +887,7 @@ scene Marea {
     //  The gunslinger's part: the spin as it comes out and goes back —two whole
     //  turns round her finger, slowing into the aim—, the glare before
     //  shooting, and blowing the smoke off the barrel at the end.
-    prop twirl = 0 ~800ms
+    prop gun.twirl = 0 ~800ms
     prop glare = 0 ~200ms
     prop blow = 0 ~350ms
     prop calm = 0 ~16ms
@@ -900,7 +908,7 @@ scene Marea {
         shot.1: 0; shot.2: 0; shot.3: 0; shot.4: 0; shot.5: 0
         crack.1: 0 ~16ms; crack.2: 0 ~16ms; crack.3: 0 ~16ms; crack.4: 0 ~16ms; crack.5: 0 ~16ms
         //  Out, spinning into the aim.
-        twirl: 0 ~16ms; twirl: 1 ~800ms after 200ms
+        gun.twirl: 0 ~16ms; gun.twirl: 1 ~800ms after 200ms
         gun: 1 ~lively after 200ms
         //  The glare: looking at you, narrowed, before the first shot.
         glare: 1 ~220ms after 1050ms
@@ -913,7 +921,7 @@ scene Marea {
         //  Blowing the smoke off, and back in, spinning.
         blow: 1 ~350ms after 4250ms
         blow: 0 ~300ms after 5500ms
-        twirl: 0 ~700ms after 5650ms
+        gun.twirl: 0 ~700ms after 5650ms
         gun: 0 ~260ms after 6000ms
         calm: 1 after 6350ms
     }
@@ -1466,9 +1474,9 @@ scene Marea {
         //  ring before the ring goes.
         let shrink = 1 - powerdown
         let v.w = w.w * shrink
-        let v.h = w.h * shrink * (1 - joy) * (1 - 0.35 * fury - 0.25 * glare)
+        let v.h = w.h * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
         let v.rw = w.rw * shrink
-        let v.rh = w.rh * shrink * (1 - joy) * (1 - 0.35 * fury - 0.25 * glare)
+        let v.rh = w.rh * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
 
         let eye.y = y + 2.5 + drowsy * 1.4
         let l.x = x - sep
@@ -1504,6 +1512,15 @@ scene Marea {
             //  point as the pill goes, so there is never a face with none.
             arc { at: l.x, eye.y + 2; radius: 4.2; span: 170deg * joy; width: 2.4; color: ink; opacity: min(joy * 3, 1) }
             arc { at: r.x, eye.y + 2; radius: 4.2; span: 170deg * joy; width: 2.4; color: ink; opacity: min(joy * 3, 1) }
+            //  Reading water: the pills flatten the same way and a little wave
+            //  grows in each place, a ∩ and a ∪ side by side, rocking.
+            repeat e in 0..2 {
+                let ex = if(e == 0, l.x, r.x)
+                let bob = 1.2 * sin(eyewave.phase * 360 + e * 120)
+                let tw = clamp(eyewave, 0, 1)
+                arc { at: ex - 3.1, eye.y + bob; radius: 3.1; span: 180deg * tw; width: 2.4; color: ink; opacity: min(tw * 3, 1) }
+                arc { at: ex + 3.1, eye.y + bob; radius: 3.1; span: 180deg * tw; width: 2.4; rotate: 180deg; color: ink; opacity: min(tw * 3, 1) }
+            }
             //  Angry: two brows sloping down to the middle, «\ /», and the eyes
             //  narrowed under them.
             line { from: l.x - 5.5, eye.y - 11 + 2 * (1 - fury); to: l.x + 4, eye.y - 6.5; width: 2.2; color: ink; opacity: fury }
@@ -2294,7 +2311,28 @@ scene Marea {
                 //  An image's `at` is its CORNER, not its centre —the opposite of
             //  a box or a figure—, so centring it in a 44 row is (44 − 30) / 2.
             //  Placed at the centre it came out 8 px too low.
-            image h.icon { at: 8, 7; size: 30, 30 }
+            image h.icon { at: 8, 7; size: 30, 30; show: h.glyph < 0.5 }
+            //  What is hers —a page, a trick of hers— is not an application:
+            //  it comes with a little her, with the face of what it does. Waves
+            //  for the agents' water, «^ ^» to celebrate, brows for the rage,
+            //  and her plain eyes for the rest. Under the mouse she hops a
+            //  little and looks at what is written.
+            group {
+                show: h.glyph > 0.5
+                move: 0, -2.5 * glow
+                ellipse { at: 23, 22; radius: 14; color: #2b2f33 }
+                ellipse { at: 23, 22; radius: 13.4; stroke: 1.2; color: #ffffff; opacity: 16% + glow * 14% }
+                box { at: 19 + 1.5 * glow, 22; size: 3.4, 6.6; corner: 1.7; color: #f5f7f5; show: h.glyph == 1 or h.glyph == 3 }
+                box { at: 27 + 1.5 * glow, 22; size: 3.4, 6.6; corner: 1.7; color: #f5f7f5; show: h.glyph == 1 or h.glyph == 3 }
+                arc { at: 19, 23.5; radius: 2.8; span: 170deg; width: 1.8; color: #f5f7f5; show: h.glyph == 2 }
+                arc { at: 27, 23.5; radius: 2.8; span: 170deg; width: 1.8; color: #f5f7f5; show: h.glyph == 2 }
+                line { from: 16.5, 16.5; to: 21, 18.5; width: 1.6; color: #f5f7f5; show: h.glyph == 3 }
+                line { from: 29.5, 16.5; to: 25, 18.5; width: 1.6; color: #f5f7f5; show: h.glyph == 3 }
+                repeat e in 0..2 {
+                    arc { at: 17.6 + e * 8, 23; radius: 1.7; span: 170deg; width: 1.5; color: #9ed6bd; show: h.glyph == 4 }
+                    arc { at: 21 + e * 8, 21.4; radius: 1.7; span: 170deg; width: 1.5; rotate: 180deg; color: #9ed6bd; show: h.glyph == 4 }
+                }
+            }
             text h.name { at: 48, 22; anchor: left center; size: 14; width: 400; lines: 1
                             color: mix(#dfe1e3, #f6f6f5, glow) }
             text h.kind_label { at: 592, 22; anchor: right center; size: 11.5; color: #8b8f95 }
@@ -2372,7 +2410,7 @@ scene Marea {
     group {
         opacity: gun
         pivot: gun.x, gun.y
-        rotate: gun.angle * 1deg - kick * 0.35 * side - (1 - twirl) * 4 * 3.14159265 * side
+        rotate: gun.angle * 1deg - kick * 0.35 * side - (1 - gun.twirl) * 4 * 3.14159265 * side
         scale: 0.4 + 0.6 * gun, (0.4 + 0.6 * gun) * side
         move: (1 - gun) * -26 * side, 0
         box { at: gun.x + 17 - 6 * kick, gun.y - 4; size: 30, 9; corner: 2; color: #2b2e33 }
@@ -2411,19 +2449,19 @@ scene Marea {
     event boom.6
     event boom.7
     on celebrate {
-        rise.1: 0 ~16ms; rise.1: 1 ~700ms after 120ms
-        rise.2: 0 ~16ms; rise.2: 1 ~700ms after 330ms
-        rise.3: 0 ~16ms; rise.3: 1 ~700ms after 520ms
-        rise.4: 0 ~16ms; rise.4: 1 ~700ms after 740ms
-        rise.5: 0 ~16ms; rise.5: 1 ~700ms after 960ms
-        rise.6: 0 ~16ms; rise.6: 1 ~700ms after 1250ms
-        rise.7: 0 ~16ms; rise.7: 1 ~700ms after 1500ms
+        fw.rise.1: 0 ~16ms; fw.rise.1: 1 ~700ms after 120ms
+        fw.rise.2: 0 ~16ms; fw.rise.2: 1 ~700ms after 330ms
+        fw.rise.3: 0 ~16ms; fw.rise.3: 1 ~700ms after 520ms
+        fw.rise.4: 0 ~16ms; fw.rise.4: 1 ~700ms after 740ms
+        fw.rise.5: 0 ~16ms; fw.rise.5: 1 ~700ms after 960ms
+        fw.rise.6: 0 ~16ms; fw.rise.6: 1 ~700ms after 1250ms
+        fw.rise.7: 0 ~16ms; fw.rise.7: 1 ~700ms after 1500ms
     }
     group {
         glow: 10, 110%
         mode: add
         repeat k in 1..8 {
-            prop rise.$k = 0 ~700ms
+            prop fw.rise.$k = 0 ~700ms
             //  Where it bursts, from her: a fan from left to right, alternating
             //  near and far so two neighbours do not burst on top of each other.
             let fw.ang = 200 - (k - 1) * 36.6
@@ -2432,14 +2470,14 @@ scene Marea {
             let fw.ty = cy_actual + 40 + abs(sin(fw.ang - 180)) * fw.far * 0.8 + 30
             let fw.color = mix(mix(mix(mix(mix(mix(amber, mint, k > 1.5), lilac, k > 2.5), blue, k > 3.5), #ff6f91, k > 4.5), green, k > 5.5), #ffd166, k > 6.5)
             //  The rocket: from her centre to its point, bowed a little.
-            let fw.bow = 4 * rise.$k * (1 - rise.$k) * 18 * if(k < 4, -1, 1)
-            let fw.x = cx + (fw.tx - cx) * rise.$k + fw.bow
-            let fw.y = cy_actual + (fw.ty - cy_actual) * rise.$k
-            let flying = rise.$k > 0.03 and rise.$k < 0.95 and celebrating
+            let fw.bow = 4 * fw.rise.$k * (1 - fw.rise.$k) * 18 * if(k < 4, -1, 1)
+            let fw.x = cx + (fw.tx - cx) * fw.rise.$k + fw.bow
+            let fw.y = cy_actual + (fw.ty - cy_actual) * fw.rise.$k
+            let flying = fw.rise.$k > 0.03 and fw.rise.$k < 0.95 and celebrating
             particles { at: fw.x, fw.y; count: 90; life: 0.25s .. 0.6s; speed: 4 .. 30; size: 2.6, 0
                         colors: fw.color, #fff3d6; opacity: 90%, 0%; emit: flying }
             ellipse { at: fw.x, fw.y; radius: 2.6; color: #fff3d6; opacity: if(flying, 1, 0) }
-            on change rise.$k > 0.95 while rise.$k > 0.95 and celebrating { emit boom.$k }
+            on change fw.rise.$k > 0.95 while fw.rise.$k > 0.95 and celebrating { emit boom.$k }
             //  The burst: a ring of streaks that the air brakes and gravity bends,
             //  and a few slower sparks that linger as it falls apart.
             particles { at: fw.tx, fw.ty; count: 160; life: 0.9s .. 1.5s; speed: 90 .. 200; drag: 1.8
@@ -3328,9 +3366,13 @@ scene Marea {
             }
             //  And she reacts once, when the page comes in: little left
             //  somewhere, the «!» face; everything with margin, the happy one.
-            on change paging > 0.9 while page == agents and paging > 0.9 and ag.worst < 15 { face = alert; agents.face = true }
-            on change paging > 0.9 while page == agents and paging > 0.9 and ag.worst >= 50 and ag.worst < 101 { face = happy; agents.face = true }
-            on still agents.face for 1.6s while agents.face { agents.face = false; face = eye }
+            on change paging > 0.9 while page == agents and paging > 0.9 { face = reading; agents.face = reading }
+            on still agents.face for 1.3s while agents.face == reading and ag.worst < 15 { face = alert; agents.face = verdict }
+            on still agents.face for 1.3s while agents.face == reading and ag.worst >= 50 and ag.worst < 101 { face = happy; agents.face = verdict }
+            on still agents.face for 1.3s while agents.face == reading and (ag.worst >= 15 and ag.worst < 50 or ag.worst > 100) { face = eye; agents.face = none }
+            on still agents.face for 1.6s while agents.face == verdict { face = eye; agents.face = none }
+            //  Leaving the page mid-reading does not leave her with waves for eyes.
+            on change page while page != agents and agents.face != none { face = eye; agents.face = none }
 
             // ── the menu of a tray icon ──────────────────────────
             //  It is a page like the others, and that is why it holds what a

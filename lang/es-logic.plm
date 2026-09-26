@@ -7,6 +7,16 @@
 library SpanishLogic {
     translations es {
         // the finder
+        // what is hers, in the finder («Agents», «Settings»… are in es.plm)
+        "Lock the screen" = "Bloquear la pantalla"
+        "Screenshot of a region" = "Captura de una zona"
+        "Screenshot of the screen" = "Captura de la pantalla"
+        "Screenshot of a window" = "Captura de una ventana"
+        "Record the screen" = "Grabar la pantalla"
+        "Celebrate" = "Celebrar"
+        "Rage" = "Enfado"
+        "Adventure" = "Aventura"
+
         // the agents' reservoirs
         "5 hours" = "5 horas"
         "Weekly" = "Semanal"

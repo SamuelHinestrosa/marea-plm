@@ -205,6 +205,60 @@ local function prefer(a, b)
     return a.name < b.name
 end
 
+--  What is hers, findable by writing: her pages and her tricks. Each one with
+--  the words it answers to, in both languages whatever the one she speaks —you
+--  think «cupos» even with her in English—, the little face it shows in the
+--  list (1 plain, 2 happy, 3 angry, 4 waves) and what opening it does. Whatever
+--  is built for her from now on goes in here, and it can be found.
+local function open_page(page, section)
+    return function()
+        fact.open = true
+        fact.page = page
+        if section then fact.section = section end
+    end
+end
+local OWN = {
+    { "Agents", "agents agentes claude codex quota quotas cupos cupo reservas limits limites usage uso ia ai tokens", 4,
+      function() open_page("agents")(); emit("agents_refresh") end },
+    { "Settings", "settings ajustes preferences preferencias configuracion configuration idioma language", 1, open_page("settings", "general") },
+    { "Appearance", "appearance apariencia skin piel theme tema glass cristal lens lente look aspecto", 1, open_page("settings", "appearance") },
+    { "Her wardrobe", "wardrobe armario ropa clothes hat hats sombrero gorro accesorios accessories", 2, open_page("wardrobe") },
+    { "Wi-Fi", "wifi wi-fi red network internet", 1, open_page("wifi") },
+    { "Bluetooth", "bluetooth auriculares headphones", 1, open_page("bluetooth") },
+    { "Sound", "sound sonido audio volume volumen output salida microfono microphone", 1, open_page("sound") },
+    { "Focus", "focus concentracion concentración pomodoro haven refugio", 1, open_page("concentration") },
+    { "Session", "session sesion sesión apagar power poweroff reiniciar reboot restart logout salir suspend suspender", 1, open_page("session") },
+    { "Lock the screen", "lock bloquear bloqueo pantalla screen", 1, function() emit("lock") end },
+    { "Sleep", "sleep dormir siesta nap", 1, function() emit("sleep") end },
+    { "Screenshot of a region", "screenshot captura region región recorte shot", 1, function() emit("shot_region") end },
+    { "Screenshot of the screen", "screenshot captura pantalla screen shot", 1, function() emit("shot_screen") end },
+    { "Screenshot of a window", "screenshot captura ventana window shot", 1, function() emit("shot_window") end },
+    { "Record the screen", "record grabar grabacion grabación video vídeo screencast", 1, function() emit("record_toggle") end },
+    { "Celebrate", "celebrate celebrar fiesta party fireworks cohetes fuegos", 2, function() emit("celebrate") end },
+    { "Rage", "rage enfado enfadada angry pistola gun disparar shoot", 3, function() emit("rage") end },
+    { "Adventure", "adventure aventura alas wings volar fly saltar", 2, function() emit("adventure") end },
+}
+
+--  Hers first, when what is written starts one of her words or is in her
+--  name: typing «cla» finds the agents before any application.
+local function own_matches(q)
+    local found = {}
+    if #q < 2 then return found end
+    for k, o in ipairs(OWN) do
+        local name = tr(o[1])
+        local hit = name:lower():find(q, 1, true) ~= nil
+        if not hit then
+            for w in string.gmatch(o[2], "%S+") do
+                if w:sub(1, #q) == q then hit = true; break end
+            end
+        end
+        if hit and #found < 3 then
+            found[#found + 1] = { name = name, kind_label = "Marea", icon = "", glyph = o[3], own = k }
+        end
+    end
+    return found
+end
+
 local function search()
     local q = (text.query or ""):lower()
     generation = generation + 1
@@ -214,7 +268,7 @@ local function search()
         if q == "" or a.name:lower():find(q, 1, true) then matches[#matches + 1] = a end
     end
     table.sort(matches, prefer)
-    local list = {}
+    local list = own_matches(q)
     for _, a in ipairs(matches) do
         if #list < 7 then
             list[#list + 1] = { name = a.name, kind_label = tr("Application"), icon = a.icon, exec = a.exec }
@@ -260,6 +314,14 @@ on("fact:searching", function(opened) if opened then search() end end)
 on("open_result", function(i)
     local h = model.results[i + 1]
     if h == nil then return end
+    if h.own then
+        log("opening, of hers:", h.name)
+        text.query = ""
+        --  The finder is closing as this arrives; the card opens a moment
+        --  later, so the two do not cross.
+        after(180, OWN[h.own][4])
+        return
+    end
     if h.exec then
         log("opening", h.name)
         sys.call("apps.launch", h.exec)
