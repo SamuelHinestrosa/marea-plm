@@ -4547,7 +4547,9 @@ scene Marea {
         level: top
         screens: each max 2
         open: open or tray_open or searching or menu_open or reel_open
-        zone box outside { from: 0, 0; size: catcher.width, catcher.height }
+        //  And the zone says it again: a full-screen zone that stays on by
+        //  mistake is the whole desktop taken. It happened.
+        zone box outside { from: 0, 0; size: catcher.width, catcher.height; active: open or tray_open or searching or menu_open or reel_open }
         on press outside { open = false; tray_open = false; searching = false; menu_open = false; reel_open = false }
     }
 
