@@ -4439,26 +4439,27 @@ scene Marea {
             scale: cam.hold, cam.hold * cam.flip
             //  What it sees: a faint cone of light from the lens, fading out.
             group {
-                mask: radial cam.ex + 27, cam.ey radius 6 to 90
+                mask: radial cam.ex + 28.5, cam.ey radius 6 to 90
                 path { at: 0, 0; color: #ffffff; opacity: 7%
-                       move cam.ex + 27, cam.ey - 2.5; line cam.ex + 125, cam.ey - 30; line cam.ex + 125, cam.ey + 30; line cam.ex + 27, cam.ey + 2.5; close }
+                       move cam.ex + 28.5, cam.ey - 2.5; line cam.ex + 125, cam.ey - 30; line cam.ex + 125, cam.ey + 30; line cam.ex + 28.5, cam.ey + 2.5; close }
             }
-            //  The camera: eyepiece (on her eye), body, viewfinder and lens hood
-            //  melted into one piece, with a rim of light.
+            //  The camera: eyepiece (on her eye), body, viewfinder and lens hood.
+            //  Boxes with nearly square corners, joined without melting: a
+            //  camera is a box, and melted with rounded corners it read as an
+            //  egg. The eyepiece is a square 16 across, which covers the eye —13
+            //  tall, turning with the aim— at any angle.
             body {
                 color: #2c3035
                 rim: 14%
-                //  Round, so it covers the eye whatever the angle: the eye is 13
-                //  tall and turns with the camera's aim.
-                ellipse { at: cam.ex, cam.ey; radius: 8 }
-                box { at: cam.ex + 12.5, cam.ey + 0.5; size: 14, 13; corner: 3.5; blend: 3 }
-                box { at: cam.ex + 9, cam.ey - 8; size: 8, 4.5; corner: 2; blend: 2 }
-                box { at: cam.ex + 21, cam.ey + 0.5; size: 6, 10.5; corner: 2; blend: 2 }
+                box { at: cam.ex, cam.ey; size: 16, 16; corner: 2 }
+                box { at: cam.ex + 13, cam.ey + 0.5; size: 16, 14; corner: 1.5 }
+                box { at: cam.ex + 10, cam.ey - 8.5; size: 9, 5; corner: 1 }
+                box { at: cam.ex + 22.5, cam.ey + 0.5; size: 5, 11; corner: 1 }
             }
             //  The lens, with its glint.
-            ellipse { at: cam.ex + 24, cam.ey + 0.5; radius: 3.8; color: #1d3f63 }
-            ellipse { at: cam.ex + 24, cam.ey + 0.5; radius: 3.8; stroke: 1.1; color: #6f7a85 }
-            ellipse { at: cam.ex + 23, cam.ey - 0.8; radius: 1.2; color: #ffffff; opacity: 75% }
+            ellipse { at: cam.ex + 25.5, cam.ey + 0.5; radius: 3.8; color: #1d3f63 }
+            ellipse { at: cam.ex + 25.5, cam.ey + 0.5; radius: 3.8; stroke: 1.1; color: #6f7a85 }
+            ellipse { at: cam.ex + 24.5, cam.ey - 0.8; radius: 1.2; color: #ffffff; opacity: 75% }
             //  REC: blinking once a second while the recorder really runs.
             ellipse { at: cam.ex + 14.5, cam.ey - 3; radius: 1.8; color: #ff4b3e; opacity: if(taping, if(mod(secs, 2) < 1, 1, 0.2), 0.2) }
         }
