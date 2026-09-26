@@ -464,14 +464,13 @@ end
 --  the default (that is «Open»), two at most.
 local arriving_actions = {}
 
-local function arrive(n)
-    n.cat = CATEGORY_OF[n.app] or classify(n.app)
-    table.insert(rows, 1, n)
-    while #rows > 5 do table.remove(rows) end
-    render()
-    fact.cat = n.cat
-    --  What its card shows besides the words: its icon, whether it is urgent,
-    --  and what can be done with it without opening anything.
+--  What the arriving card shows besides the words: its icon, whether it is
+--  urgent, and what can be done with it without opening anything. Called for
+--  the one that arrives, and again for the next one of the pile when the one
+--  in front is done.
+local function show_front(n)
+    text.who = shown(n, n.title)
+    text.line = shown(n, n.detail)
     model.notice_face = { { icon = n.icon or "" } }
     fact["notice.icon"] = (n.icon or "") ~= ""
     fact.reading_urgent = n.urgent == true
@@ -482,8 +481,15 @@ local function arrive(n)
     text["act.1"] = arriving_actions[1] and arriving_actions[1].label or ""
     text["act.2"] = arriving_actions[2] and arriving_actions[2].label or ""
     fact.acts = #arriving_actions
-    text.who = shown(n, n.title)
-    text.line = shown(n, n.detail)
+end
+
+local function arrive(n)
+    n.cat = CATEGORY_OF[n.app] or classify(n.app)
+    table.insert(rows, 1, n)
+    while #rows > 5 do table.remove(rows) end
+    render()
+    fact.cat = n.cat
+    show_front(n)
     emit("notice")
     if n.urgent then emit("urge") end
 end
@@ -780,16 +786,37 @@ local function open_row(k)
 end
 on("open_notice", open_row)
 --  The arriving card's chips: 0 open it, 1 done with it, 2 and 3 its own
---  actions. It is always the newest one, the one on top.
+--  actions, 9 done with the whole pile. They act on the one in front: the
+--  newest of the pile that is not done yet.
+local function front_row()
+    local pile = math.max(1, math.floor(fact.burst or 1))
+    for k = 1, math.min(pile, #rows) do
+        if not rows[k].done then return k end
+    end
+    return 1
+end
+local function done_with(f)
+    if f == nil or f.done then return end
+    f.done = true
+    if f.id then sys.call("notifications.dismiss", f.id) end
+end
 on("notice_act", function(i)
     i = math.floor(i or 0)
-    local f = rows[1]
+    if i == 9 then
+        local pile = math.max(1, math.floor(fact.burst or 1))
+        for k = 1, math.min(pile, #rows) do done_with(rows[k]) end
+        return
+    end
+    local k = front_row()
+    local f = rows[k]
     if f == nil then return end
     if i == 0 then
-        open_row(1)
+        open_row(k)
     elseif i == 1 then
-        f.done = true
-        if f.id then sys.call("notifications.dismiss", f.id) end
+        done_with(f)
+        --  And the next one of the pile comes to the front.
+        local next_k = front_row()
+        if rows[next_k] and not rows[next_k].done then show_front(rows[next_k]) end
     else
         local a = arriving_actions[i - 1]
         if a and f.id then sys.call("notifications.invoke", f.id, a.key) end
