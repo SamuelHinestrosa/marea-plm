@@ -1421,6 +1421,27 @@ end)
 local monitors = {}                  -- in the compositor's order: name
 local focused = ""
 
+--  In pleamar-wm's session, where she is is also where a window put away
+--  flies to: its window manager is told by number, in its own order of the
+--  monitors (the one `pleamar-wm hyprctl monitors` gives).
+local told_island = nil
+local function tell_island()
+    if not in_wm then return end
+    local name = nil
+    for k = 0, 1 do
+        if fact["hosts." .. k] == true then name = monitors[k + 1] end
+    end
+    if name == nil or name == told_island then return end
+    told_island = name
+    run("pleamar-wm", { "hyprctl", "monitors" }, function(out)
+        for n, id in tostring(out or ""):gmatch("Monitor (%S+) %(ID (%d+)%)") do
+            if n == name then
+                run("pleamar-wm", { "--say", "wm", "fact island.screen " .. id }, nil, { output = false })
+            end
+        end
+    end)
+end
+
 local function decide()
     for k = 0, 1 do
         local name = monitors[k + 1]
@@ -1434,6 +1455,7 @@ local function decide()
         end
         fact["hosts." .. k] = hers
     end
+    tell_island()
 end
 
 local function save_settings()
