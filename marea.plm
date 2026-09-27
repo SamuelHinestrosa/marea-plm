@@ -32,7 +32,7 @@ scene Marea {
         //  Switching network or headphones is something pleamar cannot do yet
         //  (its B15), so the logic does it with the system's tools. And `fd`
         //  finds the files and the folders.
-        run: "node", "notify-send", "nmcli", "bluetoothctl", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl"
+        run: "node", "notify-send", "nmcli", "bluetoothctl", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm"
     }
     service clock as now { time: text = "--:--"; date: text; hour: number; minute: number }
     service audio as sound { volume: number; muted: bool; input: number; input_muted: bool }

@@ -1160,6 +1160,18 @@ end)
 --  frozen, she is told `frozen` so that she comes back —turned into a camera—,
 --  the crop is worked out according to what was asked for, and `shoot` is the
 --  shutter's click.
+--  Who says how the desktop is —the monitors, which one has the focus, where
+--  the active window is—: Hyprland when she lives on it; else pleamar-wm's own
+--  session, which says it in the same words (`pleamar-wm hyprctl …`).
+local on_hyprland = (sys.ask("env", "HYPRLAND_INSTANCE_SIGNATURE") or "") ~= ""
+local function hyprctl(what, done)
+    if on_hyprland then
+        run("hyprctl", { what }, done)
+    else
+        run("pleamar-wm", { "hyprctl", what }, done)
+    end
+end
+
 local PHOTOS = home_dir .. "/Imágenes/Marea"
 local FRAME = (sys.ask("env", "XDG_RUNTIME_DIR") or "/tmp") .. "/marea-plm-frame.png"
 run("mkdir", { "-p", PHOTOS })
@@ -1199,8 +1211,8 @@ on("gone", function()
     --  A breather so the compositor can take away whatever was closing.
     after(140, function()
         --  The active window is asked BEFORE freezing: it is the one that was there.
-        run("hyprctl", { "activewindow" }, function(window)
-            run("hyprctl", { "monitors" }, function(mons)
+        hyprctl("activewindow", function(window)
+            hyprctl("monitors", function(mons)
                 local minx, miny, focused = parse_monitors(mons or "")
                 run("grim", { FRAME }, function(_, code)
                     if code ~= 0 then log("photo · grim could not freeze the screen"); emit("shot_cancelled"); return end
@@ -1258,7 +1270,7 @@ on("fact:face", function(face)
     if face ~= "rec" or recorder ~= nil then return end
     run("pactl", { "get-default-sink" }, function(sound_sink, sink_code)
     if sink_code ~= 0 or sound_sink == "" then sound_sink = nil end
-    run("hyprctl", { "monitors" }, function(mons)
+    hyprctl("monitors", function(mons)
         if fact.face ~= "rec" then return end          -- she changed her mind during the countdown
         local monitor = nil
         for block in ((mons or "") .. "\n\n"):gmatch("(Monitor .-)\n\n") do
@@ -1358,7 +1370,7 @@ local WALLPAPER = settings.wallpaper or "/usr/share/wallpapers/cachyos-wallpaper
 
 run("pgrep", { "-x", "swaybg" }, function(_, code)
     if code == 0 then return end                        -- someone is already painting it
-    run("hyprctl", { "monitors" }, function(mons)
+    hyprctl("monitors", function(mons)
         local args = {}
         for name in (mons or ""):gmatch("Monitor (%S+)") do
             for _, a in ipairs({ "-o", name, "-i", WALLPAPER, "-m", "fill" }) do args[#args + 1] = a end
