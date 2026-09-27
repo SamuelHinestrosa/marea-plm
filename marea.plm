@@ -327,7 +327,7 @@ scene Marea {
     text query = ""
     //  What is found, just as the logic delivers it: apps from the system's
     //  service, and files and folders from `fd`. The icon travels in the record.
-    model results max 7 { name: text; kind_label: text; icon: image 40, 40; glyph: number }
+    model results max 7 { name: text; kind_label: text; icon: image 40, 40; glyph: number; path: text }
     fact selected = 0
     prop magnifier = 0 ~320ms          // the face, turning into a magnifying glass
     prop finder = 0 ~290ms             // the panel's geometry
@@ -2716,7 +2716,9 @@ scene Marea {
         //  Only with the finder open. Closed, these rows are still filled —«At
         //  hand» is loaded on starting— and below the control center: a click on
         //  a gap in the panel went through them and launched a terminal.
-        zone box touch { from: 0, 0; size: 600, 44; corner: 12; cursor: pointer; active: searching }
+        //  A file or a folder can be dragged out of her to any program —into a
+        //  browser to upload it, into a folder to copy it—: it carries its path.
+        zone box touch { from: 0, 0; size: 600, 44; corner: 12; cursor: pointer; active: searching; carries: "{h.path}" }
         box { from: 0, 0; size: 600, 44; corner: 12; color: #23282b; opacity: glow * 70% * arrive }
         group {
             opacity: arrive
@@ -2752,7 +2754,12 @@ scene Marea {
         }
         on enter touch { glow: 1 }
         on leave touch { glow: 0 }
-        on press touch { emit pick(h.index) }
+        //  On letting go, not on pressing: a press may be the start of dragging
+        //  it out, and then it is not opened.
+        on release touch { emit pick(h.index) }
+        //  Dragged out, the finder goes: what it is let go on is what is
+        //  underneath, not her catcher.
+        on carry touch { searching = false }
     }
 
     // ── the shots ────────────────────────────────────────────────

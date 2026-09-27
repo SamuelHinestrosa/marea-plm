@@ -320,6 +320,7 @@ local function search()
                     kind_label = (is_folder and tr("Folder") or tr("File")) .. (where ~= "" and " · " .. where or ""),
                     icon = is_folder and "folder" or "text-x-generic",
                     filepath = clean,
+                    path = clean,
                 }
             end
         end
