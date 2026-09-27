@@ -251,6 +251,11 @@ local OWN = {
     { "Screenshot of the screen", "screenshot captura pantalla screen shot", 1, function() emit("shot_screen") end },
     { "Screenshot of a window", "screenshot captura ventana window shot", 1, function() emit("shot_window") end },
     { "Record the screen", "record grabar grabacion grabación video vídeo screencast", 1, function() emit("record_toggle") end },
+    --  Only in pleamar-wm's own session: its window manager.
+    { "Tiled or free windows", "windows ventanas libres free tiled mosaico tiling floating flotantes modo mode", 1,
+      function() if hooks.wm_free then hooks.wm_free() end end, "wm" },
+    { "Bring back every window", "minimized minimizadas recoger restore restaurar devolver traer windows ventanas", 1,
+      function() if hooks.wm_restore then hooks.wm_restore() end end, "wm" },
     { "Celebrate", "celebrate celebrar fiesta party fireworks cohetes fuegos", 2, function() emit("celebrate") end },
     { "Rage", "rage enfado enfadada angry pistola gun disparar shoot", 3, function() emit("rage") end },
     { "Adventure", "adventure aventura alas wings volar fly saltar", 2, function() emit("adventure") end },
@@ -262,6 +267,7 @@ local function own_matches(q)
     local found = {}
     if #q < 2 then return found end
     for k, o in ipairs(OWN) do
+        if o[5] == "wm" and not hooks.in_wm then continue end
         local name = tr(o[1])
         local hit = name:lower():find(q, 1, true) ~= nil
         if not hit then
@@ -369,6 +375,28 @@ local plugin_entries = {
     { id = "swell.history", group = "Swell", title = "History" },
 }
 
+--  In pleamar-wm's own session its window manager answers to `wm`: her menu
+--  and her finder can switch it between tiled and free windows, and bring
+--  back every window put away.
+local in_wm = false
+do
+    local ok, where = pcall(sys.ask, "env", "PLEAMAR_SOCKETS")
+    in_wm = ok and type(where) == "string" and where:find("pleamar%-pleamar") ~= nil
+end
+local function wm_toggle_free()
+    run("pleamar-wm", { "--say", "wm", "emit toggle_free" }, nil, { output = false })
+end
+local function wm_restore_all()
+    if hooks.restore_all then hooks.restore_all() end
+end
+hooks.in_wm = in_wm
+hooks.wm_free = wm_toggle_free
+hooks.wm_restore = wm_restore_all
+if in_wm then
+    table.insert(plugin_entries, 1, { id = "wm.free", group = "Windows", title = "Tiled or free windows" })
+    table.insert(plugin_entries, 2, { id = "wm.restore", group = "Windows", title = "Bring back every window" })
+end
+
 local function set_menu()
     local group, groups = nil, 0
     local entries = {}
@@ -387,6 +415,8 @@ set_menu()
 
 on("menu_entry", function(i)
     local e = plugin_entries[i + 1]
+    if e ~= nil and e.id == "wm.free" then wm_toggle_free(); return end
+    if e ~= nil and e.id == "wm.restore" then wm_restore_all(); return end
     log("a plugin entry from her menu", e ~= nil and e.id or i)
 end)
 
@@ -1441,9 +1471,76 @@ for k = 0, 1 do
     if name ~= nil and name ~= "" then monitors[k + 1] = name end
 end
 
+-- ── the stones: windows put away ───────────────────────────────────
+--  pleamar-wm's session lists every window through the `window` service, and
+--  says which are put away (minimized): each one gets a slot of its own —the
+--  first free— and keeps it until it comes back, so a stone never changes
+--  face while the others close ranks. Its face is its application's icon,
+--  found by the window's app id (the `.desktop` file's name, or its X11
+--  class); without one, the initial.
+local stone_slots = {}                -- slot (1..6) → window id
+local stone_faces = {}                -- slot → the record shown
+local function face_of(class)
+    local c = (class or ""):lower()
+    if c == "" then return "" end
+    for _, a in ipairs(apps) do
+        local id = (a.id or ""):lower()
+        local wm = (a.wmclass or ""):lower()
+        local bin = ((a.exec or ""):match("^(%S+)") or ""):match("([^/]+)$") or ""
+        if id == c or wm == c or id:sub(-#c - 1) == "." .. c or bin:lower() == c then
+            return a.icon or ""
+        end
+    end
+    return ""
+end
+local function set_stones(list)
+    local away = {}
+    for _, w in ipairs(list or {}) do
+        if w.minimized then away[w.id] = w end
+    end
+    for k = 1, 6 do
+        local id = stone_slots[k]
+        if id ~= nil and away[id] == nil then
+            stone_slots[k] = nil
+            if stone_faces[k] then stone_faces[k].present = false end
+        end
+    end
+    for id, w in pairs(away) do
+        local has = false
+        for k = 1, 6 do if stone_slots[k] == id then has = true end end
+        if not has then
+            for k = 1, 6 do
+                if stone_slots[k] == nil then
+                    stone_slots[k] = id
+                    local icon = face_of(w.class)
+                    local name = (w.title ~= "" and w.title) or w.class or ""
+                    stone_faces[k] = { title = name, icon = icon, letter = icon == "" and name:sub(1, 1):upper() or "", present = true }
+                    break
+                end
+            end
+        end
+    end
+    local out = {}
+    for k = 1, 6 do
+        out[k] = stone_faces[k] or { title = "", icon = "", letter = "", present = false }
+    end
+    model.stones = out
+end
+hooks.restore_all = function()
+    for k = 1, 6 do
+        local id = stone_slots[k]
+        if id ~= nil then pcall(sys.call, "window.restore", id) end
+    end
+end
+on("restore_stone", function(k)
+    local id = stone_slots[(k or 0) + 1]
+    if id ~= nil then pcall(sys.call, "window.restore", id) end
+end)
+
 if not sys.watch("window", function(v)
     focused = (v and v.monitor) or ""
     if fact.following == true then decide() end
+    set_stones(v and v.list)
 end) then log("this compositor does not say where the focus is: «follow me» will not work") end
 
 on("fact:home", function() decide(); save_settings() end)

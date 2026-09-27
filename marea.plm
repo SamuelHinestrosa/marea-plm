@@ -28,7 +28,7 @@ scene Marea {
         //  your home lives; the session, to be able to say goodbye. What is NOT
         //  here is `notifications`: the first one to ask for it keeps the spot,
         //  and on this machine that spot is Marea's.
-        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*", "auth", "files", "files.write", "window"
+        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*", "auth", "files", "files.write", "window", "window.*"
         //  Switching network or headphones is something pleamar cannot do yet
         //  (its B15), so the logic does it with the system's tools. And `fd`
         //  finds the files and the folders.
@@ -2145,6 +2145,63 @@ scene Marea {
         //  Nothing looping.
         on landed while reading_cat == k { n.$k = n.$k + burst; last.$k = max(last.$k, arrival_seq); impulse beat.$k 5 }
         on direct while cat == k { n.$k = n.$k + 1; last.$k = seq; impulse beat.$k 5 }
+    }
+
+    // ── the stones: windows put away ─────────────────────────────
+    //  A window put away (minimized, in pleamar-wm's session) flies into her
+    //  island and lands at her left —the drops are on her right— as a little
+    //  stone with its application's face. Hovering one says which window it
+    //  is; pressing it brings the window back out of her. They fall in from
+    //  above with a bounce, close ranks with a spring when one leaves, and
+    //  wobble like the drops when the mouse comes close.
+    model stones max 6 { title: text; icon: image 18, 18; letter: text; present: bool = false }
+    event restore_stone ->             // (k): the logic brings that one back
+    spring pebble = 300, 13
+    repeat k in 0..6 {
+        //  Its place: how many present ones there are before it.
+        let rank.$k = (k > 0.5 and stones.0.present) + (k > 1.5 and stones.1.present) + (k > 2.5 and stones.2.present) + (k > 3.5 and stones.3.present) + (k > 4.5 and stones.4.present)
+        prop stone.$k = 0 ~pebble
+        follow stone.$k = if(stones.$k.present and not open and not searching and not tray_open, 1, 0)
+        prop place.stone.$k = 0 ~calm
+        follow place.stone.$k = rank.$k
+        prop near.stone.$k = 0 ~140ms
+        prop touch.stone.$k = 0 ~splash
+        let sx.$k = cx - r - 24 - place.stone.$k * 34
+        let sy.$k = cy_actual - 26 * (1 - stone.$k)
+        group {
+            show: stone.$k > 0.01
+            opacity: clamp(stone.$k * 1.5, 0, 1)
+            pivot: sx.$k, sy.$k
+            scale: stone.$k * (1 + near.stone.$k * 0.14 + touch.stone.$k * 0.12), stone.$k * (1 + near.stone.$k * 0.14 - touch.stone.$k * 0.06)
+            body {
+                color: #171b1e
+                shadow: 0, 3 + 3 * near.stone.$k, 9, 45%
+                box { at: sx.$k, sy.$k; size: 30, 26; corner: 12 }
+            }
+            box { at: sx.$k, sy.$k; size: 30, 26; corner: 12; stroke: 1; color: mint; opacity: 28% + 50% * near.stone.$k }
+            //  An image's `at` is its corner.
+            image stones.$k.icon { at: sx.$k - 9, sy.$k - 9; size: 18, 18 }
+            text stones.$k.letter { at: sx.$k, sy.$k + 0.5; anchor: center; size: 12; weight: 700; color: ink }
+        }
+        //  Its window's title, under it, while the mouse is on it.
+        group {
+            show: near.stone.$k > 0.01 and stone.$k > 0.5
+            opacity: near.stone.$k
+            move: 0, 5 * (1 - near.stone.$k)
+            body {
+                color: #0f1214
+                shadow: 0, 6, 16, 40%
+                box { at: sx.$k, sy.$k + 32; size: 180, 24; corner: 12; opacity: 94% }
+            }
+            text stones.$k.title { at: sx.$k, sy.$k + 32.5; anchor: center; size: 11.5; weight: 500; width: 164; lines: 1; color: ink }
+        }
+        zone box stone_zone.$k { at: sx.$k, sy.$k; size: 34, 30; corner: 12; cursor: pointer; active: stone.$k > 0.6 }
+        on enter stone_zone.$k { impulse touch.stone.$k 9; near.stone.$k: 1 }
+        on leave stone_zone.$k { near.stone.$k: 0 }
+        on press stone_zone.$k {
+            near.stone.$k: 0
+            emit restore_stone(k)
+        }
     }
 
     // ── the preview ──────────────────────────────────────────────
