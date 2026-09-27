@@ -137,6 +137,9 @@ scene Marea {
         size: 820, 680
         anchor: top
         margin: 0
+        //  Her strip, if you want windows to leave it to her: as tall as she is
+        //  with a little air. Only the copy that is open keeps it.
+        reserve: 72 while taking_room
         //  One copy per monitor, and each one with its own. Which one shows is
         //  said by `mine`, in the logic: the one at her home, or the one on the
         //  monitor with the focus if you have set her to follow you. The others
@@ -190,6 +193,12 @@ scene Marea {
     //  monitor.
     fact home = 0
     fact following = false
+    //  Whether windows leave her the strip at the top (the compositor keeps
+    //  it for her) or go under her, all of the screen theirs.
+    fact taking_room = false
+    //  pleamar-wm says which monitor the mouse is on, by its number: «follow
+    //  me» there goes where the mouse is, even onto a monitor with no window.
+    event pointer_monitor ->
     fact hosts.0 = true
     fact hosts.1 = false
     //  And the journey. She does not switch off and on: she lives hanging from
@@ -3490,6 +3499,7 @@ scene Marea {
             event to_lock
             event to_wardrobe
             event flip_follow
+            event flip_room
             event flip_safety
             on to_home { section = home }
             on to_look { section = look }
@@ -3497,6 +3507,7 @@ scene Marea {
             on to_lock { section = lock }
             on to_wardrobe { emit customize; page = wardrobe }
             on flip_follow { toggle following }
+            on flip_room { toggle taking_room }
             on flip_safety { toggle with_exit }
             let st.faint = mix(#8b8f95, faint, glassiness)
             group {
@@ -3586,6 +3597,14 @@ scene Marea {
                         text "She goes to the monitor where you are working" { at: card.x - 206, card.top + 369; anchor: left center; size: 11; color: st.faint }
                         column { at: card.x + 174, card.top + 348
                             Switch(following, flip_follow)
+                        }
+                        //  And whether windows go under her or leave her the strip at the top.
+                        box { at: card.x, card.top + 436; size: 456, 64; corner: 16; color: mix(#202021, #1a2a25, taking_room) }
+                        box { at: card.x, card.top + 436; size: 456, 64; corner: 16; stroke: 1.2; color: mint; opacity: taking_room * 70% }
+                        text "Her own strip" { at: card.x - 206, card.top + 426; anchor: left center; size: 13; weight: 600; color: ink }
+                        text "Windows leave her the top, instead of going under her" { at: card.x - 206, card.top + 445; anchor: left center; size: 11; color: st.faint }
+                        column { at: card.x + 174, card.top + 424
+                            Switch(taking_room, flip_room)
                         }
                     }
 

@@ -1420,6 +1420,7 @@ end)
 --  monitors change number when another one is plugged in, and a name does not.
 local monitors = {}                  -- in the compositor's order: name
 local focused = ""
+local pointed = nil                  -- pleamar-wm: the monitor the mouse is on, by name
 
 --  In pleamar-wm's session, where she is is also where a window put away
 --  flies to: its window manager is told by number, in its own order of the
@@ -1443,13 +1444,15 @@ local function tell_island()
 end
 
 local function decide()
+    --  In pleamar-wm's session she follows the mouse; elsewhere, the focus.
+    local wanted = pointed or focused
     for k = 0, 1 do
         local name = monitors[k + 1]
         local hers
         if fact.following == true then
-            hers = name ~= nil and name == focused
+            hers = name ~= nil and name == wanted
             --  With no focus on any —the empty desktop—, home.
-            if focused == "" then hers = k == fact.home end
+            if wanted == "" then hers = k == fact.home end
         else
             hers = k == fact.home
         end
@@ -1461,6 +1464,7 @@ end
 local function save_settings()
     settings.home = monitors[(fact.home or 0) + 1] or settings.home
     settings.follow = fact.following == true
+    settings.room = fact.taking_room == true
     settings.skin = fact.skin
     settings.language = fact.language
     settings.wallpaper = WALLPAPER
@@ -1477,6 +1481,7 @@ local function place()
         if name == settings.home then fact.home = k - 1 end
     end
     fact.following = settings.follow == true
+    fact.taking_room = settings.room == true
     decide()
 end
 for k = 0, 1 do
@@ -1565,8 +1570,21 @@ if not sys.watch("window", function(v)
     set_stones(v and v.list)
 end) then log("this compositor does not say where the focus is: «follow me» will not work") end
 
+--  Its number, in pleamar-wm's order of the monitors, to its name.
+on("pointer_monitor", function(id)
+    run("pleamar-wm", { "hyprctl", "monitors" }, function(out)
+        for n, k in tostring(out or ""):gmatch("Monitor (%S+) %(ID (%d+)%)") do
+            if tonumber(k) == id and pointed ~= n then
+                pointed = n
+                if fact.following == true then decide() end
+            end
+        end
+    end)
+end)
+
 on("fact:home", function() decide(); save_settings() end)
 on("fact:following", function() decide(); save_settings() end)
+on("fact:taking_room", function() save_settings() end)
 
 --  Her look, as it was left last time. If the file holds something that is not
 --  one of the three —another version, a hand edit—, the factory one stays.

@@ -115,6 +115,8 @@ library SpanishUi {
         "You can leave her on one monitor, or have her follow you." = "Puedes dejarla en un monitor, o que te siga."
         "Follow me" = "Sígueme"
         "She goes to the monitor where you are working" = "Se va al monitor donde estés trabajando"
+        "Her own strip" = "Su propia franja"
+        "Windows leave her the top, instead of going under her" = "Las ventanas le dejan la parte de arriba en vez de ir por debajo"
         "THE LOCK" = "EL BLOQUEO"
         "Safety net: Esc opens it too, and it opens itself after a minute" = "Con red: Esc también lo abre, y se abre solo al minuto"
         "Remove it once you trust your password. It lasts until a restart" = "Quítala cuando te fíes de tu contraseña. Vale hasta que se reinicie"
