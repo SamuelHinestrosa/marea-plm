@@ -1506,6 +1506,7 @@ end
 --  found by the window's app id (the `.desktop` file's name, or its X11
 --  class); without one, the initial.
 local stone_slots = {}                -- slot (1..6) → window id
+local stone_seq = 0                   -- how many have been put away: the newest sits next to her
 local stone_faces = {}                -- slot → the record shown
 local function face_of(class)
     local c = (class or ""):lower()
@@ -1541,7 +1542,8 @@ local function set_stones(list)
                     stone_slots[k] = id
                     local icon = face_of(w.class)
                     local name = (w.title ~= "" and w.title) or w.class or ""
-                    stone_faces[k] = { title = name, icon = icon, letter = icon == "" and name:sub(1, 1):upper() or "", present = true }
+                    stone_seq = stone_seq + 1
+                    stone_faces[k] = { title = name, icon = icon, letter = icon == "" and name:sub(1, 1):upper() or "", present = true, seq = stone_seq }
                     break
                 end
             end
@@ -1549,7 +1551,7 @@ local function set_stones(list)
     end
     local out = {}
     for k = 1, 6 do
-        out[k] = stone_faces[k] or { title = "", icon = "", letter = "", present = false }
+        out[k] = stone_faces[k] or { title = "", icon = "", letter = "", present = false, seq = 0 }
     end
     model.stones = out
 end
