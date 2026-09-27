@@ -1573,7 +1573,7 @@ if not sys.watch("window", function(v)
 end) then log("this compositor does not say where the focus is: «follow me» will not work") end
 
 --  Its number, in pleamar-wm's order of the monitors, to its name.
-on("pointer_monitor", function(id)
+local function point_to(id)
     run("pleamar-wm", { "hyprctl", "monitors" }, function(out)
         for n, k in tostring(out or ""):gmatch("Monitor (%S+) %(ID (%d+)%)") do
             if tonumber(k) == id and pointed ~= n then
@@ -1582,7 +1582,19 @@ on("pointer_monitor", function(id)
             end
         end
     end)
-end)
+end
+on("pointer_monitor", point_to)
+--  Born into the session, she asks where the mouse is: it is only told
+--  when it changes monitor, and until it did she went home —often the
+--  other monitor, with the cursor waiting on this one—.
+if in_wm then
+    after(300, function()
+        run("pleamar-wm", { "--say", "wm", "get mon" }, function(out)
+            local id = tonumber((tostring(out or ""):match("%-?%d+")))
+            if id ~= nil and id >= 0 then point_to(id) end
+        end)
+    end)
+end
 
 on("fact:home", function() decide(); save_settings() end)
 on("fact:following", function() decide(); save_settings() end)
