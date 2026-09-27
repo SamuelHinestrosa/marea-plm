@@ -1574,6 +1574,9 @@ end) then log("this compositor does not say where the focus is: «follow me» wi
 
 --  Its number, in pleamar-wm's order of the monitors, to its name.
 local function point_to(id)
+    --  Only pleamar-wm's session says it; anywhere else it is someone
+    --  else's word about monitors that are not hers.
+    if not in_wm then return end
     run("pleamar-wm", { "hyprctl", "monitors" }, function(out)
         for n, k in tostring(out or ""):gmatch("Monitor (%S+) %(ID (%d+)%)") do
             if tonumber(k) == id and pointed ~= n then
