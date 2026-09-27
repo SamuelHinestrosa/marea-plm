@@ -4890,11 +4890,26 @@ scene Marea {
         anchor: top_left
         level: top
         screens: each max 2
-        open: open or tray_open or menu_open or reel_open
+        open: open or tray_open or menu_open or reel_open or searching
         //  And the zone says it again: a full-screen zone that stays on by
         //  mistake is the whole desktop taken. It happened.
         zone box outside { from: 0, 0; size: catcher.width, catcher.height; active: open or tray_open or menu_open or reel_open }
         on press outside { open = false; tray_open = false; menu_open = false; reel_open = false }
+        //  The finder stays in her own layer —moving it up as it opens left
+        //  it without the keyboard—, so here the catcher would be over it:
+        //  around it instead, three strips —left, right and below— and the
+        //  finder and Marea herself in the hole. (Her surface is centred at
+        //  the top: `ox` is where it starts on this one.)
+        let ox = (catcher.width - 820) / 2
+        let hole.x0 = ox + cx - r - 12
+        let hole.x1 = ox + finder.x + finder.w / 2 + 8
+        let hole.y1 = finder.y + finder.h / 2 + 8
+        zone box outside_left { from: 0, 0; size: hole.x0, catcher.height; active: searching }
+        zone box outside_right { from: hole.x1, 0; size: catcher.width - hole.x1, catcher.height; active: searching }
+        zone box outside_below { from: hole.x0, hole.y1; size: hole.x1 - hole.x0, catcher.height - hole.y1; active: searching }
+        on press outside_left { searching = false }
+        on press outside_right { searching = false }
+        on press outside_below { searching = false }
     }
 
     surface stage {
