@@ -106,6 +106,10 @@ bind = SUPER SHIFT, C, exec, marea record_toggle
 
 `pleamar-update` keeps her up to date.
 
+On **Nix**: `nix run github:k4ditano/marea-plm -- start`, or `pkgs.marea` through
+this flake's `overlays.default`. On NixOS, [pleamar-wm]'s module brings her
+with the whole desktop.
+
 # Use
 
 ```sh
