@@ -20,6 +20,7 @@ library SpanishLogic {
         "Windows" = "Ventanas"
         "Tiled or free windows" = "Ventanas en mosaico o libres"
         "Bring back every window" = "Recuperar todas las ventanas"
+        "Rain on the windows" = "Lluvia en las ventanas"
 
         // the calendar
         "January" = "enero"

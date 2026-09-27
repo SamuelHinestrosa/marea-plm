@@ -256,6 +256,8 @@ local OWN = {
       function() if hooks.wm_free then hooks.wm_free() end end, "wm" },
     { "Bring back every window", "minimized minimizadas recoger restore restaurar devolver traer windows ventanas", 1,
       function() if hooks.wm_restore then hooks.wm_restore() end end, "wm" },
+    { "Rain on the windows", "rain lluvia llover llueve water agua drops gotas weather tiempo shader windows ventanas", 1,
+      function() if hooks.wm_rain then hooks.wm_rain() end end, "wm" },
     { "Celebrate", "celebrate celebrar fiesta party fireworks cohetes fuegos", 2, function() emit("celebrate") end },
     { "Rage", "rage enfado enfadada angry pistola gun disparar shoot", 3, function() emit("rage") end },
     { "Adventure", "adventure aventura alas wings volar fly saltar", 2, function() emit("adventure") end },
@@ -387,15 +389,21 @@ end
 local function wm_toggle_free()
     run("pleamar-wm", { "--say", "wm", "emit toggle_free" }, nil, { output = false })
 end
+--  Rain on the windows, as if they were glass: the window manager's shader.
+local function wm_toggle_rain()
+    run("pleamar-wm", { "--say", "wm", "emit toggle_rain" }, nil, { output = false })
+end
 local function wm_restore_all()
     if hooks.restore_all then hooks.restore_all() end
 end
 hooks.in_wm = in_wm
 hooks.wm_free = wm_toggle_free
 hooks.wm_restore = wm_restore_all
+hooks.wm_rain = wm_toggle_rain
 if in_wm then
     table.insert(plugin_entries, 1, { id = "wm.free", group = "Windows", title = "Tiled or free windows" })
     table.insert(plugin_entries, 2, { id = "wm.restore", group = "Windows", title = "Bring back every window" })
+    table.insert(plugin_entries, 3, { id = "wm.rain", group = "Windows", title = "Rain on the windows" })
 end
 
 local function set_menu()
@@ -418,6 +426,7 @@ on("menu_entry", function(i)
     local e = plugin_entries[i + 1]
     if e ~= nil and e.id == "wm.free" then wm_toggle_free(); return end
     if e ~= nil and e.id == "wm.restore" then wm_restore_all(); return end
+    if e ~= nil and e.id == "wm.rain" then wm_toggle_rain(); return end
     log("a plugin entry from her menu", e ~= nil and e.id or i)
 end)
 
