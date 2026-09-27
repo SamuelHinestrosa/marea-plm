@@ -8,6 +8,7 @@
 ![Badge Language]
 ![Badge Commit]
 [![Badge Issues]][Issues]
+[![Badge X]][X]
 
 <br>
 
@@ -143,6 +144,8 @@ some `.plm`, their `.luau` next to them, and the program already built.
 
 Marea is under the [BSD 3-Clause License][License], like Hyprland.
 
+Made by **[@k4ditano][X]** — follow along on X for what comes next.
+
 <!----------------------------------------------------------------------------->
 
 [Install]: #install
@@ -150,6 +153,7 @@ Marea is under the [BSD 3-Clause License][License], like Hyprland.
 [pleamar]: https://github.com/k4ditano/pleamar
 [pleamar-wm]: https://github.com/k4ditano/pleamar-wm
 [License]: LICENSE
+[X]: https://x.com/k4ditano
 [Issues]: https://github.com/k4ditano/marea-plm/issues
 
 <!----------------------------------{ Images }--------------------------------->
@@ -163,3 +167,4 @@ Marea is under the [BSD 3-Clause License][License], like Hyprland.
 [Badge Language]: https://img.shields.io/badge/made%20with-pleamar%20%2B%20Luau-2c7684?style=flat-square
 [Badge Commit]: https://img.shields.io/github/last-commit/k4ditano/marea-plm?style=flat-square&color=9ed6bd
 [Badge Issues]: https://img.shields.io/github/issues/k4ditano/marea-plm?style=flat-square&color=2c7684
+[Badge X]: https://img.shields.io/badge/follow-@k4ditano-000000?style=flat-square&logo=x
