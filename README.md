@@ -1,50 +1,165 @@
-# marea-plm
+<div align = center>
 
-Marea, escrita con **pleamar** en vez de Quickshell: el mismo escritorio, el mismo
-carácter, y a ver cuánto cuesta cada uno.
+<img src="assets/header.svg" width="750" alt="Marea">
 
-Esto no vive dentro del repo de pleamar a propósito. Es lo que tendría cualquiera
-que use pleamar: unos `.plm`, sus `.luau` al lado, y el programa ya compilado.
+<br>
+
+[![Badge License]][License]
+![Badge Language]
+![Badge Commit]
+[![Badge Issues]][Issues]
+
+<br>
+
+Marea is a desktop companion: a little ball with a face that lives at the top of
+your screen and is your whole shell — notifications, control center, finder,
+screenshots, lock screen — written in [pleamar], on any Wayland compositor.
+
+<br>
+
+---
+
+**[<kbd> <br> Install <br> </kbd>][Install]**
+**[<kbd> <br> Use <br> </kbd>][Use]**
+**[<kbd> <br> pleamar <br> </kbd>][pleamar]**
+**[<kbd> <br> pleamar-wm <br> </kbd>][pleamar-wm]**
+
+---
+
+<br>
+
+</div>
+
+# Features
+
+- **Notifications as drops**: they fall into her and wait there, one colour per
+  kind; hover and she shows the latest, open the swell to read them all, with
+  their actions. The *Haven* is do-not-disturb that keeps them for later.
+- **A control center that grows out of its cards**: Wi-Fi, Bluetooth, sound,
+  session, tray, calendar, focus, your AI agents' remaining quota (Claude,
+  Codex), settings — each page opens out of its own card.
+- **A finder for apps, files and folders**: `Super+Space`, type, Enter. Drag a
+  file out of it into any program.
+- **Screenshots and recording**: a piece of the screen, the screen or a window,
+  and screen recording, with their own animations and a card to keep them.
+- **Her own lock screen** (`ext-session-lock`), checked with PAM.
+- **She follows you**: to the monitor with the focus (or the mouse, in
+  [pleamar-wm]), leaping from one to the other.
+- **A face that lives**: she breathes, looks at the pointer, celebrates, gets
+  angry, sleeps, goes on adventures along the bottom of the screen, and wears
+  what you pick in her wardrobe.
+- **Three looks**: glass that bends what is behind, light glass that blurs it,
+  or classic and opaque.
+- **In [pleamar-wm]**: windows put away fall into her as drops and become little
+  stones with their app's icon; tiled or free windows from her menu.
+- **English and Spanish**, the system's language by default.
+- **Light**: the same Marea written in Quickshell used 336 MB and took 1.9 s to
+  show; this one, 81 MB and 175 ms ([`MEDIDAS.md`](MEDIDAS.md)).
+
+<br>
+
+<div align = center>
+
+# Gallery
+
+<br>
+
+![Preview Finder]
+
+<sub>Her finder, out of the ball: apps, files and folders.</sub>
+
+<br>
+<br>
+
+![Preview Desktop]
+
+<sub>At the top of a pleamar-wm desktop, peeking out over the windows.</sub>
+
+<br>
+<br>
+
+</div>
+
+# Install
+
+With [pleamar] and [pleamar-wm], in your home, from one line:
 
 ```sh
-pleamar --scene marea.plm
+curl -fsSL https://raw.githubusercontent.com/k4ditano/pleamar/main/install.sh | sh
 ```
 
-## Lo que se mide
+That leaves `marea` in `~/.local/bin` and starts her with pleamar-wm. On
+**Hyprland** (or any compositor with layer-shell), start her with it and bind
+her keys:
 
-Contra `~/Proyectos/proyecto-marea` corriendo en Quickshell, con el mismo rasero:
-CPU y memoria en reposo, con la barra animándose, hilos, y cuánto tarda en pintar
-el primer frame. Los números están en `MEDIDAS.md`.
+```ini
+exec-once = marea start
+bind = SUPER, Space, exec, marea search
+bind = SUPER, L, exec, marea lock
+bind = , Print, exec, marea shot_region
+bind = SHIFT, Print, exec, marea shot_screen
+bind = CTRL, Print, exec, marea shot_window
+bind = SUPER SHIFT, C, exec, marea record_toggle
+```
 
-## De diario
+`pleamar-update` keeps her up to date.
 
-Desde el 22 de septiembre de 2026 es la Marea que corre en esta máquina; la de
-Quickshell (`~/Proyectos/proyecto-marea`) está parada, no borrada.
+# Use
 
 ```sh
-./marea start           # la pone en marcha; el log va a ~/.local/state/marea-plm/marea.log
-./marea status
-./marea shot_region     # cualquier otra palabra es un suceso que se le dice
-./marea stop
+marea start          # starts her; her log goes to ~/.local/state/marea-plm/marea.log
+marea status         # whether she is running
+marea stop
+marea search         # any other word is an event she is told:
+marea lock           #   search, lock, shot_region, shot_screen, shot_window,
+marea shot_region    #   record_toggle, celebrate, rage, adventure…
 ```
 
-La arranca Hyprland (`~/.config/hypr/config/marea.lua`), que es también donde
-están las teclas: `SUPER+Space` buscar, `SUPER+L` bloquear, `Impr` / `SUPER+C`
-foto de región, `MAYÚS+Impr` de pantalla, `CTRL+Impr` de ventana,
-`SUPER+MAYÚS+C` grabar. La config de antes está al lado, entera:
-`marea.lua.antes-de-marea-plm`. Volver es copiarla encima y `hyprctl reload`.
+Click her for the control center, right-click for her menu. Her settings (look,
+home monitor, whether she follows you, language, wallpaper) are in the last
+card, and are saved in `~/.local/share/pleamar/marea/settings.json`.
 
-Dos variables, y no son lo mismo:
+Two variables, and they are not the same:
 
-- `MAREA_LOCK_WITH_EXIT=1` — el bloqueo se abre también con Esc y solo al
-  minuto, y lo dice en pantalla. Está puesta en el autoarranque mientras el
-  bloqueo sea nuevo: aquí no hay otro bloqueador que releve a uno que se quede
-  echado. Se quita cuando haya confianza.
-- `MAREA_TESTING=1` — bloquear, salir, reiniciar y apagar solo se apuntan en
-  el log. Para ensayar; nunca en la de diario.
+- `MAREA_LOCK_WITH_EXIT=1` — the lock also opens with Esc, only after a minute,
+  and says so on screen: a way out while the lock screen is new.
+- `MAREA_TESTING=1` — locking, logging out, restarting and powering off are only
+  written to the log. For rehearsing; never on the one you use.
 
-Lo que la otra hacía y esta no: hablarle por voz, el chat con el modelo y la
-vista de ventanas (`SUPER+Tab`). Eran del agente, no de la barra.
+To try a change without touching the Marea you use: a copy of the scene with
+another name (so `pleamar --say` reaches the copy), and
+`pleamar --scene copy.plm --screen HDMI-A-1 --margin 390`.
 
-Para ensayar sin pisar a la de diario: `--screen HDMI-A-1 --margin 390`, y una
-copia de la escena con otro nombre si se le va a hablar con `--say`.
+# How she is made
+
+One scene (`marea.plm`) and its logic (`marea.luau`), plus her translations
+(`lang/`), wardrobe (`wardrobe/`) and shaders (`shaders/`). This lives outside
+pleamar's repository on purpose: it is what anyone using pleamar would have —
+some `.plm`, their `.luau` next to them, and the program already built.
+[`ANIMACIONES.md`](ANIMACIONES.md) is how each animation is meant to feel, and
+[`MEDIDAS.md`](MEDIDAS.md) the measurements against Quickshell.
+
+# License
+
+Marea is under the [BSD 3-Clause License][License], like Hyprland.
+
+<!----------------------------------------------------------------------------->
+
+[Install]: #install
+[Use]: #use
+[pleamar]: https://github.com/k4ditano/pleamar
+[pleamar-wm]: https://github.com/k4ditano/pleamar-wm
+[License]: LICENSE
+[Issues]: https://github.com/k4ditano/marea-plm/issues
+
+<!----------------------------------{ Images }--------------------------------->
+
+[Preview Finder]: assets/finder.png
+[Preview Desktop]: assets/desktop.png
+
+<!----------------------------------{ Badges }--------------------------------->
+
+[Badge License]: https://img.shields.io/badge/license-BSD--3--Clause-9ed6bd?style=flat-square
+[Badge Language]: https://img.shields.io/badge/made%20with-pleamar%20%2B%20Luau-2c7684?style=flat-square
+[Badge Commit]: https://img.shields.io/github/last-commit/k4ditano/marea-plm?style=flat-square&color=9ed6bd
+[Badge Issues]: https://img.shields.io/github/issues/k4ditano/marea-plm?style=flat-square&color=2c7684
