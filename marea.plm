@@ -722,7 +722,7 @@ scene Marea {
     event customize ->
     event menu_entry ->                // an add-on's entry, by its number
     event point_at ->
-    model entries max 8 { group_name: text; title: text; first: bool = false }
+    model entries max 9 { group_name: text; title: text; first: bool = false }
     prop menu = 0 ~190ms
     follow menu = if(menu_open, 1, 0)
 
@@ -1064,7 +1064,7 @@ scene Marea {
     }
     //  She leaves the same way for two things, and on reaching the top she does
     //  one or the other.
-    fact purpose: shot | nook | travel | adventure = shot
+    fact purpose: shot | nook | travel | adventure | ride = shot
     on shot_region { scope = region; emit snap }
     on shot_screen { scope = display; emit snap }
     on shot_window { scope = active_window; emit snap }
@@ -1106,6 +1106,16 @@ scene Marea {
     }
     on frozen { away: 0 ~lively }
     on shot_cancelled { away: 0 ~lively; face = eye }
+    //  Riding a window, in pleamar-wm's session: she leaves by the top edge the
+    //  same way, and the window manager, which knows where every window is on
+    //  every frame, draws her on the title bar of the one with the keyboard.
+    //  When she comes back —her window closed, put away, shaken, or she was
+    //  pressed— it says so, and she drops back into her island.
+    event ride_out
+    event ride_back ->
+    on ride_out { purpose = ride; asleep = false; open = false; page = none; tray_open = false; searching = false; menu_open = false; play retire }
+    on gone while purpose == ride { away: 1 ~16ms }
+    on ride_back { away: 0 ~lively; face = eye; purpose = shot }
     //  And if the logic did not answer, she does not stay up there forever.
     on still away for 2.5s while away > 0.5 and purpose == shot { away: 0 ~lively; face = eye }
 

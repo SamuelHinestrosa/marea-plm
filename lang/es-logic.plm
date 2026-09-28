@@ -22,6 +22,7 @@ library SpanishLogic {
         "Bring back every window" = "Recuperar todas las ventanas"
         "Rain on the windows" = "Lluvia en las ventanas"
         "Snow on the windows" = "Nieve en las ventanas"
+        "Ride a window" = "Súbete a una ventana"
 
         // the calendar
         "January" = "enero"
