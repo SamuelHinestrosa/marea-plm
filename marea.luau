@@ -294,6 +294,9 @@ local OWN = {
       function() if hooks.wm_ride then hooks.wm_ride() end end, "wm" },
     { "Wallpapers", "wallpaper wallpapers fondo fondos pantalla escritorio desktop background imagen tema theme", 1, function() emit("show_walls") end },
     { "Deriva", "deriva drift biblioteca library guardado saved kept enlaces links recortes bookmarks marcadores", 1, function() emit("show_drift") end },
+    { "Do not disturb", "do not disturb no molestar dnd silencio silence quiet callar avisos notices notificaciones notifications", 1,
+      function() if hooks.dnd then hooks.dnd() end end },
+    { "Notices", "notices avisos notificaciones notifications silenciar mute muted apps posponer snooze later luego grabar recording", 1, open_page("settings", "notices") },
     { "Notice history", "history historial avisos notificaciones notices notifications pasados old viejos marea oleaje swell", 1, function() emit("show_history") end },
     { "Celebrate", "celebrate celebrar fiesta party fireworks cohetes fuegos", 2, function() emit("celebrate") end },
     { "Rage", "rage enfado enfadada angry pistola gun disparar shoot", 3, function() emit("rage") end },
@@ -605,6 +608,15 @@ local function show_front(n)
     fact.acts = #arriving_actions
 end
 
+--  Whether a notice comes in quietly —straight to its drop, no card—: with
+--  the screen locked, while a recording is going on (unless that is turned
+--  off), and with «do not disturb», which an urgent one gets through.
+local function quiet_for(n)
+    if fact.locked == true then return true end
+    if fact.taping == true and fact.quiet_rec ~= false then return true end
+    return fact.dnd == true and not n.urgent
+end
+
 local function arrive(n)
     n.cat = CATEGORY_OF[n.app] or classify(n.app)
     table.insert(rows, 1, n)
@@ -612,6 +624,7 @@ local function arrive(n)
     render()
     fact.cat = n.cat
     show_front(n)
+    fact.hush = quiet_for(n)
     emit("notice")
     if n.urgent then emit("urge") end
 end
@@ -907,12 +920,17 @@ end
 --  more. A resolved one still counts while its drop flies home; a dismissed
 --  one no. With made-up notices there is no list, and nothing is capped.
 local live = nil
+--  The ones sent «later»: out of sight and out of the counts until their
+--  time comes. And the apps muted: their notices go straight to the history.
+local snoozed = {}
+local muted_apps = {}
 local function cap_counts()
     if live == nil then return end
     local gone = {}
     for _, f in ipairs(rows) do
         if f.id and f.done and not f.flying then gone[f.id] = true end
     end
+    for id in pairs(snoozed) do gone[id] = true end
     local left = { 0, 0, 0, 0 }
     for _, n in ipairs(live) do
         if not gone[n.id] then
@@ -968,7 +986,7 @@ local function refill()
     end
     for _, n in ipairs(live) do
         if #rows >= 5 then break end
-        if not inrow[n.id] and not finished[n.id] then
+        if not inrow[n.id] and not finished[n.id] and not snoozed[n.id] then
             rows[#rows + 1] = row_of(n)
         end
     end
@@ -1008,7 +1026,13 @@ local function from_service(list)
     cap_counts()
     for i = #list, 1, -1 do
         local n = list[i]
-        if not seen[n.id] then
+        if not seen[n.id] and muted_apps[string.upper(n.app ~= "" and n.app or tr("notice"))] then
+            --  A muted app: kept in the history, and gone.
+            seen[n.id] = true
+            finished[n.id] = true
+            remember(row_of(n))
+            sys.call("notifications.dismiss", n.id)
+        elseif not seen[n.id] then
             seen[n.id] = true
             --  The resolved ones waited in their place so as not to move the
             --  rows mid-animation; when a new one comes in everything is
@@ -1233,6 +1257,12 @@ on("notice_act", function(i)
     local k = front_row()
     local f = rows[k]
     if f == nil then return end
+    if i == 10 or i == 11 then
+        if i == 10 then hooks.snooze(f) else hooks.mute(f.app) end
+        local next_k = front_row()
+        if rows[next_k] and not rows[next_k].done then show_front(rows[next_k]) end
+        return
+    end
     if i == 0 then
         open_row(k)
     elseif i == 1 then
@@ -1851,7 +1881,90 @@ local function save_settings()
     settings.skin = fact.skin
     settings.language = fact.language
     settings.wallpaper = WALLPAPER
+    settings.dnd = fact.dnd == true
+    settings.quiet_rec = fact.quiet_rec ~= false
+    settings.snooze = math.floor(fact.snooze_k or 1)
+    local list = {}
+    for app in pairs(muted_apps) do list[#list + 1] = app end
+    table.sort(list)
+    settings.muted = list
     pcall(sys.call, "files.write", "settings.json", settings)
+end
+
+-- ── quiet notices: do not disturb, later, muted apps ──────────────
+local function say(words)
+    fact["drift.result"] = 1
+    text["drift.toast"] = words
+    emit("say_toast")
+end
+local function paint_muted()
+    local list = {}
+    for app in pairs(muted_apps) do list[#list + 1] = app end
+    table.sort(list)
+    local shown_list = {}
+    for k = 1, math.min(#list, 6) do shown_list[k] = { app = list[k] } end
+    model.muted = shown_list
+    return list
+end
+fact.dnd = settings.dnd == true
+fact.quiet_rec = settings.quiet_rec ~= false
+fact.snooze_k = math.clamp(tonumber(settings.snooze) or 1, 0, 2)
+for _, app in ipairs(type(settings.muted) == "table" and settings.muted or {}) do muted_apps[tostring(app)] = true end
+paint_muted()
+on("fact:dnd", function() save_settings() end)
+on("fact:quiet_rec", function() save_settings() end)
+on("fact:snooze_k", function() save_settings() end)
+
+--  «Later»: the notice leaves, without going to the history, and comes back
+--  —as if it had just arrived— once its time is up, if it is still there.
+local SNOOZE_MINUTES = { 15, 60, 180 }
+local SNOOZE_WORDS = { "Back in 15 minutes", "Back in an hour", "Back in three hours" }
+hooks.snooze = function(f)
+    f.done = true
+    local k = math.floor(fact.snooze_k or 1) + 1
+    say(tr(SNOOZE_WORDS[k]))
+    if f.id == nil then return end
+    local id = f.id
+    snoozed[id] = true
+    cap_counts()
+    after(SNOOZE_MINUTES[k] * 60000, function()
+        snoozed[id] = nil
+        for _, n in ipairs(live or {}) do
+            if n.id == id then
+                remove_done()
+                arrive(row_of(n))
+                return
+            end
+        end
+    end)
+end
+--  «Mute»: that app's notices, the ones there and the ones to come, go
+--  straight to the history.
+hooks.mute = function(app)
+    if app == nil or app == "" then return end
+    muted_apps[app] = true
+    for _, r in ipairs(rows) do
+        if r.app == app and not r.done then
+            r.done = true
+            remember(r)
+            if r.id then finished[r.id] = true; sys.call("notifications.dismiss", r.id) end
+        end
+    end
+    paint_muted()
+    save_settings()
+    say(string.format(tr("%s muted"), app))
+end
+on("unmute", function(i)
+    local list = paint_muted()
+    local app = list[math.floor(i or 0) + 1]
+    if app == nil then return end
+    muted_apps[app] = nil
+    paint_muted()
+    save_settings()
+end)
+hooks.dnd = function()
+    fact.dnd = not (fact.dnd == true)
+    say(tr(fact.dnd and "Do not disturb: on" or "Do not disturb: off"))
 end
 
 -- ── the wallpapers, and the tide that brings a new one ────────────

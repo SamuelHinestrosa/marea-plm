@@ -405,6 +405,12 @@ scene Marea {
         toast.in: 0 ~400ms after 2200ms
         play gulp
     }
+    //  The same note, for anything else she wants to say in passing.
+    event say_toast
+    on say_toast {
+        toast.in: 1 ~220ms
+        toast.in: 0 ~400ms after 2200ms
+    }
     event clear_history ->
     event history_scroll ->            // the wheel over it: back and forth in time
     prop hist.wash = 0 ~700ms
@@ -590,14 +596,28 @@ scene Marea {
     //  And «once per episode» can no longer hang from the face, because the face
     //  comes back: its own fact carries it, which is cleared when none is left.
     fact alarmed = false
-    on urge while not haven and not alarmed { alarmed = true; face = alert; sign: 0 ~100ms; play alarm_jump; filter = 0; tray_by_itself = true; emit open_tray }
+    //  Quiet: a notice that arrives with `hush` on goes straight to its drop,
+    //  as in the Haven —no card, no jump, no tray opening by itself—. The
+    //  logic says it for each one: «do not disturb» (which an urgent one gets
+    //  through), a recording going on, or the screen locked.
+    fact hush = false
+    fact dnd = false                   // do not disturb, from Settings or the finder
+    fact quiet_rec = true              // and quiet while recording the screen
+    fact snooze_k = 1                  // «later» is 0: 15 min · 1: an hour · 2: three hours
+    model muted max 6 { app: text }    // the apps whose notices go straight to the history
+    event flip_dnd
+    event flip_quiet_rec
+    event unmute ->
+    on flip_dnd { toggle dnd }
+    on flip_quiet_rec { toggle quiet_rec }
+    on urge while not haven and not hush and not alarmed { alarmed = true; face = alert; sign: 0 ~100ms; play alarm_jump; filter = 0; tray_by_itself = true; emit open_tray }
     on still face for 1.6s while face == alert { face = eye }
     //  In the Haven an allowed urgency **does not open the tray or steal the
     //  focus**: an amber pearl appears over the membrane and only the eye beside
     //  it turns round to look at it. 1.1 s, and back to her own business.
     //  Once per episode, just like the alarmed face: what bothers about an
     //  urgent notice is not the first one, it is the fourth.
-    on urge while haven and not glanced { glanced = true; glance: 1; glance: 0 ~260ms after 840ms }
+    on urge while (haven or hush) and not glanced { glanced = true; glance: 1; glance: 0 ~260ms after 840ms }
     on still any_urgent for 1.6s while not any_urgent { glanced = false; alarmed = false }
     //  What each row is about. The logic would set it; here it is born with something.
     prop tray = 0 ~240ms               // 0 inside her, 1 whole card
@@ -2516,7 +2536,24 @@ scene Marea {
         text line { at: f.left + 42, f.top + 30; anchor: left center; size: 10.5; width: 196; lines: 1; color: #a9adb3
                     letter_opacity: clamp((write * 1.4 - 0.4) * (letters + 8) - letter, 0, 1)
                     letter_move: 0, (1 - clamp((write * 1.4 - 0.4) * (letters + 8) - letter, 0, 1)) * 6 }
-        text "now" { at: f.left + 238, f.top + 14; anchor: right center; size: 9.5; color: #8b8f95 }
+        text "now" { at: f.left + 238, f.top + 14; anchor: right center; size: 9.5; color: #8b8f95; opacity: 1 - chips }
+        //  Under the pointer, two small drops take its place: «later», a clock
+        //  that brings it back in a while, and «mute», a bell that is crossed
+        //  out, for the app that sent it.
+        group {
+            opacity: clamp(chips * 2 - 1, 0, 1)
+            prop later.glow = 0 ~140ms
+            prop hush.glow = 0 ~140ms
+            ellipse { at: f.left + 208, f.top + 15; radius: 10; color: #ffffff; opacity: 7% + later.glow * 12% }
+            ellipse { at: f.left + 208, f.top + 15; radius: 5; stroke: 1.3; color: mix(#a9adb3, #f6f6f5, later.glow) }
+            line { from: f.left + 208, f.top + 15; to: f.left + 208, f.top + 12; width: 1.3; color: mix(#a9adb3, #f6f6f5, later.glow) }
+            line { from: f.left + 208, f.top + 15; to: f.left + 210.5, f.top + 16.5; width: 1.3; color: mix(#a9adb3, #f6f6f5, later.glow) }
+            ellipse { at: f.left + 232, f.top + 15; radius: 10; color: #ffffff; opacity: 7% + hush.glow * 12% }
+            path { at: f.left + 232, f.top + 15; color: mix(#a9adb3, #f6f6f5, hush.glow)
+                   move -4.5, 3; line -3.5, 1.5; line -3.5, -1.5; curve 0, -5.5 via -3.5, -5.5; curve 3.5, -1.5 via 3.5, -5.5; line 3.5, 1.5; line 4.5, 3; close }
+            ellipse { at: f.left + 232, f.top + 19.5; radius: 1.3; color: mix(#a9adb3, #f6f6f5, hush.glow) }
+            line { from: f.left + 227, f.top + 10; to: f.left + 237, f.top + 20; width: 1.4; color: #ef7a66; opacity: 60% + 40% * hush.glow }
+        }
         //  Its reading, as water draining: when the line runs out it goes. The
         //  pointer over it stops it.
         box { from: f.left + 14, f.top + f.h - 6; size: 222 * clamp(1 - read.t, 0, 1), 2.4; corner: 1.2; color: hue; opacity: 80% }
@@ -3583,7 +3620,7 @@ scene Marea {
             text "Focus" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == concentration }
             text "Her wardrobe" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == wardrobe }
             text "Sound" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == sound }
-            text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
+            text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock", "Notices") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
             text "Agents" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == agents }
             text "History" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == history }
             text "Deriva" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == drift }
@@ -3981,6 +4018,7 @@ scene Marea {
             event to_look
             event to_language
             event to_lock
+            event to_notices
             event to_wardrobe
             event flip_follow
             event flip_room
@@ -3989,6 +4027,7 @@ scene Marea {
             on to_look { section = look }
             on to_language { section = language }
             on to_lock { section = lock }
+            on to_notices { section = notices }
             on to_wardrobe { emit customize; page = wardrobe }
             on flip_follow { toggle following }
             on flip_room { toggle taking_room }
@@ -4031,14 +4070,19 @@ scene Marea {
                                     box { at: 10, 17; size: 18, 13; corner: 3; color: mix(ink, mint, with_exit) }
                                 }
                             }
-                            group {
-                                span: 2
-                                Tile("Wardrobe and wallpaper", "Hats, glasses and the background", to_wardrobe, cell.w) {
-                                    group { size: 30, 22
-                                        box { at: 15, 11; size: 28, 20; corner: 4; stroke: 1.6; color: ink }
-                                        path { at: 3, 19; color: ink; move 0, 0; line 8, -9; line 13, -3; line 17, -7; line 24, 0; close }
-                                        ellipse { at: 22, 6; radius: 2.4; color: mint }
-                                    }
+                            Tile("Notices", pick(if(dnd, 3, min(muted.count, 2)), "All of them arrive", "One app muted", "Some apps muted", "Do not disturb"), to_notices, cell.w) {
+                                group { size: 24, 26
+                                    path { at: 12, 13; color: ink
+                                           move -9, 6; line -7, 3; line -7, -3; curve 0, -11 via -7, -11; curve 7, -3 via 7, -11; line 7, 3; line 9, 6; close }
+                                    ellipse { at: 12, 22; radius: 2.6; color: ink }
+                                    ellipse { at: 19, 5; radius: 3.2; color: mix(mint, lilac, dnd) }
+                                }
+                            }
+                            Tile("Wardrobe and wallpaper", "Pieces and the background", to_wardrobe, cell.w) {
+                                group { size: 30, 22
+                                    box { at: 15, 11; size: 28, 20; corner: 4; stroke: 1.6; color: ink }
+                                    path { at: 3, 19; color: ink; move 0, 0; line 8, -9; line 13, -3; line 17, -7; line 24, 0; close }
+                                    ellipse { at: 22, 6; radius: 2.4; color: mint }
                                 }
                             }
                         }
@@ -4166,6 +4210,64 @@ scene Marea {
                         column { at: card.x + 174, card.top + 348
                             Switch(with_exit, flip_safety)
                         }
+                    }
+
+                    // ── the notices ──
+                    //  Whether they come in with a card or quietly, straight to
+                    //  their drop; how long «later» keeps one away; and the apps
+                    //  muted from a notice's bell, each with its way back.
+                    page notices "Notices" {
+                        text "Quiet ones still arrive: they go to their drop, without a card." { at: card.x - 228, card.top + 116; anchor: left center; size: 12; color: st.faint }
+                        box { at: card.x, card.top + 164; size: 456, 60; corner: 16; color: mix(#202021, #1f1d2a, dnd) }
+                        box { at: card.x, card.top + 164; size: 456, 60; corner: 16; stroke: 1.2; color: lilac; opacity: dnd * 70% }
+                        text "Do not disturb" { at: card.x - 206, card.top + 155; anchor: left center; size: 13; weight: 600; color: ink }
+                        text "Only the urgent ones get through" { at: card.x - 206, card.top + 173; anchor: left center; size: 11; color: st.faint }
+                        column { at: card.x + 174, card.top + 152
+                            Switch(dnd, flip_dnd, accent: lilac)
+                        }
+                        box { at: card.x, card.top + 232; size: 456, 60; corner: 16; color: mix(#202021, #1a2a25, quiet_rec) }
+                        box { at: card.x, card.top + 232; size: 456, 60; corner: 16; stroke: 1.2; color: mint; opacity: quiet_rec * 70% }
+                        text "Quiet while recording" { at: card.x - 206, card.top + 223; anchor: left center; size: 13; weight: 600; color: ink }
+                        text "None of them ends up in your video. Locked, they are always quiet" { at: card.x - 206, card.top + 241; anchor: left center; size: 11; width: 360; lines: 1; color: st.faint }
+                        column { at: card.x + 174, card.top + 220
+                            Switch(quiet_rec, flip_quiet_rec)
+                        }
+                        //  How long «later» is: three drops to choose from.
+                        text "LATER BRINGS IT BACK IN" { at: card.x - 228, card.top + 288; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
+                        repeat k in 0..3 {
+                            let lx = card.x - 228 + 76 + k * 152
+                            prop later_pick.glow.$k = 0 ~140ms
+                            box { at: lx, card.top + 318; size: 144, 34; corner: 17; color: mix(mix(#202021, #262728, later_pick.glow.$k), #1a2a25, snooze_k == k) }
+                            box { at: lx, card.top + 318; size: 144, 34; corner: 17; stroke: 1.2; color: mint; opacity: if(snooze_k == k, 70%, 0) }
+                            text pick(k, "15 minutes", "An hour", "Three hours") { at: lx, card.top + 318; anchor: center; size: 12; weight: 500; color: mix(#a9adb3, ink, snooze_k == k) }
+                            zone box later_pick.$k { at: lx, card.top + 318; size: 144, 34; corner: 17; cursor: pointer }
+                            on enter later_pick.$k { later_pick.glow.$k: 1 }
+                            on leave later_pick.$k { later_pick.glow.$k: 0 }
+                            on press later_pick.$k { snooze_k = k }
+                        }
+                        //  The muted apps: a pill each, and its cross unmutes it.
+                        text "MUTED APPS" { at: card.x - 228, card.top + 362; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
+                        component MutedPill(m: record, drop: event) {
+                            size: 144, 34
+                            prop glow = 0 ~140ms
+                            //  The grid lays out every record there could be: the empty ones are not drawn.
+                            group {
+                                show: m.index < muted.count
+                                box { from: 0, 0; size: 144, 34; corner: 17; color: mix(#202021, #2a2222, glow) }
+                                text m.app { at: 14, 17; anchor: left center; size: 11.5; weight: 500; width: 100; lines: 1; color: ink }
+                                line { from: 122, 12; to: 132, 22; width: 1.5; color: mix(#8b8f95, #ef7a66, glow) }
+                                line { from: 132, 12; to: 122, 22; width: 1.5; color: mix(#8b8f95, #ef7a66, glow) }
+                                zone box touch { from: 0, 0; size: 144, 34; corner: 17; cursor: pointer }
+                            }
+                            on enter touch { glow: 1 }
+                            on leave touch { glow: 0 }
+                            on press touch { emit drop(m.index) }
+                        }
+                        grid {
+                            at: card.x - 228, card.top + 378; columns: 3; gap: 12; width: 456; row: 42
+                            for m in muted { MutedPill(m, drop: unmute) }
+                        }
+                        text "None. The bell on a notice mutes its app." { at: card.x - 228, card.top + 394; anchor: left center; size: 11.5; color: st.faint; show: muted.count < 1 }
                     }
                 }
             }
@@ -4895,19 +4997,19 @@ scene Marea {
     //  in the other.
     //  In the Haven it is kept and that is it: no card, no jump, no opening.
     //  Only her pearl grows under the waterline.
-    on notice while haven { seq = seq + 1; emit direct }
+    on notice while haven or hush { seq = seq + 1; emit direct }
     //  Asleep: no card, no jump, no opening. The drop forms, falls, and she
     //  opens one eye. What raises the count is the `direct` afterwards, on sinking
     //  in: the drop **is** the notice arriving, so the count goes up when it goes
     //  in and not when someone sends it.
-    on notice while asleep and not haven { reading_cat = cat; seq = seq + 1; play trickle }
+    on notice while asleep and not haven and not hush { reading_cat = cat; seq = seq + 1; play trickle }
     //  And an urgent one does wake her, and opens the tray. It is the only thing
     //  allowed to do it.
     on urge while asleep { asleep = false }
-    on notice while not haven and not asleep and phase == 0 and out > 0.9 { reading_cat = cat; phase = 1; burst = 1; seq = seq + 1; arrival_seq = seq; mark = mark + 1; needed = true; wanted = true; play startle; arrive: 1 ~220ms
+    on notice while not haven and not hush and not asleep and phase == 0 and out > 0.9 { reading_cat = cat; phase = 1; burst = 1; seq = seq + 1; arrival_seq = seq; mark = mark + 1; needed = true; wanted = true; play startle; arrive: 1 ~220ms
         land: 0 ~16ms; land: 1 ~850ms after 16ms; write: 0 ~16ms; write: 1 ~1100ms after 560ms; read.t: 0 ~16ms
         sign: 1 ~200ms; sign: 0 ~260ms after 1600ms }
-    on notice while not haven and not asleep and phase == 0 and out <= 0.9 { reading_cat = cat; phase = 1; burst = 1; seq = seq + 1; arrival_seq = seq; needed = true; wanted = true; play startle; arrive: 1 ~220ms after 560ms
+    on notice while not haven and not hush and not asleep and phase == 0 and out <= 0.9 { reading_cat = cat; phase = 1; burst = 1; seq = seq + 1; arrival_seq = seq; needed = true; wanted = true; play startle; arrive: 1 ~220ms after 560ms
         land: 0 ~16ms; land: 1 ~850ms after 580ms; write: 0 ~16ms; write: 1 ~1100ms after 1120ms; read.t: 0 ~16ms
         sign: 1 ~200ms after 560ms; sign: 0 ~260ms after 2160ms }
     on change out > 0.9 while phase == 1 { mark = mark + 1 }
@@ -4919,9 +5021,9 @@ scene Marea {
     //  Another one while it is still being read: it stacks, and the reading
     //  starts over. Not one more jump: the gesture is already on, and a mascot
     //  that jumps for every message in a group ends up switched off.
-    on notice while not haven and phase == 1 { seq = seq + 1; burst = burst + 1; mark = mark + 1; read.t: 0 ~16ms; write: 0 ~16ms; write: 1 ~900ms after 60ms }
+    on notice while not haven and not hush and phase == 1 { seq = seq + 1; burst = burst + 1; mark = mark + 1; read.t: 0 ~16ms; write: 0 ~16ms; write: 1 ~900ms after 60ms }
     //  With the burst already flying, the one that arrives goes straight to its drop.
-    on notice while not haven and phase == 2 { seq = seq + 1; emit direct }
+    on notice while not haven and not hush and phase == 2 { seq = seq + 1; emit direct }
 
     //  3.2 s to read it, which the pointer over it stops: when it leaves, it
     //  counts again. It is `on still` again: «when it has gone that long without
@@ -4948,6 +5050,18 @@ scene Marea {
     on press chip.1 while burst < 2 { emit notice_act(1); emit notice_gone }
     //  All: the whole pile done.
     on press chip.4 { emit notice_act(9); emit notice_gone }
+    //  Later and mute: the one in front leaves like «Done», without history for
+    //  «later» —it comes back— and with it for «mute».
+    zone ellipse later_zone { at: f.left + 208, f.top + 15; radius: 11; cursor: pointer; active: chips > 0.8 and phase == 1 }
+    zone ellipse hush_zone { at: f.left + 232, f.top + 15; radius: 11; cursor: pointer; active: chips > 0.8 and phase == 1 }
+    on enter later_zone { later.glow: 1 }
+    on leave later_zone { later.glow: 0 }
+    on enter hush_zone { hush.glow: 1 }
+    on leave hush_zone { hush.glow: 0 }
+    on press later_zone while burst > 1 { emit notice_act(10); emit notice_puff; burst = burst - 1; read.t: 0 ~16ms; write: 0 ~16ms; write: 1 ~900ms after 140ms }
+    on press later_zone while burst < 2 { emit notice_act(10); emit notice_gone }
+    on press hush_zone while burst > 1 { emit notice_act(11); emit notice_puff; burst = burst - 1; read.t: 0 ~16ms; write: 0 ~16ms; write: 1 ~900ms after 140ms }
+    on press hush_zone while burst < 2 { emit notice_act(11); emit notice_gone }
     on notice_gone {
         phase = 0
         wanted = false
