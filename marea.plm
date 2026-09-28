@@ -48,7 +48,10 @@ scene Marea {
     //  Her look, which is chosen in Settings and saved: glass that bends what is
     //  behind like Apple's, glass that only blurs it —lighter, the compositor
     //  does it—, or the usual one, opaque.
-    fact skin: lens | liquid | classic = lens
+    //  Classic by default: it needs nothing of the compositor. The liquid one
+    //  reads the screen behind her, and on some setups (colour management,
+    //  fractional scaling) what it reads does not match and she fills with noise.
+    fact skin: lens | liquid | classic = classic
     //  And how much glass there is right now: a spring, so changing look is not
     //  a jump. The glass appears by bending the light, not by fading in.
     prop glassiness = 1 ~calm
@@ -1085,6 +1088,8 @@ scene Marea {
         10ms emit taken
     }
     on shoot while face == camera { play click }
+    //  And whatever happened, the camera does not stay on her face.
+    on still face for 20s while face == camera { face = eye }
     on taken { face = eye }
     //  Once out, she stays out —the gesture puts the pose back at its base, and
     //  without this she would drop back in the same frame— and changes face
@@ -1150,8 +1155,23 @@ scene Marea {
     fact travelling = false
     //  Not while she is in her recording corner: moving the focus mid-recording
     //  must not pull her out of it. She travels when she comes back.
-    let misplaced = abs(if(hosts.0, 1, 0) - swim.0) + abs(if(hosts.1, 1, 0) - swim.1) > 0.5 and not travelling and not corner
+    //  Nor in the middle of a photo —framing it, the pointer may well cross to
+    //  the other monitor; leaping then, the click that ends the photo cut her
+    //  leap short, and she stayed with the camera on and never travelled
+    //  again—, nor while she is out riding a window. She travels afterwards.
+    let misplaced = abs(if(hosts.0, 1, 0) - swim.0) + abs(if(hosts.1, 1, 0) - swim.1) > 0.5 and not travelling and not corner and face != camera and purpose != ride
     on change misplaced while misplaced {
+        purpose = travel
+        travelling = true
+        open = false; page = none; tray_open = false; searching = false; menu_open = false
+        splashing: 1 ~16ms
+        play leap
+    }
+    //  And if she is still where she should not be a moment later —a leap cut
+    //  short by something else, a change that came while she could not go—,
+    //  she goes then: a rule that waits for a change never sees one that
+    //  stays.
+    on still misplaced for 1500ms while misplaced {
         purpose = travel
         travelling = true
         open = false; page = none; tray_open = false; searching = false; menu_open = false
@@ -1190,6 +1210,9 @@ scene Marea {
         travelling = false
         play land
     }
+    //  A journey takes a second and a half; one that has not landed in four
+    //  was cut short, and it is not a journey any more.
+    on still travelling for 4s while travelling { travelling = false }
 
     //  Sunk, she peeks out somewhat less than half; separated, she hangs at her
     //  own height.
