@@ -89,6 +89,8 @@ library SpanishUi {
         "Drop it in Deriva" = "Suéltalo en Deriva"
         "Read later" = "Leer luego"
         "Wallpapers" = "Fondos"
+        "WALLPAPER" = "FONDO"
+        "Pick another one: the tide brings it" = "Elige otro: lo trae la marea"
         "Inspiration" = "Inspiración"
         "Nothing has washed up yet" = "La marea aún no ha traído nada"
         "Looking around…" = "Buscando alrededor…"

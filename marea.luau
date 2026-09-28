@@ -200,7 +200,6 @@ on("fact:page", function(p)
     if p ~= "wifi" then fact.asking = -1 end
 end)
 
-on("customize", function() log("customize would open here") end)
 
 -- ── the finder ─────────────────────────────────────────────────────
 --  «Apps, files and folders.» The apps come from the system —the `apps`
@@ -1909,6 +1908,26 @@ local function make_thumbs()
     end
 end
 
+--  The one on now, for her wardrobe: its small copy, made if it is not there.
+local function show_wall_now()
+    local path = WALLPAPER
+    local name = (tostring(path):match("([^/]+)$") or path):gsub("%.%w+$", ""):gsub("[_%-]", " ")
+    local thumb = cache_name(path, "thumb")
+    model.wallnow = { { name = name, thumb = wall_thumbs[path] or "", ready = wall_thumbs[path] ~= nil } }
+    if wall_thumbs[path] ~= nil then return end
+    run("test", { "-s", thumb }, function(_, exists)
+        local function done()
+            wall_thumbs[path] = thumb
+            if path == WALLPAPER then model.wallnow = { { name = name, thumb = thumb, ready = true } } end
+        end
+        if exists == 0 then return done() end
+        run("magick", { path .. "[0]", "-thumbnail", "320x180^", "-gravity", "center", "-extent", "320x180", "-quality", "85", thumb }, function(_, code)
+            if code == 0 then done() end
+        end)
+    end)
+end
+on("customize", show_wall_now)
+
 local WALL_DIRS = { home_dir .. "/Imágenes", home_dir .. "/Pictures", home_dir .. "/Wallpapers", home_dir .. "/Fondos",
                     "/usr/share/wallpapers", "/usr/share/backgrounds" }
 on("walls_open", function()
@@ -1986,6 +2005,7 @@ on("tide_done", function()
         run("swaybg", { "-i", path, "-m", "fill" }, nil, { output = false })
         WALLPAPER = path
         save_settings()
+        show_wall_now()
         after(700, function()
             local pids = {}
             for pid in tostring(old_pids or ""):gmatch("%d+") do pids[#pids + 1] = pid end
