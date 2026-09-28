@@ -1612,9 +1612,14 @@ local function hyprctl(what, done)
     end
 end
 
+--  In the pictures folder the session names —`~/Pictures` in English,
+--  `~/Imágenes` in Spanish—, as the videos do.
 local PHOTOS = home_dir .. "/Imágenes/Marea"
 local FRAME = (sys.ask("env", "XDG_RUNTIME_DIR") or "/tmp") .. "/marea-plm-frame.png"
-run("mkdir", { "-p", PHOTOS })
+run("xdg-user-dir", { "PICTURES" }, function(d)
+    if d and d ~= "" then PHOTOS = d .. "/Marea" end
+    run("mkdir", { "-p", PHOTOS })
+end)
 
 --  The monitors: where the plane starts —`grim` photographs it whole and its
 --  corner is the one of the monitor furthest up and to the left— and which one
