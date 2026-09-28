@@ -623,7 +623,7 @@ end
 --  off), and with «do not disturb», which an urgent one gets through.
 local function quiet_for(n)
     if fact.locked == true then return true end
-    if fact.taping == true and fact.quiet_rec ~= false then return true end
+    if (fact.taping == true or fact.sharing == true) and fact.quiet_rec ~= false then return true end
     return fact.dnd == true and not n.urgent
 end
 

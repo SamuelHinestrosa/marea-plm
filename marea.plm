@@ -604,6 +604,17 @@ scene Marea {
     fact dnd = false                   // do not disturb, from Settings or the finder
     fact quiet_rec = true              // and quiet while recording the screen
     fact snooze_k = 1                  // «later» is 0: 15 min · 1: an hour · 2: three hours
+    //  The screen being shared (pleamar-wm's portal says so): a coral ring
+    //  breathes around her the whole time, and notices come in quietly.
+    fact sharing = false
+    event sharing_on ->
+    event sharing_off ->
+    on sharing_on { sharing = true }
+    on sharing_off { sharing = false }
+    prop share.lit = 0 ~400ms
+    follow share.lit = if(sharing, 1, 0)
+    prop share.breath = 0
+    spin share.breath by if(sharing, 0.3, 0)
     model muted max 6 { app: text }    // the apps whose notices go straight to the history
     event flip_dnd
     event flip_quiet_rec
@@ -3279,6 +3290,9 @@ scene Marea {
         text "Read later" { at: pool.x - 120, pool.y + 36; anchor: center; size: 10.5; color: ink; opacity: 60% + 40% * later.hl }
         text "Inspiration" { at: pool.x + 120, pool.y + 36; anchor: center; size: 10.5; color: ink; opacity: 60% + 40% * insp.hl }
     }
+    //  Sharing the screen: the ring that breathes around her.
+    ellipse { at: cx, cy_actual; radius: r + 6 + 1.5 * sin(share.breath * 360); stroke: 1.8; color: #ef7a66
+              opacity: share.lit * (0.45 + 0.3 * sin(share.breath * 360)); show: share.lit > 0.01 }
     //  And what it became: «Kept in Deriva», «It was already there».
     group {
         show: toast.in > 0.01
@@ -4232,8 +4246,8 @@ scene Marea {
                         }
                         box { at: card.x, card.top + 232; size: 456, 60; corner: 16; color: mix(#202021, #1a2a25, quiet_rec) }
                         box { at: card.x, card.top + 232; size: 456, 60; corner: 16; stroke: 1.2; color: mint; opacity: quiet_rec * 70% }
-                        text "Quiet while recording" { at: card.x - 206, card.top + 223; anchor: left center; size: 13; weight: 600; color: ink }
-                        text "None of them ends up in your video. Locked, they are always quiet" { at: card.x - 206, card.top + 241; anchor: left center; size: 11; width: 360; lines: 1; color: st.faint }
+                        text "Quiet while recording or sharing" { at: card.x - 206, card.top + 223; anchor: left center; size: 13; weight: 600; color: ink }
+                        text "None of them ends up in your video or your call. Locked, always quiet" { at: card.x - 206, card.top + 241; anchor: left center; size: 11; width: 360; lines: 1; color: st.faint }
                         column { at: card.x + 174, card.top + 220
                             Switch(quiet_rec, flip_quiet_rec)
                         }
