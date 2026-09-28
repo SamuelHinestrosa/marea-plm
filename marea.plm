@@ -756,6 +756,11 @@ scene Marea {
     //  said: the boundary is written, which is what matters.
     event mute_output ->
     event mute_mic ->
+    //  And the keyboard's own keys, from the compositor (`marea volume_up`…).
+    event volume_up ->
+    event volume_down ->
+    event bright_up ->
+    event bright_down ->
     event play_pause ->
     event previous ->
     event next ->

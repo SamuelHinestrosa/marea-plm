@@ -8,7 +8,9 @@
 #   marea <event>                      tells her something: search, lock,
 #                                      shot_region, shot_screen,
 #                                      shot_window, record_toggle, celebrate,
-#                                      rage, adventure…
+#                                      rage, adventure, volume_up, volume_down,
+#                                      mute_output, mute_mic, bright_up,
+#                                      bright_down, play_pause, next, previous…
 # (Through the link the installer leaves in ~/.local/bin too: where she really is.)
 HERE="$(dirname "$(readlink -f "$0")")"
 # The pleamar installed, or the one built next to her.
@@ -36,7 +38,7 @@ case "${1:-}" in
         fi
         ;;
     ""|-h|--help|help)
-        sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
         ;;
     *)
         exec "$PLEAMAR" --say marea "emit $1"

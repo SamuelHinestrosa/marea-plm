@@ -14,6 +14,16 @@ on("set_brightness", function(v) sys.call("brightness.level", v) end)
 on("mute_output", function() sys.call("audio.mute") end)
 on("mute_mic", function() sys.call("audio.input_mute") end)
 on("set_mic", function(v) sys.call("audio.input", v) end)
+--  The keyboard's keys: a step of 5 %. The volume never past 100 % (the
+--  service's step stops there); the meter beside her shows it as always.
+on("volume_up", function() sys.call("audio.step", 0.05) end)
+on("volume_down", function() sys.call("audio.step", -0.05) end)
+local function bright_step(d)
+    local now = tonumber(fact["display.level"]) or 0.5
+    sys.call("brightness.level", math.clamp(now + d, 0.01, 1))
+end
+on("bright_up", function() bright_step(0.05) end)
+on("bright_down", function() bright_step(-0.05) end)
 
 -- ── what is playing ────────────────────────────────────────────────
 on("play_pause", function() sys.call("media.toggle") end)
