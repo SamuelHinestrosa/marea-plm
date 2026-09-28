@@ -4767,6 +4767,21 @@ scene Marea {
     //  outside» is always true, so it switched the capsule off 300 ms after
     //  opening it.
     on away notecard_area for 300ms while fan < 0.01 and not haven { note = false }
+    //  And a net under both: the rules above count only after the pointer has
+    //  been over their zone, and one that fired while its `while` did not hold
+    //  —the fan was out at that moment— was spent, and the time stayed open
+    //  with nobody over her until she was touched again. This one looks at
+    //  the whole: the note open, and the pointer over none of her, 400 ms.
+    fact in.body = false
+    fact in.note = false
+    fact in.fan = false
+    on leave body_zone { in.body = false }
+    on leave notecard_area { in.note = false }
+    on leave fan_area { in.fan = false }
+    on enter body_zone { in.body = true }
+    on enter notecard_area { in.note = true }
+    on enter fan_area { in.fan = true }
+    on still note and not (in.body or in.note or in.fan) for 400ms while note and not (in.body or in.note or in.fan) and not haven { note = false }
     //  With the fan out, the grace is counted over the whole.
     on away fan_area for 300ms { note = false }
     //  And opening the card takes the menu with it, as the menu takes the card
