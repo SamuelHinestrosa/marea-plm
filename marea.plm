@@ -722,7 +722,7 @@ scene Marea {
     event customize ->
     event menu_entry ->                // an add-on's entry, by its number
     event point_at ->
-    model entries max 6 { group_name: text; title: text; first: bool = false }
+    model entries max 8 { group_name: text; title: text; first: bool = false }
     prop menu = 0 ~190ms
     follow menu = if(menu_open, 1, 0)
 
