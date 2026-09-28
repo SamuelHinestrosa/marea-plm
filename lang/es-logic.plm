@@ -25,6 +25,7 @@ library SpanishLogic {
         "Yesterday" = "Ayer"
         "Notice history" = "Historial de avisos"
         "Her library" = "Su biblioteca"
+        "Desktop" = "Escritorio"
         "Keep what is copied" = "Guardar lo copiado"
         "Kept in %s" = "Guardado en %s"
         "It was already there" = "Ya lo tenía"

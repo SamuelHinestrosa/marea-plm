@@ -32,7 +32,7 @@ scene Marea {
         //  The network and the headphones are pleamar's own services now
         //  (NetworkManager and BlueZ, spoken to directly): listing, joining
         //  with a password, pairing. And `fd` finds the files and the folders.
-        run: "node", "notify-send", "fd", "deriva-worker", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm"
+        run: "node", "notify-send", "fd", "deriva-worker", "kill", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm"
     }
     service clock as now { time: text = "--:--"; date: text; hour: number; minute: number }
     service audio as sound { volume: number; muted: bool; input: number; input_muted: bool }
@@ -44,7 +44,7 @@ scene Marea {
     //  Pressing a card opens its page, and **the page comes out of the card**:
     //  it grows from its place until it fills the panel. It is not a screen that
     //  replaces another; it is the same card, opened.
-    fact page: none | wifi | bluetooth | concentration | wardrobe | sound | session | systray | settings | agents | calendar | history | drift = none
+    fact page: none | wifi | bluetooth | concentration | wardrobe | sound | session | systray | settings | agents | calendar | history | drift | walls = none
     //  Her look, which is chosen in Settings and saved: glass that bends what is
     //  behind like Apple's, glass that only blurs it —lighter, the compositor
     //  does it—, or the usual one, opaque.
@@ -334,6 +334,48 @@ scene Marea {
     //  a row for each day (`head`). `age` 0 today … 1 a week or more.
     model past max 9 { app: text; title: text; detail: text; when: text; day: text; cat: number = 4; head: bool; age: number }
     event show_history                 // from her menu or the swell's footer
+    // ── wallpapers: the tide that brings a new one ───────────────
+    //  Her page shows the wallpapers there are, small. Picking one closes
+    //  the card, a drop falls from her onto the desktop, and from where it
+    //  lands the new picture spreads as a ring of water with a shadow running
+    //  ahead of it and a line of light on its crest; behind it the water
+    //  ripples until it settles. Then `swaybg` takes the new one, unseen.
+    model walls max 9 { name: text; thumb: image 144, 81; ready: bool; current: bool }
+    model tidepics max 1 { pic: image 1280, 720 }
+    event show_walls
+    event walls_open ->
+    event wall_pick ->
+    event walls_scroll ->
+    event tide_start                   // the logic: the new picture is ready
+    event tide_done ->                 // the water has settled: swaybg can take it
+    event splash
+    fact tide.on = false
+    fact tide.home = 0                 // the monitor where the drop lands
+    prop tide.fall = 0 ~450ms
+    prop tide.p = 0 ~2400ms
+    prop tide.settle = 0 ~2600ms
+    prop tide.fade = 0 ~500ms
+    on show_walls { menu_open = false; tray_open = false; searching = false; open = true; page = walls; emit walls_open }
+    on tide_start {
+        open = false
+        tide.on = true
+        tide.fade: 1 ~0ms
+        tide.p: 0 ~0ms
+        tide.settle: 0 ~0ms
+        tide.fall: 0 ~0ms
+        tide.fall: 1 ~450ms after 30ms
+    }
+    //  The drop has landed: the splash, and the wave sets off.
+    on still tide.fall for 40ms while tide.on and tide.fall > 0.9 and tide.p < 0.001 {
+        emit splash
+        tide.p: 1 ~2400ms
+        tide.settle: 1 ~2600ms after 900ms
+    }
+    on still tide.settle for 80ms while tide.on and tide.settle > 0.9 and tide.p > 0.9 { emit tide_done }
+    //  Once swaybg has it, the tide melts into it and goes.
+    event tide_away
+    on tide_away { tide.fade: 0 ~500ms }
+    on still tide.fade for 60ms while tide.on and tide.fade < 0.1 and tide.p > 0.9 { tide.on = false }
     // ── Deriva: what is dropped on her, kept, and found again ────
     //  Carry something over her —a link, a file, an image, some text— and a
     //  pool opens under her, with two more places to leave it; let it go and
@@ -3511,7 +3553,7 @@ scene Marea {
         //  The first three come out of their card; the wardrobe has no card
         //  —it is entered through her menu—, so it grows from the centre of the
         //  panel.
-        let pg.own = if(page == wardrobe or page == systray or page == settings or page == agents or page == calendar or page == history or page == drift, 0, 1)
+        let pg.own = if(page == wardrobe or page == systray or page == settings or page == agents or page == calendar or page == history or page == drift or page == walls, 0, 1)
         let pg.ox = card.x + 111 * pg.own
         let pg.oy = card.top + 231 + (-126 + (pg.k - 1) * 66) * pg.own
         //  The page's box starts where its content does, 96 below the card's
@@ -3544,6 +3586,7 @@ scene Marea {
             text "Agents" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == agents }
             text "History" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == history }
             text "Deriva" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == drift }
+            text "Wallpapers" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == walls }
             text "{drift.kept, 0} kept" { at: card.x + 150, card.top + 45; anchor: right center; size: 11; color: #8b8f95; show: page == drift }
             text cal.month { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == calendar }
             text systray.title { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; width: 300; lines: 1; color: ink; show: page == systray }
@@ -3734,6 +3777,48 @@ scene Marea {
                 hist.wash: 0 ~16ms
             }
             on scroll history_area { emit history_scroll(wheel) }
+
+            // ── the wallpapers ───────────────────────────────────
+            //  Small, three by three; the one on now has its ring. The wheel
+            //  goes on. Hovered, one lifts a little and says its name.
+            component WallCard(w: record, pick: event) {
+                size: 144, 104
+                prop lift = 0 ~lively
+                prop arrive = 0 ~360ms
+                follow arrive = if(page == walls, 1, 0)
+                zone box touch { from: 0, 0; size: 144, 81; corner: 10; cursor: pointer; active: page == walls and paging > 0.9 }
+                group {
+                    opacity: arrive
+                    move: 0, (1 - arrive) * (12 + w.index * 5) - lift * 3
+                    pivot: 72, 40
+                    scale: 1 + 0.04 * lift
+                    body {
+                        color: #1a2a26
+                        shadow: 0, 4 + 6 * lift, 10 + 10 * lift, 30% + 20% * lift
+                        box { from: 0, 0; size: 144, 81; corner: 10 }
+                    }
+                    group {
+                        clip box { from: 0, 0; size: 144, 81; corner: 10 }
+                        ellipse { at: 72, 95; radius: 70; color: mint; opacity: 8%; show: not w.ready }
+                        image w.thumb { at: 0, 0; size: 144, 81; show: w.ready }
+                    }
+                    box { from: 0, 0; size: 144, 81; corner: 10; stroke: 2; color: mint; opacity: if(w.current, 1, 0) }
+                    box { from: 0, 0; size: 144, 81; corner: 10; stroke: 1.2; color: ink; opacity: lift * 45% * if(w.current, 0, 1) }
+                    text w.name { at: 72, 95; anchor: center; size: 10.5; width: 140; lines: 1; color: mix(#8b8f95, ink, max(lift, if(w.current, 1, 0))) }
+                }
+                on enter touch { lift: 1 }
+                on leave touch { lift: 0 }
+                on press touch { emit pick(w.index) }
+            }
+            group {
+                show: page == walls
+                grid {
+                    at: card.x - 228, card.top + 100; columns: 3; gap: 12; width: 456; row: 104
+                    for w in walls { WallCard(w, pick: wall_pick) }
+                }
+                zone box walls_area { from: card.x - 228, card.top + 100; size: 456, 340; active: page == walls and paging > 0.9 }
+            }
+            on scroll walls_area { emit walls_scroll(wheel) }
 
             // ── Deriva's library ─────────────────────────────────
             //  What she keeps: a search at the top, and cards below —the
@@ -5277,6 +5362,56 @@ scene Marea {
         on press outside_left { searching = false }
         on press outside_right { searching = false }
         on press outside_below { searching = false }
+    }
+
+    // ── the tide, under the windows ──────────────────────────────
+    //  Where a new wallpaper arrives: over the one `swaybg` paints and below
+    //  every window (`level: bottom`), on each monitor, with nothing that
+    //  catches the mouse. The drop falls on the monitor she lives on; on the
+    //  others the wave comes in from the side, a moment later.
+    shader tides = file "shaders/tide.wgsl"
+    surface tide {
+        size: full, full
+        anchor: top_left
+        level: bottom
+        screens: each max 2
+        open: tide.on
+        let here = screen.index == tide.home
+        let tw = tide.width
+        let th = tide.height
+        let t.ox = if(here, tw / 2, if(screen.index > tide.home, -240, tw + 240))
+        let t.oy = th * 0.55
+        let t.p = clamp(tide.p * 1.3 - if(here, 0, 0.3), 0, 1)
+        group {
+            opacity: tide.fade
+            for t in tidepics {
+                group {
+                    shader: tides, t.p, t.ox, t.oy, tide.settle
+                    image t.pic { at: 0, 0; size: tw, th }
+                }
+            }
+            //  The drop, from her to where it lands: long as it falls, round when it lands.
+            let fall = tide.fall * tide.fall
+            let dx = tw / 2 - 50 + (tw / 2 - (tw / 2 - 50)) * tide.fall
+            let dy = 30 + (t.oy - 30) * fall
+            let stretch = clamp(vel(tide.fall) * 0.25, 0, 1.2)
+            body {
+                show: here and tide.fall > 0.01 and tide.p < 0.02
+                color: #151616
+                rim: 30%
+                shadow: 0, 6, 14, 40%
+                ellipse { at: dx, dy; radius: 11; scale: 1 - stretch * 0.25, 1 + stretch }
+            }
+            ellipse { at: dx - 3, dy - 4 - stretch * 5; radius: 2.6; color: #fff; opacity: 70%; show: here and tide.fall > 0.01 and tide.p < 0.02 }
+            //  And the splash: drops thrown up and out, falling back.
+            particles {
+                at: tw / 2, t.oy; area: 20, 4; count: 140
+                life: 0.5s .. 1.1s; speed: 180 .. 520
+                direction: -90deg; spread: 150deg; gravity: 0, 900
+                size: 5, 1.5; colors: #e8f6ff, #9ed6bd; opacity: 95%, 0%
+                shape: dot; burst: splash
+            }
+        }
     }
 
     surface stage {

@@ -88,6 +88,7 @@ library SpanishUi {
         "{drift.kept, 0} kept" = "{drift.kept, 0} guardadas"
         "Drop it in Deriva" = "Suéltalo en Deriva"
         "Read later" = "Leer luego"
+        "Wallpapers" = "Fondos"
         "Inspiration" = "Inspiración"
         "Nothing has washed up yet" = "La marea aún no ha traído nada"
         "Looking around…" = "Buscando alrededor…"

@@ -293,6 +293,7 @@ local OWN = {
       function() if hooks.wm_snow then hooks.wm_snow() end end, "wm" },
     { "Ride a window", "ride montar subir súbete subete sit sentarse ventana window marea viaje", 1,
       function() if hooks.wm_ride then hooks.wm_ride() end end, "wm" },
+    { "Wallpapers", "wallpaper wallpapers fondo fondos pantalla escritorio desktop background imagen tema theme", 1, function() emit("show_walls") end },
     { "Deriva", "deriva drift biblioteca library guardado saved kept enlaces links recortes bookmarks marcadores", 1, function() emit("show_drift") end },
     { "Notice history", "history historial avisos notificaciones notices notifications pasados old viejos marea oleaje swell", 1, function() emit("show_history") end },
     { "Celebrate", "celebrate celebrar fiesta party fireworks cohetes fuegos", 2, function() emit("celebrate") end },
@@ -410,6 +411,7 @@ end)
 --  Their visible names go through `tr()` each time the menu is set, so that a
 --  change of language reaches them too (see `fact:locale` at the end).
 local plugin_entries = {
+    { id = "desk.walls",    group = "Desktop", title = "Wallpapers" },
     { id = "drift.open",    group = "Drift", title = "Her library" },
     { id = "drift.paste",   group = "Drift", title = "Keep what is copied" },
     { id = "swell.history", group = "Swell", title = "History" },
@@ -492,6 +494,7 @@ on("menu_entry", function(i)
     if e ~= nil and e.id == "wm.snow" then wm_toggle_snow(); return end
     if e ~= nil and e.id == "swell.history" then emit("show_history"); return end
     if e ~= nil and e.id == "drift.open" then emit("show_drift"); return end
+    if e ~= nil and e.id == "desk.walls" then emit("show_walls"); return end
     if e ~= nil and e.id == "drift.paste" then if hooks.keep_copied then hooks.keep_copied() end; return end
     if e ~= nil and e.id == "wm.ride" then wm_ride(); return end
     log("a plugin entry from her menu", e ~= nil and e.id or i)
@@ -1776,7 +1779,10 @@ do
 end
 local WALLPAPER = settings.wallpaper or "/usr/share/wallpapers/cachyos-wallpapers/GreenFeathers.png"
 
-run("pgrep", { "-x", "swaybg" }, function(_, code)
+--  Only the `swaybg` of HER desktop (her `WAYLAND_DISPLAY`): one painting
+--  another session's —Hyprland's, beside a pleamar-wm on another TTY— is not hers.
+local OUR_DISPLAY = "WAYLAND_DISPLAY=" .. tostring(sys.ask("env", "WAYLAND_DISPLAY") or "")
+run("pgrep", { "-x", "swaybg", "--env", OUR_DISPLAY }, function(_, code)
     if code == 0 then return end                        -- someone is already painting it
     hyprctl("monitors", function(mons)
         local args = {}
@@ -1848,6 +1854,148 @@ local function save_settings()
     settings.wallpaper = WALLPAPER
     pcall(sys.call, "files.write", "settings.json", settings)
 end
+
+-- ── the wallpapers, and the tide that brings a new one ────────────
+--  The ones there are: in the usual folders, not the screenshots. Small
+--  copies of them are made with `magick` into the cache as they are seen, a
+--  few at a time; and picking one makes two more, the old and the new one at
+--  the monitor's size and cut the way `swaybg -m fill` cuts them, so that
+--  when the tide has passed and `swaybg` takes over nothing moves.
+local WALL_CACHE = home_dir .. "/.cache/marea/walls"
+run("mkdir", { "-p", WALL_CACHE }, function() end)
+local wall_list, wall_offset, wall_thumbs, wall_making = {}, 0, {}, {}
+local wall_busy = false
+
+local function cache_name(path, tag)
+    return WALL_CACHE .. "/" .. tag .. "-" .. tostring(path):gsub("[^%w]", "_"):sub(-120) .. ".jpg"
+end
+
+local function show_walls()
+    local cards = {}
+    for k = wall_offset + 1, math.min(wall_offset + 9, #wall_list) do
+        local path = wall_list[k]
+        local name = tostring(path):match("([^/]+)$") or path
+        cards[#cards + 1] = { name = name:gsub("%.%w+$", ""):gsub("[_%-]", " "), thumb = wall_thumbs[path] or "",
+                              ready = wall_thumbs[path] ~= nil, current = path == WALLPAPER }
+    end
+    model.walls = cards
+end
+
+--  The small copies of what is on the page, three at a time.
+local function make_thumbs()
+    local going = 0
+    for _ in pairs(wall_making) do going = going + 1 end
+    for k = wall_offset + 1, math.min(wall_offset + 9, #wall_list) do
+        if going >= 3 then return end
+        local path = wall_list[k]
+        if wall_thumbs[path] == nil and not wall_making[path] then
+            local thumb = cache_name(path, "thumb")
+            wall_making[path] = true
+            going = going + 1
+            run("test", { "-s", thumb }, function(_, exists)
+                local function done()
+                    wall_making[path] = nil
+                    wall_thumbs[path] = thumb
+                    show_walls()
+                    make_thumbs()
+                end
+                if exists == 0 then return done() end
+                run("magick", { path .. "[0]", "-thumbnail", "320x180^", "-gravity", "center", "-extent", "320x180", "-quality", "85", thumb }, function(_, code)
+                    if code ~= 0 then wall_making[path] = nil; log("wallpapers · no small copy of", path); return end
+                    done()
+                end)
+            end)
+        end
+    end
+end
+
+local WALL_DIRS = { home_dir .. "/Imágenes", home_dir .. "/Pictures", home_dir .. "/Wallpapers", home_dir .. "/Fondos",
+                    "/usr/share/wallpapers", "/usr/share/backgrounds" }
+on("walls_open", function()
+    local args = { "--type", "f", "--max-depth", "3", "--color", "never",
+                   "-e", "png", "-e", "jpg", "-e", "jpeg", "-e", "webp",
+                   "--exclude", "Capturas", "--exclude", "Screenshots", "--exclude", "Marea", "--exclude", "pokes", ".", }
+    for _, d in ipairs(WALL_DIRS) do args[#args + 1] = d end
+    run("fd", args, function(out)
+        local list, seen_walls = {}, {}
+        for line in tostring(out or ""):gmatch("[^\n]+") do
+            if not seen_walls[line] then seen_walls[line] = true; list[#list + 1] = line end
+        end
+        table.sort(list, function(a, b) return (a:match("([^/]+)$") or a):lower() < (b:match("([^/]+)$") or b):lower() end)
+        --  The one on now, first.
+        for k, path in ipairs(list) do
+            if path == WALLPAPER then table.remove(list, k); table.insert(list, 1, path); break end
+        end
+        wall_list = list
+        wall_offset = 0
+        show_walls()
+        make_thumbs()
+    end)
+end)
+on("walls_scroll", function(w)
+    local step = (w or 0) > 0 and -3 or 3
+    wall_offset = math.max(0, math.min(wall_offset + step, math.max(#wall_list - 3, 0)))
+    wall_offset = wall_offset - wall_offset % 3
+    show_walls()
+    make_thumbs()
+end)
+
+--  The picture the tide carries: cut as `swaybg -m fill` cuts it for the
+--  monitor, and squeezed into the 16:9 the scene holds it in (it is drawn back
+--  at the monitor's shape). Always the same file: a new version of it, `?n`,
+--  takes the place of the last one, and the atlas does not fill up.
+local TIDE_PIC = WALL_CACHE .. "/tide.jpg"
+local tide_version = 0
+local function cover(path, done)
+    local w = math.floor(fact["screen.0.width"] or 0)
+    local h = math.floor(fact["screen.0.height"] or 0)
+    if w < 100 or h < 100 then w, h = 1920, 1080 end
+    run("magick", { path .. "[0]", "-resize", w .. "x" .. h .. "^", "-gravity", "center", "-extent", w .. "x" .. h,
+        "-resize", "1280x720!", "-quality", "90", TIDE_PIC }, function(_, code)
+        tide_version = tide_version + 1
+        done(code == 0 and (TIDE_PIC .. "?" .. tide_version) or nil)
+    end)
+end
+
+local tide_new = nil
+on("wall_pick", function(i)
+    local path = wall_list[wall_offset + i + 1]
+    if path == nil or path == WALLPAPER or wall_busy then return end
+    wall_busy = true
+    tide_new = path
+    cover(path, function(pic)
+        if pic == nil then
+            log("wallpapers · the picture for the tide could not be made; straight to it")
+            emit("tide_done")
+            return
+        end
+        model.tidepics = { { pic = pic } }
+        fact["tide.home"] = fact["hosts.1"] == true and 1 or 0
+        emit("tide_start")
+    end)
+end)
+
+--  The water has settled: `swaybg` with the new one, and the old one goes a
+--  moment later, when the new one is surely painted underneath.
+on("tide_done", function()
+    local path = tide_new
+    if path == nil then return end
+    tide_new = nil
+    --  Without `-o`, one swaybg paints every monitor there is.
+    run("pgrep", { "-x", "swaybg", "--env", OUR_DISPLAY }, function(old_pids)
+        run("swaybg", { "-i", path, "-m", "fill" }, nil, { output = false })
+        WALLPAPER = path
+        save_settings()
+        after(700, function()
+            local pids = {}
+            for pid in tostring(old_pids or ""):gmatch("%d+") do pids[#pids + 1] = pid end
+            if #pids > 0 then run("kill", pids, function() end) end
+            emit("tide_away")
+            wall_busy = false
+            if fact.page == "walls" then show_walls() end
+        end)
+    end)
+end)
 
 --  Which monitor each copy is, pleamar says, not `hyprctl`: the order of the
 --  copies is its own (`screen.0.name`, `screen.1.name`), and it does not match
