@@ -13,6 +13,7 @@ on("set_volume", function(v) sys.call("audio.volume", v) end)
 on("set_brightness", function(v) sys.call("brightness.level", v) end)
 on("mute_output", function() sys.call("audio.mute") end)
 on("mute_mic", function() sys.call("audio.input_mute") end)
+on("set_mic", function(v) sys.call("audio.input", v) end)
 
 -- ── what is playing ────────────────────────────────────────────────
 on("play_pause", function() sys.call("media.toggle") end)
@@ -26,32 +27,16 @@ on("next", function() sys.call("media.next") end)
 --  are the system's: pleamar knows how to READ the network but not how to
 --  change it, and it knows nothing about bluetooth yet. A switch that moves
 --  without doing anything is a lie, so these do something.
---  The real switch. It is read first and set to the opposite, instead of
---  assuming: if someone has changed it from outside, this still gets it right.
---  And turning the radio off can be undone from the same place, which is the
---  least you can ask of a switch.
---  Whether the radio is on is the system's too: read, not assumed. It is read
---  on start, every little while and after each flip, since it can also be
---  switched from outside —a headset that wakes it, another panel—.
-local function read_bluetooth()
-    run("bluetoothctl", { "show" }, function(output)
-        fact["switched_on.2"] = tostring(output):match("Powered: yes") ~= nil
-    end)
-end
-read_bluetooth()
-every(15000, read_bluetooth)
+--  The Wi-Fi and Bluetooth switches: what the system says, read from
+--  pleamar's own services (NetworkManager and BlueZ, spoken to directly), and
+--  flipped from what they say rather than from what was assumed.
+local net_state, bt_state = {}, {}
 
 on("flip", function(k)
     if k == 1 then
-        run("nmcli", { "radio", "wifi" }, function(output)
-            local enabled = tostring(output):match("enabled") ~= nil
-            run("nmcli", { "radio", "wifi", enabled and "off" or "on" }, function() end)
-        end)
+        pcall(sys.call, "network.wifi", not net_state.wifi)
     elseif k == 2 then
-        run("bluetoothctl", { "show" }, function(output)
-            local enabled = tostring(output):match("Powered: yes") ~= nil
-            run("bluetoothctl", { "power", enabled and "off" or "on" }, function() read_bluetooth() end)
-        end)
+        pcall(sys.call, "bluetooth.power", not bt_state.powered)
     end
 end)
 
@@ -95,78 +80,124 @@ on("pick_device", function(i)
 end)
 
 -- ── the pages ──────────────────────────────────────────────────────
---  Pressing a card opens its page, and then you have to find out what there
---  is. pleamar knows how to READ the network, not how to list it or change it
---  —that is its B15—, so this asks the system's tools. That is exactly what
---  the logic is for: the scene commands nothing, it tells what it is told.
+--  The networks and the gadgets come from pleamar's services, which also
+--  join, pair and forget. A new network with a password asks for it in place;
+--  one already known, or open, joins at once. Whichever is being joined
+--  breathes until the system says it is the one in use.
+local joining_name, joining_since = nil, 0
 
-local function scan_networks()
-    run("nmcli", { "-t", "-f", "IN-USE,SIGNAL,SSID", "dev", "wifi" }, function(output)
-        local best, order = {}, {}
-        for line in tostring(output):gmatch("[^\n]+") do
-            local in_use, signal, ssid = line:match("^(.-):(%d+):(.*)$")
-            --  The same network shows up once per antenna: the one that reaches best stays.
-            if ssid and ssid ~= "" then
-                local s = tonumber(signal) / 100
-                if not best[ssid] then order[#order + 1] = ssid end
-                if not best[ssid] or s > best[ssid].signal then
-                    best[ssid] = { name = ssid, signal = s, current = in_use == "*" }
-                end
+local function paint_networks()
+    local v = {}
+    for _, n in ipairs(net_state.networks or {}) do
+        v[#v + 1] = { name = n.ssid, signal = n.strength or 0, current = n.active == true, secure = n.secure == true, known = n.known == true }
+    end
+    table.sort(v, function(a, b)
+        if a.current ~= b.current then return a.current end
+        if a.known ~= b.known then return a.known end
+        return a.signal > b.signal
+    end)
+    while #v > 8 do table.remove(v) end
+    model.networks = v
+    fact["switched_on.1"] = net_state.wifi == true
+    --  The one being joined, by its place now (the list moves as it is joined).
+    fact.joining = -1
+    if joining_name ~= nil then
+        for k, n in ipairs(v) do
+            if n.name == joining_name then
+                if n.current then joining_name = nil else fact.joining = k - 1 end
             end
         end
-        local v = {}
-        for _, ssid in ipairs(order) do v[#v + 1] = best[ssid] end
-        table.sort(v, function(a, b)
-            if a.current ~= b.current then return a.current end
-            return a.signal > b.signal
-        end)
-        while #v > 8 do table.remove(v) end
-        model.networks = v
-    end)
+    end
 end
 
-local function scan_bluetooth()
-    run("bluetoothctl", { "devices", "Connected" }, function(connected)
-        local connected_macs = {}
-        for mac in tostring(connected):gmatch("Device (%S+)") do connected_macs[mac] = true end
-        run("bluetoothctl", { "devices", "Paired" }, function(paired)
-            local v = {}
-            for mac, name in tostring(paired):gmatch("Device (%S+) ([^\n]+)") do
-                --  The `mac` goes in the record even though the scene does not
-                --  declare it: it is where the logic keeps what the scene does
-                --  not need to know.
-                v[#v + 1] = { name = name, mac = mac, current = connected_macs[mac] == true }
-            end
-            table.sort(v, function(a, b) return a.current and not b.current end)
-            while #v > 8 do table.remove(v) end
-            model.gadgets = v
-        end)
-    end)
+sys.watch("network", function(state)
+    net_state = state or {}
+    paint_networks()
+end)
+
+--  And if it never joins —a wrong password, out of reach— it stops breathing.
+every(3000, function()
+    if joining_name ~= nil and os.time() - joining_since > 25 then
+        log("wi-fi · could not join", joining_name)
+        joining_name = nil
+        paint_networks()
+    end
+end)
+
+local function join(name, password)
+    joining_name, joining_since = name, os.time()
+    local ok, err = pcall(sys.call, "network.connect", name, password)
+    if not ok then
+        log("wi-fi · joining failed:", err)
+        joining_name = nil
+    end
+    paint_networks()
 end
 
---  Pressing a network switches to it, and pressing a headset connects it or
---  lets it go. Only networks already saved: `connection up` does not make up a
---  password, so this does not get into the neighbour's network. A new one asks
---  for its password, and that is a conversation, not a click.
 on("pick_network", function(i)
     local r = model.networks[i + 1]
     if r == nil or r.current then return end
-    run("nmcli", { "connection", "up", "id", r.name }, function(_, code)
-        if code ~= 0 then log("that network is not saved; it would need its password", r.name) end
-        scan_networks()
-    end)
+    if r.secure and not r.known then
+        text["ask.name"] = r.name
+        text.wifi_pw = ""
+        fact.asking = i
+        return
+    end
+    fact.asking = -1
+    join(r.name, nil)
+end)
+
+on("join", function()
+    local r = model.networks[(fact.asking or -1) + 1]
+    local password = text.wifi_pw or ""
+    fact.asking = -1
+    text.wifi_pw = ""
+    if r ~= nil and password ~= "" then join(r.name, password) end
+end)
+on("forget_ask", function()
+    fact.asking = -1
+    text.wifi_pw = ""
+end)
+
+--  Bluetooth: the paired ones first —the connected at the top— and, while
+--  looking, the ones just found, to be paired with a press.
+local function paint_gadgets()
+    local v = {}
+    for _, d in ipairs(bt_state.devices or {}) do
+        v[#v + 1] = { name = d.name, current = d.connected == true, paired = d.paired == true, battery = d.battery or -1, address = d.address }
+    end
+    while #v > 8 do table.remove(v) end
+    model.gadgets = v
+    fact["switched_on.2"] = bt_state.powered == true
+    fact.bt_scanning = bt_state.discovering == true
+    local first = v[1]
+    text["bt.sub"] = (first and first.current) and first.name or (bt_state.powered and tr("On") or tr("Off"))
+end
+
+sys.watch("bluetooth", function(state)
+    bt_state = state or {}
+    paint_gadgets()
 end)
 
 on("pick_gadget", function(i)
     local c = model.gadgets[i + 1]
-    if c == nil or c.mac == nil then return end
-    run("bluetoothctl", { c.current and "disconnect" or "connect", c.mac }, function()
-        scan_bluetooth()
-    end)
+    if c == nil or c.address == nil then return end
+    pcall(sys.call, c.current and "bluetooth.disconnect" or "bluetooth.connect", c.address)
 end)
 
+on("bt_scan", function()
+    pcall(sys.call, "bluetooth.scan", not bt_state.discovering)
+end)
+
+--  Opening a page asks for a fresh look: the networks around, and the gadgets
+--  near (it listens while the page is open, and stops when it closes).
 on("scan", function(k)
-    if k == 1 then scan_networks() elseif k == 2 then scan_bluetooth(); read_bluetooth() end
+    if k == 1 then pcall(sys.call, "network.scan")
+    elseif k == 2 and bt_state.powered and not bt_state.discovering then pcall(sys.call, "bluetooth.scan", true) end
+end)
+on("fact:page", function(p)
+    if p ~= "bluetooth" and bt_state.discovering then pcall(sys.call, "bluetooth.scan", false) end
+    if p ~= "wifi" then fact.asking = -1 end
 end)
 
 on("customize", function() log("customize would open here") end)
@@ -262,6 +293,7 @@ local OWN = {
       function() if hooks.wm_snow then hooks.wm_snow() end end, "wm" },
     { "Ride a window", "ride montar subir súbete subete sit sentarse ventana window marea viaje", 1,
       function() if hooks.wm_ride then hooks.wm_ride() end end, "wm" },
+    { "Notice history", "history historial avisos notificaciones notices notifications pasados old viejos marea oleaje swell", 1, function() emit("show_history") end },
     { "Celebrate", "celebrate celebrar fiesta party fireworks cohetes fuegos", 2, function() emit("celebrate") end },
     { "Rage", "rage enfado enfadada angry pistola gun disparar shoot", 3, function() emit("rage") end },
     { "Adventure", "adventure aventura alas wings volar fly saltar", 2, function() emit("adventure") end },
@@ -457,6 +489,7 @@ on("menu_entry", function(i)
     if e ~= nil and e.id == "wm.restore" then wm_restore_all(); return end
     if e ~= nil and e.id == "wm.rain" then wm_toggle_rain(); return end
     if e ~= nil and e.id == "wm.snow" then wm_toggle_snow(); return end
+    if e ~= nil and e.id == "swell.history" then emit("show_history"); return end
     if e ~= nil and e.id == "wm.ride" then wm_ride(); return end
     log("a plugin entry from her menu", e ~= nil and e.id or i)
 end)
@@ -611,6 +644,77 @@ on("another_batch", playBatch)
 --  download that moves forward— and the ones that are no longer there without
 --  us having removed them: their application closed them, which is what
 --  happens when you read the message in Telegram.
+-- ── what has washed up: the history ───────────────────────────────
+--  Every real notice once it is dealt with —done, thrown away, opened, or
+--  closed by its own application— goes here, newest first, and to disk
+--  (`history.json` in her folder), so a restart does not wash it away. The
+--  page shows a window of it, a row for each day and the notices under it.
+local history = {}
+do
+    local ok, loaded = pcall(sys.ask, "files.read", "history.json", "json")
+    if ok and type(loaded) == "table" and type(loaded.items) == "table" then history = loaded.items end
+end
+local history_offset = 0
+local history_saving = false
+local function save_history()
+    if history_saving then return end
+    history_saving = true
+    after(1000, function()
+        history_saving = false
+        pcall(sys.call, "files.write", "history.json", { items = history })
+    end)
+end
+local DAY_NAMES = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" }
+local function day_label(t)
+    local now = os.date("*t")
+    local midnight = os.time({ year = now.year, month = now.month, day = now.day, hour = 0 })
+    if t >= midnight then return tr("Today") end
+    if t >= midnight - 86400 then return tr("Yesterday") end
+    local d = os.date("*t", t)
+    return string.format("%s %d", tr(DAY_NAMES[d.wday]), d.day)
+end
+local function paint_history()
+    local rows, last_day = {}, nil
+    for k = history_offset + 1, #history do
+        local h = history[k]
+        local day = day_label(h.time or 0)
+        if day ~= last_day then
+            if #rows >= 8 then break end
+            rows[#rows + 1] = { head = true, day = day, app = "", title = "", detail = "", when = "", cat = 4, age = 0 }
+            last_day = day
+        end
+        if #rows >= 9 then break end
+        rows[#rows + 1] = { head = false, day = "", app = h.app or "", title = h.title or "", detail = h.detail or "",
+                            when = os.date("%H:%M", h.time or 0), cat = h.cat or 4,
+                            age = math.min(1, (os.time() - (h.time or 0)) / 604800) }
+    end
+    model.past = rows
+end
+local function remember(f)
+    if f == nil or f.id == nil or f.remembered then return end
+    f.remembered = true
+    table.insert(history, 1, { app = f.app, title = f.title, detail = f.detail, cat = f.cat, time = os.time() })
+    while #history > 300 do table.remove(history) end
+    save_history()
+    if fact.page == "history" then paint_history() end
+end
+on("history_open", function()
+    history_offset = 0
+    paint_history()
+end)
+--  The wheel: up, newer; down, older. Three at a time.
+on("history_scroll", function(w)
+    local step = (w or 0) > 0 and -3 or 3
+    history_offset = math.max(0, math.min(history_offset + step, math.max(#history - 1, 0)))
+    paint_history()
+end)
+on("clear_history", function()
+    history = {}
+    history_offset = 0
+    save_history()
+    paint_history()
+end)
+
 local seen = {}
 --  The ones already dealt with here, while the service has not yet said they
 --  are gone: they must not come back to fill a gap.
@@ -718,6 +822,7 @@ local function from_service(list)
             local n = present[f.id]
             if n == nil then
                 --  Whoever sent it closed it: the row goes and its drop comes down.
+                remember(f)
                 local c = "n." .. f.cat
                 if (fact[c] or 0) > 0 then fact[c] = fact[c] - 1 end
                 table.remove(rows, k)
@@ -902,7 +1007,10 @@ on("resolve", function(k)
     after(1000, function() f.flying = nil; refill() end)
     if f.id then
         after(5400, function()
-            if f.done then sys.call("notifications.dismiss", f.id) end
+            if f.done then
+                remember(f)
+                sys.call("notifications.dismiss", f.id)
+            end
         end)
     end
 end)
@@ -915,6 +1023,7 @@ on("dismiss", function(k)
     local f = rows[k]
     if f == nil then return end
     f.done = true
+    remember(f)
     if f.id then sys.call("notifications.dismiss", f.id) end
 end)
 --  A tap opens it where it lives: its default action, if it brings one. If it
@@ -924,6 +1033,7 @@ local function open_row(k)
     if f == nil or f.id == nil then return end
     local can_open = false
     for _, a in ipairs(f.actions or {}) do can_open = can_open or a.key == "default" end
+    remember(f)
     if can_open then sys.call("notifications.invoke", f.id, "default") else sys.call("notifications.dismiss", f.id) end
 end
 on("open_notice", open_row)
@@ -940,6 +1050,7 @@ end
 local function done_with(f)
     if f == nil or f.done then return end
     f.done = true
+    remember(f)
     if f.id then sys.call("notifications.dismiss", f.id) end
 end
 on("notice_act", function(i)

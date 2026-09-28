@@ -28,11 +28,11 @@ scene Marea {
         //  your home lives; the session, to be able to say goodbye. What is NOT
         //  here is `notifications`: the first one to ask for it keeps the spot,
         //  and on this machine that spot is Marea's.
-        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*", "auth", "files", "files.write", "window", "window.*"
-        //  Switching network or headphones is something pleamar cannot do yet
-        //  (its B15), so the logic does it with the system's tools. And `fd`
-        //  finds the files and the folders.
-        run: "node", "notify-send", "nmcli", "bluetoothctl", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm"
+        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*", "auth", "files", "files.write", "window", "window.*", "network.*", "bluetooth", "bluetooth.*"
+        //  The network and the headphones are pleamar's own services now
+        //  (NetworkManager and BlueZ, spoken to directly): listing, joining
+        //  with a password, pairing. And `fd` finds the files and the folders.
+        run: "node", "notify-send", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm"
     }
     service clock as now { time: text = "--:--"; date: text; hour: number; minute: number }
     service audio as sound { volume: number; muted: bool; input: number; input_muted: bool }
@@ -44,7 +44,7 @@ scene Marea {
     //  Pressing a card opens its page, and **the page comes out of the card**:
     //  it grows from its place until it fills the panel. It is not a screen that
     //  replaces another; it is the same card, opened.
-    fact page: none | wifi | bluetooth | concentration | wardrobe | sound | session | systray | settings | agents | calendar = none
+    fact page: none | wifi | bluetooth | concentration | wardrobe | sound | session | systray | settings | agents | calendar | history = none
     //  Her look, which is chosen in Settings and saved: glass that bends what is
     //  behind like Apple's, glass that only blurs it —lighter, the compositor
     //  does it—, or the usual one, opaque.
@@ -63,8 +63,29 @@ scene Marea {
     fact language: system | english | spanish = system
     prop paging = 0 ~240ms
     follow paging = if(page == none, 0, 1)
-    model networks max 8 { name: text; signal: number; current: bool }
-    model gadgets max 8 { name: text; current: bool }
+    model networks max 8 { name: text; signal: number; current: bool; secure: bool; known: bool }
+    model gadgets max 8 { name: text; current: bool; paired: bool; battery: number = -1 }
+    //  A network that asks for its password: which row (−1, none), and the
+    //  one being joined right now, which breathes until it is.
+    fact asking = -1
+    fact joining = -1
+    text wifi_pw = ""
+    event join ->                      // the password is written: join
+    event forget_ask                   // not now
+    //  The Bluetooth radio looking for new gadgets: its radar turns meanwhile.
+    fact bt_scanning = false
+    event bt_scan ->
+    text ask.name = ""
+    //  What the Bluetooth card says under its name: the one connected, or on/off.
+    text bt.sub = "Headphones"
+    prop ask.in = 0 ~220ms
+    follow ask.in = if(asking >= 0, 1, 0)
+    on change asking while asking >= 0 { focus wifi_pw }
+    prop join.t = 0
+    prop radar.t = 0
+    prop join_btn.glow = 0 ~140ms
+    spin join.t by if(joining >= 0, 1, 0)
+    spin radar.t by if(bt_scanning and page == bluetooth, 0.8, 0)
     //  Where it plays and where it listens. pleamar brings them in the same
     //  service as the volume, so this does not know about `wpctl`, nor does it
     //  need to.
@@ -309,6 +330,19 @@ scene Marea {
     //  else —pressing her, the card that arrives, an urgent one—.
     fact filter = 0
     event open_tray
+    //  What has washed up: the notices already dealt with, newest first, with
+    //  a row for each day (`head`). `age` 0 today … 1 a week or more.
+    model past max 9 { app: text; title: text; detail: text; when: text; day: text; cat: number = 4; head: bool; age: number }
+    event show_history                 // from her menu or the swell's footer
+    event clear_history ->
+    event history_scroll ->            // the wheel over it: back and forth in time
+    prop hist.wash = 0 ~700ms
+    prop clear.glow = 0 ~140ms
+    prop hist_link.glow = 0 ~140ms
+    prop tide.t = 0
+    spin tide.t by if(page == history, 0.4, 0)
+    on show_history { menu_open = false; tray_open = false; open = true; page = history; emit history_open }
+    event history_open ->
     event close_tray
     event resolve ->                   // with which one, as payload: the logic marks it read
     event dismiss ->                   // and this one is thrown away: it does not come back, nor send a drop
@@ -641,6 +675,7 @@ scene Marea {
     //  here two things are needed: which one and how much.
     event set_brightness ->
     event set_volume ->
+    event set_mic ->                   // the microphone's level, 0..1
     event open_page ->                 // with which of the six, as payload
     //  The calendar: 42 days in the grid (six weeks, Monday first), what the
     //  logic says of each one, and the chosen day's events.
@@ -2604,7 +2639,8 @@ scene Marea {
         //  its place belongs to the fuse, which is more urgent than a link.
         group {
             show: not undoable
-            text "History" { at: tx0, tray.y + 198; anchor: left center; size: 11.5; color: #8b8f95 }
+            text "History" { at: tx0, tray.y + 198; anchor: left center; size: 11.5; color: mix(#8b8f95, ink, hist_link.glow) }
+            zone box hist_link { from: tx0 - 6, tray.y + 186; size: 80, 24; corner: 8; cursor: pointer; active: tray > 0.9 and not undoable }
             text "Settings" { at: tray.x + 232, tray.y + 198; anchor: right center; size: 11.5; color: #8b8f95 }
         }
 
@@ -3187,10 +3223,11 @@ scene Marea {
             //  the protagonist.
             let levels.y = card.top + 237
             box { at: levels.x, levels.y; size: 210, 322; corner: 16; color: mix(#1b1b1c, ink, glassiness); opacity: mix(1, veil, glassiness) }
-            repeat k in 0..2 {
-                let sx = levels.x - 45 + k * 90
-                let val = if(k == 0, bright_level, vol_level)
-                let silenced = if(k == 0, 0, if(sound.muted, 1, 0))
+            //  Three levels: brightness, volume and the microphone.
+            repeat k in 0..3 {
+                let sx = levels.x - 66 + k * 66
+                let val = pick(k, bright_level, vol_level, mic_level)
+                let silenced = pick(k, 0, if(sound.muted, 1, 0), if(sound.input_muted, 1, 0))
                 let avail = if(k == 0, if(display.present, 1, 0), 1)
                 let track_top = levels.y - 137
                 let track_h = 200
@@ -3219,10 +3256,16 @@ scene Marea {
                            move 0, 3; line 4, 3; line 9, 0; line 9, 11; line 4, 8; line 0, 8; close }
                     arc { at: sx + 3, iy; radius: 6; span: 110deg; width: 1.5; rotate: 90deg; color: ink; show: k == 1 }
                     arc { at: sx + 3, iy; radius: 9.5; span: 110deg; width: 1.5; rotate: 90deg; color: ink; show: k == 1 }
+                    //  The microphone: a capsule, its cradle and its foot.
+                    box { at: sx, iy - 3; size: 7, 12; corner: 3.5; color: ink; show: k == 2 }
+                    arc { at: sx, iy - 1; radius: 6.5; span: 180deg; width: 1.5; rotate: 90deg; color: ink; show: k == 2 }
+                    line { from: sx, iy + 5.5; to: sx, iy + 9; width: 1.5; color: ink; show: k == 2 }
+                    line { from: sx - 3.5, iy + 9; to: sx + 3.5, iy + 9; width: 1.5; color: ink; show: k == 2 }
                 }
                 line { from: sx - 9, iy - 9; to: sx + 9, iy + 9; width: 1.8; color: #e0655a; opacity: silenced }
                 text "Brightness" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 0 }
                 text "Volume" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 1 }
+                text "Microphone" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 2 }
                 text "{val * 100, 0}%" { at: sx, iy + 42; anchor: center; size: 11.5; weight: 500; color: mint }
                 //  Drag the track, and press the icon to mute.
                 zone box track.$k { at: sx, track_top + track_h / 2; size: 34, track_h + 18; corner: 17; cursor: pointer; active: content > 0.9 }
@@ -3239,6 +3282,9 @@ scene Marea {
             on drag track.1 { emit set_volume(finger.0) }
             on press track.1 { emit set_volume(finger.0) }
             on press icon.1 { emit mute_output }
+            on drag track.2 { emit set_mic(finger.0) }
+            on press track.2 { emit set_mic(finger.0) }
+            on press icon.2 { emit mute_mic }
 
             // ── the sheet's three ────────────────────────────────────
             //  Each card is a `row` of three: the icon, what is read, and the
@@ -3340,7 +3386,8 @@ scene Marea {
                         //  What is read, with whatever room is left. No widths.
                         column { grow: 1; gap: 2
                             text title.$k { size: 13; lines: 1; color: ink }
-                            text sub.$k { size: 11.5; lines: 1; color: mix(#8b8f95, faint, glassiness); show: k == 2 or k > 3 }
+                            text sub.$k { size: 11.5; lines: 1; color: mix(#8b8f95, faint, glassiness); show: k > 3 }
+                            text bt.sub { size: 11.5; lines: 1; color: mix(#8b8f95, faint, glassiness); show: k == 2 }
                             text net.name { size: 11.5; lines: 1; color: mix(#8b8f95, faint, glassiness); show: k == 1 }
                             //  The Focus one tells what it has left, not what it
                             //  would last: when it is on, what you need to know is
@@ -3380,7 +3427,7 @@ scene Marea {
         //  The first three come out of their card; the wardrobe has no card
         //  —it is entered through her menu—, so it grows from the centre of the
         //  panel.
-        let pg.own = if(page == wardrobe or page == systray or page == settings or page == agents or page == calendar, 0, 1)
+        let pg.own = if(page == wardrobe or page == systray or page == settings or page == agents or page == calendar or page == history, 0, 1)
         let pg.ox = card.x + 111 * pg.own
         let pg.oy = card.top + 231 + (-126 + (pg.k - 1) * 66) * pg.own
         //  The page's box starts where its content does, 96 below the card's
@@ -3411,6 +3458,7 @@ scene Marea {
             text "Sound" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == sound }
             text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
             text "Agents" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == agents }
+            text "History" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == history }
             text cal.month { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == calendar }
             text systray.title { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; width: 300; lines: 1; color: ink; show: page == systray }
             text "Shall we take a break?" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == session and confirming == none }
@@ -3427,7 +3475,10 @@ scene Marea {
             //  nothing else. The rest —lighting up on hover, the «this is the
             //  current one» dot and the number sent on choosing it— is the same, so
             //  it is written once.
-            component ListRow(f: record, pick: event, glyph: number = 1, signal: number = 0, base: number = 0) {
+            //  `lock`: a network that asks for its password (a padlock); `busy`:
+            //  the one being joined, which breathes; `battery`: a gadget's,
+            //  0..1 (−1, it does not say); `fresh`: one not paired yet.
+            component ListRow(f: record, pick: event, glyph: number = 1, signal: number = 0, base: number = 0, lock: number = 0, busy: number = 0, battery: number = -1, fresh: number = 0) {
                 size: 456, 38
                 prop glow = 0 ~140ms
                 let current = if(f.current, 1, 0)
@@ -3458,9 +3509,28 @@ scene Marea {
                     arc { at: 20, 17; radius: 6.4; span: 180deg; width: 1.5; color: tone }
                     box { at: 20, 27.5; size: 1.5, 3.5; color: tone }
                 }
-                text f.name { at: 42, 19; anchor: left center; size: 12; width: 386; lines: 1
+                text f.name { at: 42, 19; anchor: left center; size: 12; width: 300; lines: 1
                                 color: mix(#dfe1e3, #f6f6f5, glow) }
                 ellipse { at: 438, 19; radius: 4; color: mint; opacity: current * 100% }
+                //  The padlock: it asks for a password the first time.
+                group {
+                    show: lock > 0.5
+                    box { at: 412, 21; size: 10, 8; corner: 2; color: #8b8f95 }
+                    arc { at: 412, 16.5; radius: 3.2; span: 180deg; width: 1.5; rotate: -90deg; color: #8b8f95 }
+                }
+                //  Joining: the row breathes, a ring of mint that comes and goes.
+                box { from: 0, 0; size: 456, 38; corner: 10; stroke: 1.5; color: mint
+                      opacity: busy * (35% + 35% * sin(join.t * 360)) }
+                //  A gadget's battery: a little drop, as full as it is.
+                group {
+                    show: battery >= 0
+                    box { at: 404, 19; size: 22, 11; corner: 3; stroke: 1.2; color: #8b8f95 }
+                    box { at: 416, 19; size: 2, 5; corner: 1; color: #8b8f95 }
+                    box { from: 394.5, 15.5; size: 19 * clamp(battery, 0, 1), 7; corner: 2
+                          color: mix(#e0655a, mint, clamp(battery * 3 - 0.3, 0, 1)) }
+                }
+                //  One just found, not paired: pressing it pairs it.
+                text "Pair" { at: 428, 19; anchor: right center; size: 11; weight: 600; color: mint; show: fresh > 0.5 }
                 on enter touch { glow: 1 }
                 on leave touch { glow: 0 }
                 on press touch { emit pick(f.index + base) }
@@ -3472,8 +3542,30 @@ scene Marea {
                 at: card.x - 228, card.top + 109
                 gap: 4
                 show: page == wifi
-                for r in networks { ListRow(r, pick: pick_network, glyph: 1, signal: r.signal) }
+                for r in networks { ListRow(r, pick: pick_network, glyph: 1, signal: r.signal, lock: r.secure and not r.known, busy: joining == r.index) }
             }
+            //  Its password, asked for in place: under the list, with the
+            //  network's name, the field and «Join». Enter joins too; Esc, or
+            //  pressing elsewhere in the list, lets it be.
+            group {
+                show: page == wifi and asking >= 0
+                opacity: clamp(ask.in * 1.4, 0, 1)
+                move: 0, (1 - ask.in) * 8
+                let ay = card.top + 109 + networks.count * 42 + 16
+                box { from: card.x - 228, ay; size: 456, 78; corner: 12; color: mix(#202021, ink, glassiness * 0.06); stroke: 1; opacity: 100% }
+                box { from: card.x - 228, ay; size: 456, 78; corner: 12; stroke: 1.2; color: mint; opacity: 35% }
+                text "Password for «{ask.name}»" { at: card.x - 212, ay + 18; anchor: left center; size: 11.5; color: #8b8f95; width: 420; lines: 1 }
+                box { from: card.x - 212, ay + 32; size: 320, 32; corner: 9; color: #141415 }
+                input wifi_pw { at: card.x - 202, ay + 48; width: 300; size: 13; color: ink; placeholder: "Password"; secret: true; selection: #2f5f52 }
+                box { from: card.x + 118, ay + 32; size: 94, 32; corner: 9; color: mint; opacity: 85% + 15% * join_btn.glow }
+                text "Join" { at: card.x + 165, ay + 48; anchor: center; size: 12; weight: 600; color: #0c0f12 }
+                zone box join_btn { from: card.x + 118, ay + 32; size: 94, 32; corner: 9; cursor: pointer; active: page == wifi and asking >= 0 }
+            }
+            on enter join_btn { join_btn.glow: 1 }
+            on leave join_btn { join_btn.glow: 0 }
+            on press join_btn { emit join }
+            on submit wifi_pw { emit join }
+            on key Escape while page == wifi and asking >= 0 { emit forget_ask }
             text "Looking for networks…" { at: card.x, card.y + 20; anchor: center; size: 11.5; color: #8b8f95
                                      show: page == wifi and networks.count < 1 }
 
@@ -3482,10 +3574,80 @@ scene Marea {
                 at: card.x - 228, card.top + 109
                 gap: 4
                 show: page == bluetooth
-                for c in gadgets { ListRow(c, pick: pick_gadget, glyph: 2) }
+                for c in gadgets { ListRow(c, pick: pick_gadget, glyph: 2, battery: c.battery, fresh: not c.paired) }
             }
-            text "Nothing paired" { at: card.x, card.y + 20; anchor: center; size: 11.5; color: #8b8f95
+            //  Looking for new ones: a radar in the header, rings that leave
+            //  from the Bluetooth mark while the radio listens; pressed, it
+            //  starts or stops listening.
+            group {
+                show: page == bluetooth
+                let rx = card.x + 150
+                let ry = card.top + 45
+                repeat w in 0..3 {
+                    let t = fract(radar.t + w / 3)
+                    ellipse { at: rx, ry; radius: 6 + 16 * t; stroke: 1.4; color: mint; opacity: if(bt_scanning, (1 - t) * 70%, 0) }
+                }
+                ellipse { at: rx, ry; radius: 13; color: mix(#202021, #1a241f, if(bt_scanning, 1, 0)) }
+                path { at: rx - 4, ry - 7; color: mix(ink, mint, if(bt_scanning, 1, 0)); stroke: 1.5
+                       move 0, 3.5; line 8, 10.5; line 4, 14; line 4, 0; line 8, 3.5; line 0, 10.5 }
+                text pick(bt_scanning, "Search", "Searching…") { at: rx - 22, ry; anchor: right center; size: 11.5; color: mix(#8b8f95, mint, if(bt_scanning, 1, 0)) }
+                zone box radar_btn { at: rx - 30, ry; size: 110, 32; corner: 16; cursor: pointer; active: page == bluetooth and paging > 0.9 }
+            }
+            on press radar_btn { emit bt_scan }
+            text pick(bt_scanning, "Nothing paired", "Looking around…") { at: card.x, card.y + 20; anchor: center; size: 11.5; color: #8b8f95
                                      show: page == bluetooth and gadgets.count < 1 }
+
+            // ── the history: what has washed up ──────────────────
+            //  Every notice dealt with —done, thrown away, opened, or closed by
+            //  its own application—, kept on disk by the logic, newest first,
+            //  in days. Each one with the drop of its category's colour; the
+            //  older, the paler, as things the tide left a while ago. «Clear»
+            //  lets the tide take them: they slide away one after another.
+            group {
+                show: page == history
+                let hx = card.x - 228
+                let hy = card.top + 104
+                column history_list {
+                    at: hx, hy
+                    gap: 3
+                    for h in past {
+                        group {
+                            size: 456, if(h.head, 26, 44)
+                            opacity: (1 - clamp(hist.wash * 1.6 - h.index * 0.07, 0, 1)) * if(h.head, 1, 1 - 0.45 * h.age)
+                            move: 120 * pow(clamp(hist.wash * 1.6 - h.index * 0.07, 0, 1), 2), 0
+                            text h.day { at: 6, 16; anchor: left center; size: 10.5; weight: 700; color: #8b8f95; show: h.head }
+                            box { from: 0, 0; size: 456, 44; corner: 11; color: #1f2021; show: not h.head }
+                            ellipse { at: 16, 22; radius: 4.5; color: mix(mix(blue, lilac, h.cat == 2), mix(green, amber, h.cat == 4), h.cat >= 3); show: not h.head }
+                            text h.app { at: 32, 14; anchor: left center; size: 8.5; weight: 700; color: mix(mix(blue, lilac, h.cat == 2), mix(green, amber, h.cat == 4), h.cat >= 3); show: not h.head }
+                            text h.title { at: 32, 29; anchor: left center; size: 12; weight: 500; width: 250; lines: 1; color: ink; show: not h.head }
+                            text h.detail { at: 292, 29; anchor: left center; size: 10.5; width: 110; lines: 1; color: #8b8f95; show: not h.head }
+                            text h.when { at: 446, 14; anchor: right center; size: 9.5; color: #8b8f95; show: not h.head }
+                        }
+                    }
+                }
+                //  Nothing yet: three little drops resting on a calm line.
+                group {
+                    show: past.count < 1
+                    line { from: card.x - 60, card.y + 30; to: card.x + 60, card.y + 30; width: 1.2; color: #8b8f95; opacity: 40% }
+                    repeat d in 0..3 {
+                        ellipse { at: card.x - 20 + d * 20, card.y + 24 - 2 * sin(tide.t * 360 + d * 120); radius: 4; color: mix(mix(blue, lilac, d == 1), green, d == 2); opacity: 70% }
+                    }
+                    text "Nothing has washed up yet" { at: card.x, card.y + 52; anchor: center; size: 11.5; color: #8b8f95 }
+                }
+                //  «Clear», top right, and the wheel to go back in time.
+                text "Clear" { at: card.x + 150, card.top + 45; anchor: right center; size: 11.5; weight: 600
+                               color: mix(#8b8f95, #ef7a66, clear.glow); show: past.count > 0 }
+                zone box clear_btn { at: card.x + 128, card.top + 45; size: 70, 30; corner: 15; cursor: pointer; active: page == history and paging > 0.9 and past.count > 0 }
+                zone box history_area { from: hx, hy; size: 456, 300; active: page == history and paging > 0.9 }
+            }
+            on enter clear_btn { clear.glow: 1 }
+            on leave clear_btn { clear.glow: 0 }
+            on press clear_btn { hist.wash: 1 ~700ms }
+            on still hist.wash for 80ms while hist.wash > 0.97 {
+                emit clear_history
+                hist.wash: 0 ~16ms
+            }
+            on scroll history_area { emit history_scroll(wheel) }
 
             // ── the wardrobe ─────────────────────────────────────
             //  The pieces there are, one per spot. What is seen of each one is the
@@ -4573,6 +4735,9 @@ scene Marea {
     // ── opening and closing the swell ────────────────────────────
     //  Arriving opens nothing: it opens by pressing her, or a drop.
     on open_tray { tray_open = true }
+    on enter hist_link { hist_link.glow: 1 }
+    on leave hist_link { hist_link.glow: 0 }
+    on press hist_link { emit show_history }
     on close_tray { tray_open = false }
     //  And if it opened BY ITSELF —an urgent one— and nobody comes near, it
     //  closes by itself. The `away` of its grace zone only counts for someone who
