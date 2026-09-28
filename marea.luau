@@ -293,6 +293,7 @@ local OWN = {
       function() if hooks.wm_snow then hooks.wm_snow() end end, "wm" },
     { "Ride a window", "ride montar subir súbete subete sit sentarse ventana window marea viaje", 1,
       function() if hooks.wm_ride then hooks.wm_ride() end end, "wm" },
+    { "Deriva", "deriva drift biblioteca library guardado saved kept enlaces links recortes bookmarks marcadores", 1, function() emit("show_drift") end },
     { "Notice history", "history historial avisos notificaciones notices notifications pasados old viejos marea oleaje swell", 1, function() emit("show_history") end },
     { "Celebrate", "celebrate celebrar fiesta party fireworks cohetes fuegos", 2, function() emit("celebrate") end },
     { "Rage", "rage enfado enfadada angry pistola gun disparar shoot", 3, function() emit("rage") end },
@@ -409,8 +410,8 @@ end)
 --  Their visible names go through `tr()` each time the menu is set, so that a
 --  change of language reaches them too (see `fact:locale` at the end).
 local plugin_entries = {
-    { id = "drift.lend",    group = "Drift", title = "Lend something" },
-    { id = "drift.release", group = "Drift", title = "Release what was lent" },
+    { id = "drift.open",    group = "Drift", title = "Her library" },
+    { id = "drift.paste",   group = "Drift", title = "Keep what is copied" },
     { id = "swell.history", group = "Swell", title = "History" },
 }
 
@@ -490,6 +491,8 @@ on("menu_entry", function(i)
     if e ~= nil and e.id == "wm.rain" then wm_toggle_rain(); return end
     if e ~= nil and e.id == "wm.snow" then wm_toggle_snow(); return end
     if e ~= nil and e.id == "swell.history" then emit("show_history"); return end
+    if e ~= nil and e.id == "drift.open" then emit("show_drift"); return end
+    if e ~= nil and e.id == "drift.paste" then if hooks.keep_copied then hooks.keep_copied() end; return end
     if e ~= nil and e.id == "wm.ride" then wm_ride(); return end
     log("a plugin entry from her menu", e ~= nil and e.id or i)
 end)
@@ -714,6 +717,171 @@ on("clear_history", function()
     save_history()
     paint_history()
 end)
+
+-- ── Deriva: what is dropped on her, kept, and found again ──────────
+--  Her library is `deriva-worker`, the same one the Quickshell Marea used: a
+--  local SQLite with the files kept by their hash, which saves, searches and
+--  gives back. It answers a line of JSON. What is let go on her goes in —the
+--  inbox, or «Read later» / «Inspiration» if it was let go on their drops—, and
+--  the page shows it again as cards.
+local DRIFT = "deriva-worker"
+local drift_items, drift_offset, drift_blobs = {}, 0, nil
+
+local function drift_run(args, done)
+    run(DRIFT, args, function(out, code)
+        local ok, v = pcall(json.decode, tostring(out or ""))
+        if code ~= 0 or not ok or type(v) ~= "table" then
+            log("deriva ·", args[1], "did not answer", code)
+            if done then done(nil) end
+            return
+        end
+        --  Its answers come wrapped (`{ ok, result }`); `where` does not.
+        if v.ok == false then
+            log("deriva ·", args[1], "said no:", v.error and v.error.message or "?")
+            if done then done(nil) end
+            return
+        end
+        if done then done(v.result or v) end
+    end)
+end
+drift_run({ "where" }, function(r) if r then drift_blobs = r.blobs end end)
+
+local function host_of(u) return tostring(u or ""):match("^%a+://([^/]+)") or "" end
+local function blob_path(it)
+    local h = it.blob_hash
+    if drift_blobs == nil or type(h) ~= "string" or #h < 4 then return "" end
+    return drift_blobs .. "/" .. h:sub(1, 2) .. "/" .. h:sub(3, 4) .. "/" .. h
+end
+local function link_of(it)
+    if type(it.source_url) == "string" and it.source_url ~= "" then return it.source_url end
+    return blob_path(it)
+end
+
+local function show_drift()
+    local cards = {}
+    for k = drift_offset + 1, math.min(drift_offset + 4, #drift_items) do
+        local it = drift_items[k]
+        local title = (it.title ~= nil and it.title ~= "") and it.title or it.blob_name or it.excerpt or "…"
+        local source = (it.source ~= nil and it.source ~= "" and it.source ~= "web") and it.source or host_of(it.source_url)
+        local preview = type(it.preview_path) == "string" and it.preview_path or ""
+        cards[#cards + 1] = { title = tostring(title):gsub("%s+", " "), source = source, kind = string.upper(tostring(it.type or "")),
+                              date = day_label(math.floor((it.captured_at or 0) / 1000)), preview = preview,
+                              has_preview = preview ~= "", link = link_of(it) }
+    end
+    model.drift = cards
+end
+
+local function drift_load()
+    local q = text.drift_q or ""
+    local args = q == "" and { "list", "--limit", "60" } or { "search", "--query", q, "--limit", "60" }
+    drift_run(args, function(r)
+        drift_items = (r and r.items) or {}
+        drift_offset = 0
+        if q == "" then fact["drift.kept"] = #drift_items end
+        show_drift()
+    end)
+end
+on("drift_open", drift_load)
+--  Typing searches, a moment after the last key.
+local drift_typed = 0
+on("text:drift_q", function()
+    drift_typed = drift_typed + 1
+    local mine = drift_typed
+    after(260, function() if mine == drift_typed then drift_load() end end)
+end)
+on("drift_scroll", function(w)
+    local step = (w or 0) > 0 and -2 or 2
+    drift_offset = math.max(0, math.min(drift_offset + step, math.max(#drift_items - 2, 0)))
+    drift_offset = drift_offset - drift_offset % 2
+    show_drift()
+end)
+on("drift_pick", function(i)
+    local it = drift_items[drift_offset + i + 1]
+    if it == nil then return end
+    local link = link_of(it)
+    if link ~= "" then run("xdg-open", { link }, function() end) end
+end)
+
+--  What a file is, by its extension: it decides its icon and its filters.
+local KINDS = {
+    image = { "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif", "heic" },
+    video = { "mp4", "mkv", "webm", "mov", "avi" },
+    audio = { "mp3", "ogg", "flac", "wav", "m4a", "opus" },
+    document = { "pdf", "odt", "doc", "docx", "txt", "md", "epub", "rtf", "ods", "xlsx", "odp", "pptx" },
+    code = { "rs", "py", "js", "ts", "lua", "luau", "c", "h", "cpp", "go", "java", "sh", "json", "toml", "yaml", "yml", "plm", "qml", "html", "css" },
+}
+local function kind_of(path)
+    local ext = tostring(path):match("%.([%w]+)$")
+    ext = ext and ext:lower() or ""
+    for kind, list in pairs(KINDS) do
+        for _, e in ipairs(list) do if e == ext then return kind end end
+    end
+    return "file"
+end
+local function url_decode(s) return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)) end
+
+local SPACES = { drift_drop = nil, drift_later = "leer-luego", drift_insp = "inspiracion" }
+local PLACES = { drift_drop = "Deriva", drift_later = "Read later", drift_insp = "Inspiration" }
+
+local function keep(data, mime, zone)
+    local urls, groups, words = {}, {}, {}
+    for line in tostring(data or ""):gmatch("[^\r\n]+") do
+        local l = line:match("^%s*(.-)%s*$")
+        if l:match("^file://") then
+            local p = url_decode(l:gsub("^file://[^/]*", ""))
+            local k = kind_of(p)
+            groups[k] = groups[k] or {}
+            table.insert(groups[k], p)
+        elseif l:match("^https?://%S+$") then
+            urls[#urls + 1] = l
+        elseif l ~= "" and not l:match("^#") then
+            words[#words + 1] = l
+        end
+    end
+    local requests = {}
+    for _, u in ipairs(urls) do requests[#requests + 1] = { type = "url", source_url = u } end
+    for k, paths in pairs(groups) do requests[#requests + 1] = { type = k, paths = paths } end
+    if #words > 0 and mime ~= "text/uri-list" then requests[#requests + 1] = { type = "text", text = table.concat(words, "\n") } end
+    if #requests == 0 then return end
+    local space = SPACES[zone]
+    local saved, duplicates, failed, left = 0, 0, 0, #requests
+    local function finished()
+        if saved > 0 then
+            fact["drift.result"] = 1
+            text["drift.toast"] = string.format(tr("Kept in %s"), tr(PLACES[zone] or "Deriva"))
+        elseif duplicates > 0 then
+            fact["drift.result"] = 2
+            text["drift.toast"] = tr("It was already there")
+        else
+            fact["drift.result"] = 3
+            text["drift.toast"] = tr("Could not keep it")
+        end
+        emit("drift_saved")
+        if fact.page == "drift" then drift_load() end
+    end
+    for _, req in ipairs(requests) do
+        if space then req.space = space end
+        drift_run({ "ingest", "--request", json.encode(req) }, function(r)
+            if r then
+                saved = saved + (r.saved or 0)
+                duplicates = duplicates + (r.duplicates or 0)
+            else
+                failed = failed + 1
+            end
+            left = left - 1
+            if left == 0 then finished() end
+        end)
+    end
+end
+for zone in pairs(PLACES) do
+    on("drop:" .. zone, function(data, mime) keep(data, mime, zone) end)
+end
+--  And what is copied, from her menu or the finder: kept without carrying it.
+local function keep_copied()
+    local ok, copied = pcall(sys.ask, "clipboard")
+    if ok and type(copied) == "string" and copied ~= "" then keep(copied, "text/plain", "drift_drop") end
+end
+hooks.keep_copied = keep_copied
 
 local seen = {}
 --  The ones already dealt with here, while the service has not yet said they

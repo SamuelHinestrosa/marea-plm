@@ -32,7 +32,7 @@ scene Marea {
         //  The network and the headphones are pleamar's own services now
         //  (NetworkManager and BlueZ, spoken to directly): listing, joining
         //  with a password, pairing. And `fd` finds the files and the folders.
-        run: "node", "notify-send", "fd", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm"
+        run: "node", "notify-send", "fd", "deriva-worker", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm"
     }
     service clock as now { time: text = "--:--"; date: text; hour: number; minute: number }
     service audio as sound { volume: number; muted: bool; input: number; input_muted: bool }
@@ -44,7 +44,7 @@ scene Marea {
     //  Pressing a card opens its page, and **the page comes out of the card**:
     //  it grows from its place until it fills the panel. It is not a screen that
     //  replaces another; it is the same card, opened.
-    fact page: none | wifi | bluetooth | concentration | wardrobe | sound | session | systray | settings | agents | calendar | history = none
+    fact page: none | wifi | bluetooth | concentration | wardrobe | sound | session | systray | settings | agents | calendar | history | drift = none
     //  Her look, which is chosen in Settings and saved: glass that bends what is
     //  behind like Apple's, glass that only blurs it —lighter, the compositor
     //  does it—, or the usual one, opaque.
@@ -334,6 +334,34 @@ scene Marea {
     //  a row for each day (`head`). `age` 0 today … 1 a week or more.
     model past max 9 { app: text; title: text; detail: text; when: text; day: text; cat: number = 4; head: bool; age: number }
     event show_history                 // from her menu or the swell's footer
+    // ── Deriva: what is dropped on her, kept, and found again ────
+    //  Carry something over her —a link, a file, an image, some text— and a
+    //  pool opens under her, with two more places to leave it; let it go and
+    //  she swallows it. Her library (`deriva-worker`, on disk) keeps it, and its
+    //  page finds it again: cards with their picture, the wheel to go on.
+    model drift max 4 { title: text; source: text; kind: text; date: text; preview: image 222, 92; has_preview: bool; link: text }
+    text drift_q = ""
+    text drift.toast = ""
+    fact drift.result = 0              // 0 none · 1 saved · 2 already there · 3 could not
+    fact drift.kept = 0
+    event show_drift
+    event drift_open ->
+    event drift_pick ->
+    event drift_scroll ->
+    event drift_saved                  // the logic: it is kept (or it already was)
+    prop catch = 0 ~260ms
+    follow catch = if(drag.over, 1, 0)
+    prop pool.t = 0
+    spin pool.t by if(drag.over, 0.9, 0)
+    prop later.hl = 0 ~140ms
+    prop insp.hl = 0 ~140ms
+    prop toast.in = 0 ~220ms
+    on show_drift { menu_open = false; tray_open = false; searching = false; open = true; page = drift; emit drift_open }
+    on drift_saved {
+        toast.in: 1 ~220ms
+        toast.in: 0 ~400ms after 2200ms
+        play gulp
+    }
     event clear_history ->
     event history_scroll ->            // the wheel over it: back and forth in time
     prop hist.wash = 0 ~700ms
@@ -3125,6 +3153,62 @@ scene Marea {
     let card.top = card.y - card.h / 2
 
 
+    // ── Deriva's pool: something carried over her ────────────────
+    //  The water opens under her while something from another program is
+    //  carried over: rings that spread, «Drop it in Deriva», and on each side
+    //  a drop to leave it somewhere of its own —read later, inspiration—.
+    //  Let go on her or on the pool, it goes in the inbox.
+    let pool.x = cx
+    let pool.y = cy_actual + 82
+    group {
+        show: catch > 0.01
+        opacity: catch
+        body {
+            color: #10201c
+            rim: 12%
+            shadow: 0, 10, 26, 40%
+            ellipse { at: pool.x, pool.y; radius: 64 * catch; scale: 1, 0.42 }
+        }
+        repeat w in 0..3 {
+            let t = fract(pool.t + w / 3)
+            ellipse { at: pool.x, pool.y; radius: 10 + 50 * t; scale: 1, 0.42; stroke: 1.4; color: mint; opacity: (1 - t) * 60% }
+        }
+        text "Drop it in Deriva" { at: pool.x, pool.y + 42; anchor: center; size: 11.5; weight: 600; color: mint }
+        //  Its two places, drops that swell under the pointer.
+        body {
+            gradient: radial pool.x - 124, pool.y - 6 radius 30, #e8f3ff, blue 55%, #3d6f9c
+            rim: 30%
+            ellipse { at: pool.x - 120, pool.y; radius: (20 + 6 * later.hl) * catch }
+        }
+        body {
+            gradient: radial pool.x + 116, pool.y - 6 radius 30, #fff1dd, amber 55%, #9c6a2f
+            rim: 30%
+            ellipse { at: pool.x + 120, pool.y; radius: (20 + 6 * insp.hl) * catch }
+        }
+        //  A book, and a spark.
+        path { at: pool.x - 128, pool.y - 6; color: #0c0f12; stroke: 1.6
+               move 0, 0; line 7, 2; line 16, 0; line 16, 11; line 7, 13; line 0, 11; close }
+        line { from: pool.x - 121, pool.y - 4; to: pool.x - 121, pool.y + 7; width: 1.6; color: #0c0f12 }
+        path { at: pool.x + 113, pool.y - 8; color: #0c0f12
+               move 7, 0; line 9, 6; line 15, 8; line 9, 10; line 7, 16; line 5, 10; line 0, 8; line 5, 6; close }
+        text "Read later" { at: pool.x - 120, pool.y + 36; anchor: center; size: 10.5; color: ink; opacity: 60% + 40% * later.hl }
+        text "Inspiration" { at: pool.x + 120, pool.y + 36; anchor: center; size: 10.5; color: ink; opacity: 60% + 40% * insp.hl }
+    }
+    //  And what it became: «Kept in Deriva», «It was already there».
+    group {
+        show: toast.in > 0.01
+        opacity: toast.in
+        move: 0, (1 - toast.in) * -6
+        body {
+            color: #0c0f12
+            rim: 6%
+            shadow: 0, 6, 16, 35%
+            box { at: cx, cy_actual + 62; size: 190, 30; corner: 15 }
+        }
+        ellipse { at: cx - 78, cy_actual + 62; radius: 4; color: mix(mint, amber, drift.result == 2) }
+        text drift.toast { at: cx + 6, cy_actual + 62; anchor: center; size: 11.5; weight: 500; color: ink; width: 160; lines: 1 }
+    }
+
     clip inset 2 box { at: card.x, card.y; size: card.w, card.h; corner: card.corner }
     group {
         opacity: content
@@ -3427,7 +3511,7 @@ scene Marea {
         //  The first three come out of their card; the wardrobe has no card
         //  —it is entered through her menu—, so it grows from the centre of the
         //  panel.
-        let pg.own = if(page == wardrobe or page == systray or page == settings or page == agents or page == calendar or page == history, 0, 1)
+        let pg.own = if(page == wardrobe or page == systray or page == settings or page == agents or page == calendar or page == history or page == drift, 0, 1)
         let pg.ox = card.x + 111 * pg.own
         let pg.oy = card.top + 231 + (-126 + (pg.k - 1) * 66) * pg.own
         //  The page's box starts where its content does, 96 below the card's
@@ -3459,6 +3543,8 @@ scene Marea {
             text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
             text "Agents" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == agents }
             text "History" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == history }
+            text "Deriva" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == drift }
+            text "{drift.kept, 0} kept" { at: card.x + 150, card.top + 45; anchor: right center; size: 11; color: #8b8f95; show: page == drift }
             text cal.month { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == calendar }
             text systray.title { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; width: 300; lines: 1; color: ink; show: page == systray }
             text "Shall we take a break?" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == session and confirming == none }
@@ -3648,6 +3734,59 @@ scene Marea {
                 hist.wash: 0 ~16ms
             }
             on scroll history_area { emit history_scroll(wheel) }
+
+            // ── Deriva's library ─────────────────────────────────
+            //  What she keeps: a search at the top, and cards below —the
+            //  picture of the page or the image when there is one, its title
+            //  and where it came from—. Pressed, it opens; carried out, it goes
+            //  wherever it is let go (a browser, a folder, a chat).
+            component DriftCard(d: record, pick: event) {
+                size: 222, 150
+                prop glow = 0 ~140ms
+                prop arrive = 0 ~320ms
+                follow arrive = if(page == drift, 1, 0)
+                zone box touch { from: 0, 0; size: 222, 150; corner: 14; cursor: pointer; active: page == drift and paging > 0.9; carries: "{d.link}" }
+                group {
+                    opacity: arrive
+                    move: 0, (1 - arrive) * (10 + d.index * 6)
+                    box { from: 0, 0; size: 222, 150; corner: 14; color: mix(#1f2021, #262829, glow) }
+                    group {
+                        clip box { from: 0, 0; size: 222, 92; corner: 14 }
+                        //  With no picture: a calm sea of its kind's colour, and its initial.
+                        box { from: 0, 0; size: 222, 92; color: #1a2a26; show: not d.has_preview }
+                        ellipse { at: 111, 110; radius: 90; color: mint; opacity: 10%; show: not d.has_preview }
+                        text d.kind { at: 111, 46; anchor: center; size: 11; weight: 700; color: mint; opacity: 70%; show: not d.has_preview }
+                        image d.preview { at: 0, 0; size: 222, 92; show: d.has_preview }
+                        box { from: 0, 0; size: 222, 92; color: #000; opacity: glow * 12% }
+                    }
+                    text d.title { at: 12, 108; anchor: left center; size: 12; weight: 500; width: 198; lines: 1; color: ink }
+                    text d.source { at: 12, 130; anchor: left center; size: 10.5; weight: 600; width: 120; lines: 1; color: mint; opacity: 85% }
+                    text d.date { at: 210, 130; anchor: right center; size: 10; color: #8b8f95 }
+                    box { from: 0, 0; size: 222, 150; corner: 14; stroke: 1.2; color: mint; opacity: glow * 45% }
+                }
+                on enter touch { glow: 1 }
+                on leave touch { glow: 0 }
+                on release touch { emit pick(d.index) }
+            }
+            group {
+                show: page == drift
+                let dx0 = card.x - 228
+                let dy0 = card.top + 96
+                box { from: dx0, dy0; size: 456, 36; corner: 12; color: #141415 }
+                arc { at: dx0 + 18, dy0 + 17; radius: 6; span: 360deg; width: 1.8; color: ink; opacity: 60% }
+                line { from: dx0 + 22.5, dy0 + 21.5; to: dx0 + 27, dy0 + 26; width: 2; color: ink; opacity: 60% }
+                input drift_q { at: dx0 + 36, dy0 + 18; width: 400; size: 13; color: ink; placeholder: "Search what she keeps"; selection: #2f5f52 }
+                grid {
+                    at: dx0, dy0 + 50; columns: 2; gap: 12; width: 456; row: 150
+                    for d in drift { DriftCard(d, pick: drift_pick) }
+                }
+                zone box drift_area { from: dx0, dy0 + 50; size: 456, 312; active: page == drift and paging > 0.9 }
+                group {
+                    show: drift.kept < 1
+                    text "Carry anything over her: a link, a file, an image." { at: card.x, card.y + 30; anchor: center; size: 11.5; color: #8b8f95 }
+                }
+            }
+            on scroll drift_area { emit drift_scroll(wheel) }
 
             // ── the wardrobe ─────────────────────────────────────
             //  The pieces there are, one per spot. What is seen of each one is the
@@ -4916,6 +5055,14 @@ scene Marea {
     //  its grace zone: declared after, it kept the click on «End», which lands
     //  right on top of it. The capsule already has its own.
     zone box body_zone { at: cx, cy_actual; size: 2 * r, 2 * r + 30; corner: r; cursor: pointer }
+
+    zone ellipse drift_drop { at: pool.x, cy_actual + 44; radius: 84; active: drag.over }
+    zone ellipse drift_later { at: pool.x - 120, pool.y; radius: 34; active: drag.over }
+    zone ellipse drift_insp { at: pool.x + 120, pool.y; radius: 34; active: drag.over }
+    on enter drift_later { later.hl: 1 }
+    on leave drift_later { later.hl: 0 }
+    on enter drift_insp { insp.hl: 1 }
+    on leave drift_insp { insp.hl: 0 }
     //  Anything that needs her brings her out; and she sinks back after 2.6 s of
     //  grace, which is what the contract calls grace and here it is said as is.
     //  And waking up is the first thing that happens when someone looks for her:
@@ -4927,7 +5074,7 @@ scene Marea {
     //  is real and must not be lost while crossing it. It goes away if the panel
     //  opens.
     zone box notecard_zone { at: notecard.x, cy_actual; size: 104, 56; corner: 13; cursor: pointer; active: notecard > 0.8 }
-    on hover body_zone for 180ms while not open and not menu_open { note = true }
+    on hover body_zone for 180ms while not open and not menu_open and drag.over < 0.5 { note = true }
     //  And this does not rule in the Haven: with the zone switched off, «being
     //  outside» is always true, so it switched the capsule off 300 ms after
     //  opening it.
