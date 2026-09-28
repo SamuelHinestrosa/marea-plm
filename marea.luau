@@ -581,10 +581,16 @@ on("another_batch", playBatch)
 --  us having removed them: their application closed them, which is what
 --  happens when you read the message in Telegram.
 local seen = {}
+--  The ones already dealt with here, while the service has not yet said they
+--  are gone: they must not come back to fill a gap.
+local finished = {}
 
 local function remove_done()
     for k = #rows, 1, -1 do
-        if rows[k].done then table.remove(rows, k) end
+        if rows[k].done then
+            if rows[k].id then finished[rows[k].id] = true end
+            table.remove(rows, k)
+        end
     end
 end
 
@@ -620,9 +626,60 @@ end
 --  it may already be closed.
 for k = 1, 4 do on("fact:n." .. k, cap_counts) end
 
+--  A row made from one of the service's notices, without arriving again.
+local function row_of(n)
+    local app = string.upper(n.app ~= "" and n.app or tr("notice"))
+    return { id = n.id, app = app, title = n.title, detail = n.body, urgent = (n.urgency or 1) >= 2,
+             actions = n.actions, icon = n.icon, cat = CATEGORY_OF[app] or classify(app) }
+end
+
+--  What hovering over her shows: the newest one still pending. Not while a
+--  card is being read: that one is using the same words.
+local function refresh_preview()
+    if (fact.phase or 0) ~= 0 then return end
+    for _, f in ipairs(rows) do
+        if not f.done then
+            show_front(f)
+            fact.cat = f.cat
+            return
+        end
+    end
+end
+
+--  The tray shows five, and the service may keep more: the ones that did not
+--  fit waited there, counted beside her, and with no row they could never be
+--  dealt with. Whatever room there is gets filled from the service's list,
+--  newest first. Only with the tray closed: rows do not move under the pointer.
+local function refill()
+    if live == nil or fact.tray_open then return end
+    --  A drop still flying home counts by its row: that row stays where it is.
+    for _, f in ipairs(rows) do
+        if f.flying then return end
+    end
+    remove_done()
+    local inrow = {}
+    for _, f in ipairs(rows) do
+        if f.id then inrow[f.id] = true end
+    end
+    for _, n in ipairs(live) do
+        if #rows >= 5 then break end
+        if not inrow[n.id] and not finished[n.id] then
+            rows[#rows + 1] = row_of(n)
+        end
+    end
+    table.sort(rows, function(a, b) return (a.id or 0) > (b.id or 0) end)
+    render()
+    refresh_preview()
+end
+on("fact:tray_open", refill)
+
 local function from_service(list)
     local present = {}
     for _, n in ipairs(list) do present[n.id] = n end
+    --  What the service no longer has needs no remembering.
+    for id in pairs(finished) do
+        if present[id] == nil then finished[id] = nil end
+    end
     local changed = false
     for k = #rows, 1, -1 do
         local f = rows[k]
@@ -655,6 +712,7 @@ local function from_service(list)
                      urgent = (n.urgency or 1) >= 2, actions = n.actions, icon = n.icon })
         end
     end
+    refill()
 end
 
 if sys.watch("notifications", from_service) then
@@ -810,7 +868,7 @@ on("resolve", function(k)
     if f == nil then return end
     f.done = true
     f.flying = true
-    after(1000, function() f.flying = nil end)
+    after(1000, function() f.flying = nil; refill() end)
     if f.id then
         after(5400, function()
             if f.done then sys.call("notifications.dismiss", f.id) end
