@@ -2301,7 +2301,9 @@ if not sys.watch("window", function(v)
     focused = (v and v.monitor) or ""
     open_windows = (v and v.list) or {}
     if fact.following == true then decide() end
-    set_stones(v and v.list)
+    --  In pleamar-wm what is put away floats on the shore of its monitor
+    --  (tiled, nothing is): her island keeps no stones there.
+    set_stones((not in_wm) and v and v.list or {})
 end) then log("this compositor does not say where the focus is: «follow me» will not work") end
 
 --  Its number, in pleamar-wm's order of the monitors, to its name.
