@@ -5,6 +5,8 @@
 #   marea start [pleamar options]      starts her up (autostart)
 #   marea stop                         closes her
 #   marea status                       whether she is running, and what she says of herself
+#   marea report [--seconds N]         measures her (and the desktop's scenes) while you use
+#                                      it, and writes a report to send when something stutters
 #   marea <event>                      tells her something: search, lock,
 #                                      shot_region, shot_screen,
 #                                      shot_window, record_toggle, celebrate,
@@ -30,6 +32,10 @@ case "${1:-}" in
     stop)
         exec "$PLEAMAR" --say marea quit
         ;;
+    report)
+        shift
+        exec "$PLEAMAR" --report "$@"
+        ;;
     status)
         if "$PLEAMAR" --say marea "get open" > /dev/null 2>&1; then
             echo "running · log in $STATE_DIR/marea.log"
@@ -38,7 +44,7 @@ case "${1:-}" in
         fi
         ;;
     ""|-h|--help|help)
-        sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
         ;;
     *)
         exec "$PLEAMAR" --say marea "emit $1"

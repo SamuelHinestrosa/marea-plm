@@ -116,6 +116,7 @@ with the whole desktop.
 marea start          # starts her; her log goes to ~/.local/state/marea-plm/marea.log
 marea status         # whether she is running
 marea stop
+marea report         # if she stutters: measures 30 s while you use her, writes a report to send us
 marea search         # any other word is an event she is told:
 marea lock           #   search, lock, shot_region, shot_screen, shot_window,
 marea shot_region    #   record_toggle, celebrate, rage, adventure…
