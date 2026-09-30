@@ -25,46 +25,46 @@ return function(native_run)
             local ok, value = pcall(json.decode, tostring(output or ""))
             if ok and type(value) == "table" and value.ok == false then
                 local detail = type(value.error) == "table" and value.error.message or nil
-                done(nil, "Deriva: " .. (type(detail) == "string" and detail:sub(1, 240) or "no pudo completar la operacion."))
+                done(nil, "Deriva: " .. (type(detail) == "string" and detail:sub(1, 240) or "no pudo completar la operación."))
                 return
             end
             if code ~= 0 then
-                done(nil, code == -1 and "Deriva no pudo ejecutar deriva-worker. Comprueba su instalacion nativa para Windows y PATH."
-                    or "Deriva termino con error (codigo " .. tostring(code) .. ").")
+                done(nil, code == -1 and "Deriva no pudo ejecutar deriva-worker. Comprueba su instalación nativa para Windows y PATH."
+                    or "Deriva terminó con error (código " .. tostring(code) .. ").")
                 return
             end
             if not ok or type(value) ~= "table" then
-                done(nil, "Deriva devolvio una respuesta que no se puede leer.")
+                done(nil, "Deriva devolvió una respuesta que no se puede leer.")
                 return
             end
             local result = value.result or value
             if type(result) ~= "table" then
-                done(nil, "Deriva devolvio un resultado invalido.")
+                done(nil, "Deriva devolvió un resultado inválido.")
                 return
             end
             if args[1] == "where" and not absolute(result.blobs) then
-                done(nil, "Deriva no proporciono una carpeta de archivos de Windows valida.")
+                done(nil, "Deriva no proporcionó una carpeta de archivos de Windows válida.")
                 return
             end
             if args[1] == "list" or args[1] == "search" then
                 if type(result.items) ~= "table" then
-                    done(nil, "Deriva no proporciono una lista de resultados valida.")
+                    done(nil, "Deriva no proporcionó una lista de resultados válida.")
                     return
                 end
                 for key, item in pairs(result.items) do
                     if type(key) ~= "number" or key < 1 or key > #result.items or key % 1 ~= 0 or type(item) ~= "table" then
-                        done(nil, "Deriva devolvio una entrada invalida.")
+                        done(nil, "Deriva devolvió una entrada inválida.")
                         return
                     end
                     for _, field in ipairs({"title", "blob_name", "excerpt", "source", "blob_hash", "preview_path", "source_url", "type"}) do
                         if item[field] ~= nil and type(item[field]) ~= "string" then
-                            done(nil, "Deriva devolvio una entrada invalida.")
+                            done(nil, "Deriva devolvió una entrada inválida.")
                             return
                         end
                     end
                     local time = item.captured_at
                     if time ~= nil and (type(time) ~= "number" or time ~= time or time < 0 or time > 253402300799000) then
-                        done(nil, "Deriva devolvio una fecha invalida.")
+                        done(nil, "Deriva devolvió una fecha inválida.")
                         return
                     end
                 end
@@ -73,12 +73,12 @@ return function(native_run)
                 for _, key in ipairs({"saved", "duplicates", "failed"}) do
                     local count = result[key]
                     if count ~= nil and (type(count) ~= "number" or count < 0 or count % 1 ~= 0) then
-                        done(nil, "Deriva no confirmo cuantos elementos se guardaron.")
+                        done(nil, "Deriva no confirmó cuántos elementos se guardaron.")
                         return
                     end
                 end
                 if (result.saved or 0) + (result.duplicates or 0) + (result.failed or 0) == 0 then
-                    done(nil, "Deriva no confirmo ningun elemento guardado.")
+                    done(nil, "Deriva no confirmó ningún elemento guardado.")
                     return
                 end
             end
