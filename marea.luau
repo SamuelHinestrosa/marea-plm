@@ -1063,6 +1063,27 @@ local function refill()
 end
 on("fact:tray_open", refill)
 
+--  In pleamar-wm, the shore shows what is unread on each program's icon: it
+--  is told how many notices each one has, whenever that changes.
+local sent_badges = nil
+local function tell_badges(list)
+    if not in_wm then return end
+    local counts, order = {}, {}
+    for _, n in ipairs(list or {}) do
+        local a = (tostring(n.app or ""):lower():gsub("%s+", "_"))
+        if a ~= "" then
+            if counts[a] == nil then order[#order + 1] = a end
+            counts[a] = (counts[a] or 0) + 1
+        end
+    end
+    local parts = {}
+    for _, a in ipairs(order) do parts[#parts + 1] = a .. ":" .. counts[a] end
+    local text = table.concat(parts, " ")
+    if text == sent_badges then return end
+    sent_badges = text
+    run("pleamar-wm", { "--say", "wm", "text win.badges " .. text }, nil, { output = false })
+end
+
 local function from_service(list)
     local present = {}
     for _, n in ipairs(list) do present[n.id] = n end
@@ -1110,6 +1131,7 @@ local function from_service(list)
         end
     end
     refill()
+    tell_badges(live)
 end
 
 if sys.watch("notifications", from_service) then
