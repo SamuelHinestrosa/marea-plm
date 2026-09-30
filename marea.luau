@@ -279,7 +279,7 @@ local OWN = {
     { "Where she lives", "monitor pantalla screen casa home follow seguir sigueme sígueme donde vive", 1, open_page("settings", "home") },
     { "Language", "language idioma lengua english ingles inglés español spanish", 1, open_page("settings", "language") },
     { "Appearance", "appearance apariencia skin piel theme tema glass cristal lens lente look aspecto", 1, open_page("settings", "look") },
-    { "Her wardrobe", "wardrobe armario ropa clothes hat hats sombrero gorro accesorios accessories", 2, open_page("wardrobe") },
+    { "Her wardrobe", "wardrobe armario ropa clothes hat hats sombrero gorro accesorios accessories headphones cascos auriculares", 2, open_page("wardrobe") },
     { "Wi-Fi", "wifi wi-fi red network internet", 1, open_page("wifi") },
     { "Bluetooth", "bluetooth auriculares headphones", 1, open_page("bluetooth") },
     { "Sound", "sound sonido audio volume volumen output salida microfono microphone", 1, open_page("sound") },

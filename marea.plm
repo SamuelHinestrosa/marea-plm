@@ -2864,18 +2864,27 @@ scene Marea {
     figure hat = file "wardrobe/hat.svg"
     figure glasses = file "wardrobe/glasses.svg"
     figure mug = file "wardrobe/mug.svg"
+    figure phones = file "wardrobe/phones.svg"
 
     fact wears.hat = false
     fact wears.glasses = false
     fact wears.mug = false
+    fact wears.phones = false
     //  Putting it on is not switching it on: it falls on top with its spring, and
     //  on taking it off it leaves the way it came.
-    repeat k in 1..4 {
+    repeat k in 1..5 {
         prop worn.$k = 0 ~lively
     }
     follow worn.1 = if(wears.hat, 1, 0)
     follow worn.2 = if(wears.glasses, 1, 0)
     follow worn.3 = if(wears.mug, 1, 0)
+    follow worn.4 = if(wears.phones, 1, 0)
+    //  The headphones' light: mint at rest, and on air —coral, breathing—
+    //  while the screen is shared.
+    prop on_air = 0 ~180ms
+    follow on_air = if(sharing, 1, 0)
+    prop air_glow = 0
+    wave air_glow = 1 at 0.6
     //  The sway of what keeps her company: it floats even if she keeps still.
     prop sway = 0
     wave sway = 1 at 0.9
@@ -2896,6 +2905,17 @@ scene Marea {
     //  stayed on her forehead and looked the other way.
     Pinned(cx, cy_actual, tilt + lean, sx, sy, worn.2) {
         figure glasses { at: face.dx, 2.5 + face.dy + look.y + face.sink; size: 44, 24 }
+    }
+    //  Over her head and round it, stuck on as the glasses are: they squash and
+    //  turn with her. They do not follow her gaze: they are on her head, not on
+    //  her eyes.
+    Pinned(cx, cy_actual, tilt + lean, sx, sy, worn.4) {
+        figure phones.band   { at: 0, 0; size: 64, 64 }
+        figure phones.cups   { at: 0, 0; size: 64, 64 }
+        figure phones.accent { at: 0, 0; size: 64, 64 }
+        figure phones.boom   { at: 0, 0; size: 64, 64 }
+        ellipse { at: -6.8, 21.2; radius: 4.5 + 1.5 * air_glow; color: #ef7a66; opacity: on_air * (22% + 18% * air_glow) }
+        figure phones.led    { at: 0, 0; size: 64, 64; color: mix(#9ed6bd, #ef7a66, on_air) }
     }
     //  Beside her: it keeps her company, stays behind and floats.
     Tagalong(cx, cy_actual, worn.3, sway, apart: 42) {
@@ -3966,33 +3986,37 @@ scene Marea {
             //  another one it appears here without touching this.
             group {
                 show: page == wardrobe
-                text "Each piece chases in its own way: the hat rests, the glasses stay stuck on and the mug keeps her company." {
+                text "Each piece chases in its own way: the hat rests, the glasses stay stuck on, the mug keeps her company and the headphones go on air when the screen is shared." {
                     at: card.x - 228, card.top + 121; anchor: left center; size: 11.5; width: 456; lines: 2; color: #8b8f95 }
-                repeat a in 1..4 {
-                    let ax = card.x - 146 + (a - 1) * 146
+                repeat a in 1..5 {
+                    let ax = card.x - 171 + (a - 1) * 114
                     prop piece_glow.$a = 0 ~140ms
-                    box { at: ax, card.top + 191; size: 104, 96; corner: 14
+                    box { at: ax, card.top + 191; size: 102, 96; corner: 14
                           color: mix(#202021, #262728, piece_glow.$a) }
                     //  The mint outline of the one she is wearing, as on the cards.
-                    box { at: ax, card.top + 191; size: 104, 96; corner: 14; stroke: 1; color: mint
+                    box { at: ax, card.top + 191; size: 102, 96; corner: 14; stroke: 1; color: mint
                           opacity: worn.$a }
-                    zone box piece_zone.$a { at: ax, card.top + 191; size: 104, 96; corner: 14; cursor: pointer
+                    zone box piece_zone.$a { at: ax, card.top + 191; size: 102, 96; corner: 14; cursor: pointer
                                         active: page == wardrobe and paging > 0.9 }
                     on enter piece_zone.$a { piece_glow.$a: 1 }
                     on leave piece_zone.$a { piece_glow.$a: 0 }
                 }
-                figure hat      { at: card.x - 146, card.top + 177; size: 62, 46 }
-                figure glasses  { at: card.x,       card.top + 177; size: 54, 25 }
-                figure mug      { at: card.x + 146, card.top + 177; size: 40, 40 }
-                text "Hat"      { at: card.x - 146, card.top + 221; anchor: center; size: 12; color: ink }
-                text "Glasses"  { at: card.x,       card.top + 221; anchor: center; size: 12; color: ink }
-                text "Mug"      { at: card.x + 146, card.top + 221; anchor: center; size: 12; color: ink }
-                text "rests"     { at: card.x - 146, card.top + 235; anchor: center; size: 10; color: #8b8f95 }
-                text "stuck on"  { at: card.x,       card.top + 235; anchor: center; size: 10; color: #8b8f95 }
-                text "tags along" { at: card.x + 146, card.top + 235; anchor: center; size: 10; color: #8b8f95 }
+                figure hat      { at: card.x - 171, card.top + 177; size: 62, 46 }
+                figure glasses  { at: card.x - 57,  card.top + 177; size: 54, 25 }
+                figure mug      { at: card.x + 57,  card.top + 177; size: 40, 40 }
+                figure phones   { at: card.x + 171, card.top + 177; size: 52, 52 }
+                text "Hat"      { at: card.x - 171, card.top + 221; anchor: center; size: 12; color: ink }
+                text "Glasses"  { at: card.x - 57,  card.top + 221; anchor: center; size: 12; color: ink }
+                text "Mug"      { at: card.x + 57,  card.top + 221; anchor: center; size: 12; color: ink }
+                text "Headphones" { at: card.x + 171, card.top + 221; anchor: center; size: 12; color: ink }
+                text "rests"     { at: card.x - 171, card.top + 235; anchor: center; size: 10; color: #8b8f95 }
+                text "stuck on"  { at: card.x - 57,  card.top + 235; anchor: center; size: 10; color: #8b8f95 }
+                text "tags along" { at: card.x + 57, card.top + 235; anchor: center; size: 10; color: #8b8f95 }
+                text "on air"    { at: card.x + 171, card.top + 235; anchor: center; size: 10; color: #8b8f95 }
                 on press piece_zone.1 { toggle wears.hat }
                 on press piece_zone.2 { toggle wears.glasses }
                 on press piece_zone.3 { toggle wears.mug }
+                on press piece_zone.4 { toggle wears.phones }
 
                 //  And the wallpaper: the one on now, small, and pressing it
                 //  opens the page where a new one is picked.
