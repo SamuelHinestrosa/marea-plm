@@ -96,6 +96,8 @@ library SpanishUi {
         "Volume" = "Volumen"
         "Microphone" = "Micrófono"
         "Rain" = "Lluvia"
+        "Deriva needs its library, deriva-worker." = "Deriva necesita su biblioteca, deriva-worker."
+        "She builds it herself when she starts, if Rust (cargo) is installed." = "Se la compila ella sola al arrancar, si tienes Rust (cargo) instalado."
         "Your city, for her sky" = "Tu ciudad, para su cielo"
         "A city · Enter keeps it" = "Una ciudad · Intro la guarda"
         "Join" = "Unirse"

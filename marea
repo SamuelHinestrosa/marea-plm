@@ -18,6 +18,24 @@ HERE="$(dirname "$(readlink -f "$0")")"
 # The pleamar installed, or the one built next to her.
 PLEAMAR="${PLEAMAR:-$(command -v pleamar 2> /dev/null || echo "$HOME/Proyectos/pleamar/target/release/pleamar")}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/marea-plm"
+# Deriva's library (what is dropped on her, kept and found again) lives in her
+# folder: `deriva/`, built there. Hers goes first on the PATH.
+DERIVA="$HERE/deriva/target/release"
+PATH="$DERIVA:$PATH"
+export PATH
+
+# Built the first time she starts, and again when its source changes (after an
+# update), if there is Rust to build it with. Meanwhile she starts as ever;
+# only Deriva's page waits for it. Not where her folder cannot be written
+# (Nix brings it already built).
+build_deriva() {
+    [ -f "$HERE/deriva/Cargo.toml" ] && [ -w "$HERE/deriva" ] || return 0
+    command -v cargo > /dev/null 2>&1 || return 0
+    if [ -x "$DERIVA/deriva-worker" ] && [ -z "$(find "$HERE/deriva/src" "$HERE/deriva/Cargo.toml" "$HERE/deriva/Cargo.lock" -newer "$DERIVA/deriva-worker" 2> /dev/null)" ]; then
+        return 0
+    fi
+    (cd "$HERE/deriva" && nice -n 10 cargo build --release --locked > "$STATE_DIR/deriva-build.log" 2>&1) &
+}
 
 case "${1:-}" in
     start)
@@ -27,6 +45,7 @@ case "${1:-}" in
         # The previous run's log is kept once and no more: so that it does not
         # grow forever, but yesterday's can still be looked at.
         [ -f "$STATE_DIR/marea.log" ] && mv -f "$STATE_DIR/marea.log" "$STATE_DIR/marea.log.1"
+        build_deriva
         exec "$PLEAMAR" --scene marea.plm --no-hud "$@" > "$STATE_DIR/marea.log" 2>&1
         ;;
     stop)

@@ -26,6 +26,7 @@
       packages = forAll (
         system: pkgs: rec {
           marea = pkgs.callPackage ./nix/package.nix { pleamar = pleamar.packages.${system}.pleamar; };
+          deriva-worker = pkgs.callPackage ./nix/deriva.nix { };
           default = marea;
         }
       );

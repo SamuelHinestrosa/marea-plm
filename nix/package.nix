@@ -21,7 +21,11 @@
   swaybg,
   procps,
   nodejs,
+  callPackage,
 }:
+let
+  deriva = callPackage ./deriva.nix { };
+in
 stdenvNoCC.mkDerivation {
   pname = "marea";
   version = "0.1.0";
@@ -63,6 +67,7 @@ stdenvNoCC.mkDerivation {
           swaybg
           procps
           nodejs
+          deriva
         ]
       }
     runHook postInstall

@@ -387,6 +387,8 @@ scene Marea {
     text drift.toast = ""
     fact drift.result = 0              // 0 none · 1 saved · 2 already there · 3 could not
     fact drift.kept = 0
+    //  Her library is not installed: the page says so instead of staying empty.
+    fact drift.missing = false
     event show_drift
     event drift_open ->
     event drift_pick ->
@@ -4055,18 +4057,26 @@ scene Marea {
                 show: page == drift
                 let dx0 = card.x - 228
                 let dy0 = card.top + 96
-                box { from: dx0, dy0; size: 456, 36; corner: 12; color: #141415 }
-                arc { at: dx0 + 18, dy0 + 17; radius: 6; span: 360deg; width: 1.8; color: ink; opacity: 60% }
-                line { from: dx0 + 22.5, dy0 + 21.5; to: dx0 + 27, dy0 + 26; width: 2; color: ink; opacity: 60% }
-                input drift_q { at: dx0 + 36, dy0 + 18; width: 400; size: 13; color: ink; placeholder: "Search what she keeps"; selection: #2f5f52 }
-                grid {
-                    at: dx0, dy0 + 50; columns: 2; gap: 12; width: 456; row: 150
-                    for d in drift { DriftCard(d, pick: drift_pick) }
-                }
-                zone box drift_area { from: dx0, dy0 + 50; size: 456, 312; active: page == drift and paging > 0.9 }
                 group {
-                    show: drift.kept < 1
+                    show: not drift.missing
+                    box { from: dx0, dy0; size: 456, 36; corner: 12; color: #141415 }
+                    arc { at: dx0 + 18, dy0 + 17; radius: 6; span: 360deg; width: 1.8; color: ink; opacity: 60% }
+                    line { from: dx0 + 22.5, dy0 + 21.5; to: dx0 + 27, dy0 + 26; width: 2; color: ink; opacity: 60% }
+                    input drift_q { at: dx0 + 36, dy0 + 18; width: 400; size: 13; color: ink; placeholder: "Search what she keeps"; selection: #2f5f52 }
+                    grid {
+                        at: dx0, dy0 + 50; columns: 2; gap: 12; width: 456; row: 150
+                        for d in drift { DriftCard(d, pick: drift_pick) }
+                    }
+                }
+                zone box drift_area { from: dx0, dy0 + 50; size: 456, 312; active: page == drift and paging > 0.9 and not drift.missing }
+                group {
+                    show: drift.kept < 1 and not drift.missing
                     text "Carry anything over her: a link, a file, an image." { at: card.x, card.y + 30; anchor: center; size: 11.5; color: #8b8f95 }
+                }
+                group {
+                    show: drift.missing
+                    text "Deriva needs its library, deriva-worker." { at: card.x, card.y + 20; anchor: center; size: 12.5; weight: 500; color: ink }
+                    text "She builds it herself when she starts, if Rust (cargo) is installed." { at: card.x, card.y + 42; anchor: center; size: 11.5; color: #8b8f95 }
                 }
             }
             on scroll drift_area { emit drift_scroll(wheel) }

@@ -828,7 +828,16 @@ local function drift_run(args, done)
         if done then done(v.result or v) end
     end)
 end
-drift_run({ "where" }, function(r) if r then drift_blobs = r.blobs end end)
+--  Where it keeps the files. No answer at all: the library is not there, or
+--  not yet (her launcher builds it the first time, in the background).
+local function drift_where(done)
+    drift_run({ "where" }, function(r)
+        if r then drift_blobs = r.blobs end
+        fact["drift.missing"] = r == nil
+        if done then done() end
+    end)
+end
+drift_where()
 
 local function host_of(u) return tostring(u or ""):match("^%a+://([^/]+)") or "" end
 local function blob_path(it)
@@ -865,7 +874,9 @@ local function drift_load()
         show_drift()
     end)
 end
-on("drift_open", drift_load)
+on("drift_open", function()
+    if fact["drift.missing"] then drift_where(drift_load) else drift_load() end
+end)
 --  Typing searches, a moment after the last key.
 local drift_typed = 0
 on("text:drift_q", function()

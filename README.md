@@ -106,6 +106,11 @@ bind = SUPER SHIFT, C, exec, marea record_toggle
 
 `pleamar-update` keeps her up to date.
 
+Deriva, the page where she keeps what you drop on her, has its library in
+`deriva/` (`deriva-worker`, a local SQLite). She builds it herself the first
+time she starts, and again after an update, if Rust (`cargo`) is installed; it
+takes a minute, in the background. On Nix it comes built.
+
 On **Nix**: `nix run github:k4ditano/marea-plm -- start`, or `pkgs.marea` through
 this flake's `overlays.default`. On NixOS, [pleamar-wm]'s module brings her
 with the whole desktop.
