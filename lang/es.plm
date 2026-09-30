@@ -83,7 +83,7 @@ library SpanishUi {
         "Done. Undo it?" = "Hecho. ¿Lo deshago?"
         "Undo" = "Deshacer"
         "What do you want to find?" = "¿Qué quieres encontrar?"
-        "Apps, files and folders" = "Apps, archivos y carpetas"
+        "Apps, windows, files and folders" = "Apps, ventanas, archivos y carpetas"
         "At hand" = "A mano"
         "Results" = "Resultados"
         "↑↓ choose · Enter open" = "↑↓ elegir · Intro abrir"

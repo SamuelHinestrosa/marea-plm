@@ -315,6 +315,11 @@ local OWN = {
     { "Adventure", "adventure aventura alas wings volar fly saltar", 2, function() emit("adventure") end },
 }
 
+--  The windows open right now (the `window` service, further down, keeps
+--  this): the finder finds them too, and choosing one goes to it —in
+--  pleamar-wm, to the workspace it is on—.
+local open_windows = {}
+
 --  Hers first, when what is written starts one of her words or is in her
 --  name: typing «cla» finds the agents before any application.
 local function own_matches(q)
@@ -346,6 +351,18 @@ local function search()
     end
     table.sort(matches, prefer)
     local list = own_matches(q)
+    --  Then the windows already open whose program or title it names: going
+    --  to one is quicker than opening another.
+    if #q >= 2 then
+        local shown = 0
+        for _, w in ipairs(open_windows) do
+            local class, title = tostring(w.class or ""), tostring(w.title or "")
+            if shown < 2 and (class:lower():find(q, 1, true) or title:lower():find(q, 1, true)) then
+                shown = shown + 1
+                list[#list + 1] = { name = title ~= "" and title or class, kind_label = tr("Window") .. (class ~= "" and " · " .. class or ""), icon = class, window_id = w.id }
+            end
+        end
+    end
     for _, a in ipairs(matches) do
         if #list < 7 then
             list[#list + 1] = { name = a.name, kind_label = tr("Application"), icon = a.icon, exec = a.exec }
@@ -400,7 +417,10 @@ on("open_result", function(i)
         after(180, OWN[h.own][4])
         return
     end
-    if h.exec then
+    if h.window_id then
+        log("going to the window", h.name)
+        pcall(sys.call, "window.activate", h.window_id)
+    elseif h.exec then
         log("opening", h.name)
         sys.call("apps.launch", h.exec)
     else
@@ -2279,6 +2299,7 @@ end)
 
 if not sys.watch("window", function(v)
     focused = (v and v.monitor) or ""
+    open_windows = (v and v.list) or {}
     if fact.following == true then decide() end
     set_stones(v and v.list)
 end) then log("this compositor does not say where the focus is: «follow me» will not work") end

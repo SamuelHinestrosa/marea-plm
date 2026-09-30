@@ -22,6 +22,7 @@ library SpanishLogic {
         "Bring back every window" = "Recuperar todas las ventanas"
         "Rain on the windows" = "Lluvia en las ventanas"
         "Rain intensity" = "Intensidad de la lluvia"
+        "Window" = "Ventana"
         "On" = "Encendido"
         "Yesterday" = "Ayer"
         "Notice history" = "Historial de avisos"

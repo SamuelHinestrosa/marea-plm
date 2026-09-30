@@ -3127,7 +3127,7 @@ scene Marea {
                          placeholder: "What do you want to find?"; selection: #2f5f52 }
         box { at: bx0 + 570, by0 + 54; size: 44, 26; corner: 8; color: #202021 }
         text "Esc" { at: bx0 + 570, by0 + 54; anchor: center; size: 11.5; color: #8b8f95 }
-        text "Apps, files and folders" { at: bx0 + 40, by0 + 86; anchor: left center; size: 11.5; color: #8b8f95 }
+        text "Apps, windows, files and folders" { at: bx0 + 40, by0 + 86; anchor: left center; size: 11.5; color: #8b8f95 }
         line { from: bx0, by0 + 108; to: bx0 + 600, by0 + 108; width: 1; color: ink; opacity: 10% }
         text "At hand" { at: bx0 + 8, by0 + 126; anchor: left center; size: 11; weight: 600; color: #8b8f95
                         show: not typing }
