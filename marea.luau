@@ -1968,6 +1968,9 @@ local function decide()
     tell_island()
 end
 
+--  Her wardrobe's pieces, as the scene names them (`wears.hat`…).
+local PIECES = { "hat", "glasses", "mug", "phones" }
+
 local function save_settings()
     settings.home = monitors[(fact.home or 0) + 1] or settings.home
     settings.follow = fact.following == true
@@ -1978,6 +1981,9 @@ local function save_settings()
     settings.dnd = fact.dnd == true
     settings.quiet_rec = fact.quiet_rec ~= false
     settings.snooze = math.floor(fact.snooze_k or 1)
+    --  What she has on: it stays on through a restart.
+    settings.wears = {}
+    for _, piece in ipairs(PIECES) do settings.wears[piece] = fact["wears." .. piece] == true end
     local list = {}
     for app in pairs(muted_apps) do list[#list + 1] = app end
     table.sort(list)
@@ -2365,6 +2371,16 @@ if settings.skin == "lens" or settings.skin == "liquid" or settings.skin == "cla
     fact.skin = settings.skin
 end
 on("fact:skin", function() save_settings() end)
+
+--  And what she had on, as it was left: each piece that is not there, off.
+if type(settings.wears) == "table" then
+    for _, piece in ipairs(PIECES) do
+        if settings.wears[piece] == true then fact["wears." .. piece] = true end
+    end
+end
+for _, piece in ipairs(PIECES) do
+    on("fact:wears." .. piece, function() save_settings() end)
+end
 
 -- ── the language ───────────────────────────────────────────────────
 --  What the scene writes changes language by itself; what this logic wrote
