@@ -277,9 +277,14 @@ It regenerates/checks the scene, compiles the complete Luau profile, and runs
 level, device, wallpaper, screenshot, window-shelf, recording and notification assertion suites. It cannot
 establish graphical or hardware correctness. `.github/workflows/windows-profile.yml`
 offers the same checks on Windows and Linux through manual dispatch with an
-explicit pleamar port repository/ref. It has not run remotely; automatic PR gating
-awaits the published engine dependency. pleamar's own workflow covers its native
-build/unit/language checks on both systems.
+explicit pleamar port repository/ref. The September 30
+[CI run](https://github.com/SamuelHinestrosa/marea-plm/actions/runs/36754231480)
+passed on both systems with Marea `39ff0272` and pleamar `304ab966`. Windows also
+passed shortcut registration, runtime packaging, transient file locks and the
+real no-Luau rejection test. Automatic PR gating awaits integration of the
+engine dependency upstream; pleamar's workflow already checks native builds,
+units and language tests on both systems. These results do not validate a
+graphical desktop or physical devices.
 
 The following tests open real surfaces with separate temporary settings; do not
 run them while another application must keep focus:
