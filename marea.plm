@@ -32,7 +32,7 @@ scene Marea {
         //  The network and the headphones are pleamar's own services now
         //  (NetworkManager and BlueZ, spoken to directly): listing, joining
         //  with a password, pairing. And `fd` finds the files and the folders.
-        run: "node", "notify-send", "fd", "deriva-worker", "kill", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm"
+        run: "curl", "timedatectl", "node", "notify-send", "fd", "deriva-worker", "kill", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm"
     }
     service clock as now { time: text = "--:--"; date: text; hour: number; minute: number }
     service audio as sound { volume: number; muted: bool; input: number; input_muted: bool }
@@ -802,6 +802,7 @@ scene Marea {
     text cal.sel_title = ""
     text cal.sel_sub = ""
     text cal_new = ""
+    text city_q = ""
     model cal_events max 6 { time: text; title: text }
     repeat k in 0..42 {
         fact cal.day.$k = 0
@@ -1607,6 +1608,30 @@ scene Marea {
     //  dawn and dusk, day blue; a sun or a moon crossing a small arc on its
     //  right side, and stars when it is dark. Over the body, clipped to the
     //  card, and only once it is a card.
+    //
+    //  And the weather where you are (her sky: the logic asks Open-Meteo every
+    //  quarter of an hour for the city chosen in the calendar): clouds that
+    //  melt into each other and hide the sun, rain slanting, snow drifting,
+    //  fog in bands, lightning now and then; the sky greyer the more it is
+    //  covered, warmer with heat and paler with cold; and the temperature.
+    fact wx.ok = false
+    fact wx.temp = 0
+    fact wx.hi = 0
+    fact wx.lo = 0
+    fact wx.cloud = 0
+    fact wx.rain = 0
+    fact wx.snow = 0
+    fact wx.fog = 0
+    fact wx.storm = 0
+    text wx.place = ""
+    text wx.summary = ""
+    fact sky.editing = false
+    //  A storm there: now and then, lightning in the card.
+    prop bolt = 0 ~60ms
+    every 6.5s while wx.storm > 0.5 and notecard > 0.9 { bolt: 1 ~40ms; bolt: 0 ~520ms after 90ms }
+    let wx.gloom = clamp(max(max(wx.cloud * 0.55, wx.rain * 0.85), max(max(wx.snow * 0.5, wx.fog * 0.7), wx.storm)), 0, 1) * if(wx.ok, 1, 0)
+    let wx.heat = clamp((wx.temp - 26) / 10, 0, 1) * if(wx.ok, 1, 0)
+    let wx.cold = clamp((6 - wx.temp) / 12, 0, 1) * if(wx.ok, 1, 0)
     let sky.t = now.hour + now.minute / 60
     let sky.day = clamp((sky.t - 6) / 2, 0, 1) * clamp((19 - sky.t) / 2, 0, 1)
     let sky.warm = clamp(1 - abs(sky.t - 7) / 1.5, 0, 1) + clamp(1 - abs(sky.t - 19.5) / 1.5, 0, 1)
@@ -1624,18 +1649,81 @@ scene Marea {
         opacity: nc.c * 72%
         clip inset 0 box { at: notecard.x, cy_actual; size: notecard.w, notecard.h; corner: 14 - nc.c }
         body {
-            gradient: sky.x0, sky.y0 to sky.x0, sky.y0 + 56, mix(mix(#0d1633, #2f76c9, sky.day), #f08a6a, clamp(sky.warm, 0, 1)), mix(mix(#1d2c57, #5fa6e0, sky.day), #6a4a9a, clamp(sky.warm, 0, 1))
+            gradient: sky.x0, sky.y0 to sky.x0, sky.y0 + 56, mix(mix(mix(mix(mix(#0d1633, #2f76c9, sky.day), #f08a6a, clamp(sky.warm, 0, 1) * (1 - wx.gloom * 0.7)), mix(#1b1f27, #6d7a89, sky.day), wx.gloom), #f0a060, wx.heat * 0.25), #bfe3ff, wx.cold * 0.2), mix(mix(mix(mix(mix(#1d2c57, #5fa6e0, sky.day), #6a4a9a, clamp(sky.warm, 0, 1) * (1 - wx.gloom * 0.7)), mix(#2a303a, #9aa6b3, sky.day), wx.gloom), #f0a060, wx.heat * 0.2), #d6ecff, wx.cold * 0.25)
             box { at: notecard.x, cy_actual; size: notecard.w, notecard.h; corner: 14 - nc.c }
         }
         repeat k in 0..6 {
-            ellipse { at: sky.x0 + 8 + k * 17.5, sky.y0 + 7 + mod(k * 7, 11); radius: 0.8 + mod(k, 2) * 0.4; color: #ffffff; opacity: sky.night * 80% }
+            ellipse { at: sky.x0 + 8 + k * 17.5, sky.y0 + 7 + mod(k * 7, 11); radius: 0.8 + mod(k, 2) * 0.4; color: #ffffff; opacity: sky.night * 80% * (1 - wx.gloom) }
         }
         group {
-            glow: 6, 90%, #ffd36b
-            ellipse { at: orb.x, orb.y; radius: 5; color: #ffd36b; show: sun.up > 0.5 }
+            opacity: 1 - 0.8 * wx.cloud * if(wx.ok, 1, 0)
+            group {
+                glow: 6, 90%, #ffd36b
+                ellipse { at: orb.x, orb.y; radius: 5; color: #ffd36b; show: sun.up > 0.5 }
+            }
+            ellipse { at: orb.x, orb.y; radius: 4.5; color: #e8ecf5; show: sun.up < 0.5 }
+            ellipse { at: orb.x + 2.2, orb.y - 1.4; radius: 3.8; color: mix(#1a2648, #1b1f27, wx.gloom); show: sun.up < 0.5 }
         }
-        ellipse { at: orb.x, orb.y; radius: 4.5; color: #e8ecf5; show: sun.up < 0.5 }
-        ellipse { at: orb.x + 2.2, orb.y - 1.4; radius: 3.8; color: #1a2648; show: sun.up < 0.5 }
+        //  Its clouds: three, each a few drops of cloud melted into one, more of
+        //  them the more it is covered, greyer with rain, rocking a little.
+        let cl.col = mix(mix(#f4f6f8, #8a94a3, 1 - sky.day), #5d6572, max(wx.rain, wx.storm) * 0.6)
+        let cl.a = (34% + 30% * wx.cloud) * if(wx.ok, 1, 0)
+        group {
+        //  (Soft at the edge, as clouds are; the ones behind the time fainter,
+        //  so it still reads.)
+        blur: 1.4
+        body {
+            color: cl.col
+            opacity: cl.a * if(wx.cloud > 0.12, 1, 0)
+            ellipse { at: sky.x0 + 73 + 2 * sway, sky.y0 + 20; radius: 7 }
+            ellipse { at: sky.x0 + 81 + 2 * sway, sky.y0 + 15; radius: 8.5; blend: 5 }
+            ellipse { at: sky.x0 + 89 + 2 * sway, sky.y0 + 21; radius: 6.5; blend: 5 }
+            box { at: sky.x0 + 81 + 2 * sway, sky.y0 + 24; size: 26, 6; corner: 3; blend: 4 }
+        }
+        body {
+            color: cl.col
+            opacity: cl.a * 0.6 * if(wx.cloud > 0.4, 1, 0)
+            ellipse { at: sky.x0 + 27 - 1.5 * sway, sky.y0 + 12; radius: 5.5 }
+            ellipse { at: sky.x0 + 34 - 1.5 * sway, sky.y0 + 8.5; radius: 6.5; blend: 4 }
+            ellipse { at: sky.x0 + 41 - 1.5 * sway, sky.y0 + 13; radius: 5; blend: 4 }
+        }
+        body {
+            color: cl.col
+            opacity: cl.a * 0.5 * if(wx.cloud > 0.7, 1, 0)
+            ellipse { at: sky.x0 + 53 + 1.5 * sway, sky.y0 + 47; radius: 6 }
+            ellipse { at: sky.x0 + 60 + 1.5 * sway, sky.y0 + 43; radius: 7.5; blend: 4 }
+            ellipse { at: sky.x0 + 68 + 1.5 * sway, sky.y0 + 48; radius: 5.5; blend: 4 }
+        }
+        }
+        //  Fog: bands of it, drifting.
+        group {
+            show: wx.fog > 0.01
+            blur: 3
+            box { at: sky.x0 + 52 + 5 * sway, sky.y0 + 22; size: 124, 7; corner: 3.5; color: #dfe6ee; opacity: wx.fog * 30% }
+            box { at: sky.x0 + 52 - 5 * sway, sky.y0 + 39; size: 124, 6; corner: 3; color: #dfe6ee; opacity: wx.fog * 24% }
+        }
+        //  Rain, slanting; heavy, more of it.
+        group {
+            show: nc.c > 0.5 and wx.rain > 0.05
+            //  (Particles are not clipped: they are born inside and die before the edge.)
+            particles { at: notecard.x + 8, sky.y0 + 2; area: 84, 1; count: 26; life: 0.26s .. 0.33s; speed: 130 .. 155
+                        direction: 104deg; spread: 3deg; gravity: 0, 0; size: 1, 0.8; colors: #cfe6ff, #a9c8e8; opacity: 70%, 40%; shape: spark }
+        }
+        group {
+            show: nc.c > 0.5 and wx.rain > 0.6
+            particles { at: notecard.x + 8, sky.y0 + 2; area: 84, 1; count: 30; life: 0.24s .. 0.3s; speed: 150 .. 175
+                        direction: 106deg; spread: 3deg; gravity: 0, 0; size: 1, 0.8; colors: #dbeeff, #a9c8e8; opacity: 70%, 40%; shape: spark }
+        }
+        //  Snow, drifting down.
+        group {
+            show: nc.c > 0.5 and wx.snow > 0.05
+            particles { at: notecard.x + 2, sky.y0 + 3; area: 86, 1; count: 22; life: 2.2s .. 3s; speed: 9 .. 15
+                        direction: 95deg; spread: 30deg; gravity: 0, 3; size: 1.7, 1.1; colors: #ffffff, #e8f2ff; opacity: 90%, 60%; shape: dot }
+        }
+        //  Lightning: the card lights up, and a bolt.
+        box { at: notecard.x, cy_actual; size: notecard.w, notecard.h; color: #e8efff; opacity: bolt * 45% }
+        path { at: sky.x0 + 86, sky.y0 + 5; color: #fff3b0; opacity: bolt
+               move 2, 0; line -2, 8; line 1.5, 8; line -1.5, 17; line 5, 6; line 1.5, 6; line 4, 0; close }
     }
 
     //  What it has written on it. The system brings the time; there is no logic
@@ -1679,6 +1767,9 @@ scene Marea {
         }
         text ":" { at: tx + 28.2, ty - 1; anchor: center; size: 21; weight: 600; color: #f6f6f5 }
         text "{upper(now.date)}" { at: tx, cy_actual + 13; anchor: left center; size: 10; color: #c2c7cc }
+        //  And how warm it is there.
+        text "{wx.temp, 0}°" { at: notecard.x + 47, cy_actual + 13; anchor: right center; size: 10; weight: 600
+                               color: mix(mix(#dfe3e6, #a8d8ff, wx.cold), #ffbb85, wx.heat); show: wx.ok }
     }
 
     // ── the face ─────────────────────────────────────────────────
@@ -4614,6 +4705,57 @@ scene Marea {
                 on press cal_prev_btn { emit cal_prev }
                 on press cal_next_btn { emit cal_next }
                 on press cal_today_btn { emit cal_today }
+
+                // ── her sky: where you are, and what it is like there. Pressed,
+                //  it becomes a field to write another city; Enter keeps it.
+                zone box sky_strip { at: card.x, card.top + 86; size: 456, 36; corner: 12; cursor: pointer; active: page == calendar and paging > 0.9 and not sky.editing }
+                box { at: card.x, card.top + 86; size: 456, 36; corner: 12; color: mix(#1d2124, #232a2c, sky_strip.hover) }
+                box { at: card.x, card.top + 86; size: 456, 36; corner: 12; stroke: 1; color: mint; opacity: if(sky.editing, 60%, 0%) }
+                group {
+                    show: not sky.editing
+                    //  A little sign of what it is like: the sun, or the moon at night;
+                    //  a cloud if it is covered, with drops or flakes under it; a bolt.
+                    let sg.x = card.x - 204
+                    let sg.y = card.top + 86
+                    let sg.cloudy = wx.cloud > 0.4 or wx.rain > 0.05 or wx.snow > 0.05 or wx.fog > 0.5
+                    group {
+                        glow: 5, 80%, #ffd36b
+                        ellipse { at: sg.x, sg.y; radius: 6; color: #ffd36b; show: not sg.cloudy and sky.day > 0.3 }
+                    }
+                    ellipse { at: sg.x, sg.y; radius: 6; color: #e8ecf5; show: not sg.cloudy and sky.day <= 0.3 }
+                    ellipse { at: sg.x + 2.8, sg.y - 1.8; radius: 5; color: #1d2124; show: not sg.cloudy and sky.day <= 0.3 }
+                    body {
+                        color: mix(#dfe3e8, #9aa3af, max(wx.rain, wx.storm))
+                        opacity: if(sg.cloudy, 1, 0)
+                        ellipse { at: sg.x - 4.5, sg.y - 1; radius: 4.5 }
+                        ellipse { at: sg.x + 1, sg.y - 4; radius: 5.5; blend: 3 }
+                        ellipse { at: sg.x + 6, sg.y; radius: 4; blend: 3 }
+                        box { at: sg.x + 0.5, sg.y + 1.5; size: 17, 5; corner: 2.5; blend: 3 }
+                    }
+                    line { from: sg.x - 4, sg.y + 7; to: sg.x - 5.2, sg.y + 10.5; width: 1.4; color: #a8d8ff; show: wx.rain > 0.05 }
+                    line { from: sg.x + 1, sg.y + 7; to: sg.x - 0.2, sg.y + 10.5; width: 1.4; color: #a8d8ff; show: wx.rain > 0.05 }
+                    line { from: sg.x + 6, sg.y + 7; to: sg.x + 4.8, sg.y + 10.5; width: 1.4; color: #a8d8ff; show: wx.rain > 0.05 }
+                    ellipse { at: sg.x - 3, sg.y + 9; radius: 1.2; color: #ffffff; show: wx.snow > 0.05 }
+                    ellipse { at: sg.x + 3.5, sg.y + 9.5; radius: 1.2; color: #ffffff; show: wx.snow > 0.05 }
+                    path { at: sg.x + 1, sg.y + 5; color: #ffd36b; show: wx.storm > 0.5
+                           move 1, 0; line -1.5, 4; line 1, 4; line -1, 8; line 3, 3; line 0.5, 3; line 2, 0; close }
+                    text wx.place { at: card.x - 186, card.top + 86; anchor: left center; size: 12.5; weight: 600; width: 150; lines: 1; color: ink; show: wx.ok }
+                    text "{wx.temp, 0}°" { at: card.x - 20, card.top + 86; anchor: left center; size: 17; weight: 600
+                                           color: mix(mix(ink, #a8d8ff, wx.cold), #ffbb85, wx.heat); show: wx.ok }
+                    text wx.summary { at: card.x + 24, card.top + 86; anchor: left center; size: 11.5; width: 120; lines: 1; color: faint; show: wx.ok }
+                    text "{wx.hi, 0}° · {wx.lo, 0}°" { at: card.x + 214, card.top + 86; anchor: right center; size: 11; color: faint; opacity: 75%; show: wx.ok }
+                    text "Your city, for her sky" { at: card.x - 186, card.top + 86; anchor: left center; size: 12; color: faint; show: not wx.ok }
+                }
+                group {
+                    show: sky.editing
+                    input city_q { at: card.x - 206, card.top + 86; width: 400; size: 13; color: ink; placeholder: "A city · Enter keeps it"; selection: #2f5f52 }
+                }
+                on press sky_strip {
+                    sky.editing = true
+                    focus city_q
+                }
+                on submit city_q { sky.editing = false }
+                on key Escape while sky.editing { sky.editing = false }
 
                 //  The weekdays.
                 repeat w in 1..8 {

@@ -96,6 +96,8 @@ library SpanishUi {
         "Volume" = "Volumen"
         "Microphone" = "Micrófono"
         "Rain" = "Lluvia"
+        "Your city, for her sky" = "Tu ciudad, para su cielo"
+        "A city · Enter keeps it" = "Una ciudad · Intro la guarda"
         "Join" = "Unirse"
         "Clear" = "Vaciar"
         "Carry anything over her: a link, a file, an image." = "Arrástrale lo que quieras: un enlace, un fichero, una imagen."
