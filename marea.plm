@@ -783,6 +783,7 @@ scene Marea {
     event set_brightness ->
     event set_volume ->
     event set_mic ->                   // the microphone's level, 0..1
+    event set_rain ->                  // how hard it rains on the windows, 0..1
     event open_page ->                 // with which of the six, as payload
     //  The calendar: 42 days in the grid (six weeks, Monday first), what the
     //  logic says of each one, and the chosen day's events.
@@ -939,6 +940,14 @@ scene Marea {
     follow mic_level = sound.input
     prop bright_level = 0 ~quick      // and the screen brightness one
     follow bright_level = display.level
+    //  And, while it rains on pleamar-wm's windows, how hard: a fourth level
+    //  that the other three make room for (the logic says both).
+    fact rain_on = false
+    fact rain_amount = 1
+    prop rain_level = 1 ~quick
+    follow rain_level = rain_amount
+    prop four = 0 ~quick
+    follow four = if(rain_on, 1, 0)
 
     //  ── what the face can be ────────────────────────────────────
     //  A fact with a type: the compiler checks what it is compared against, so
@@ -3406,14 +3415,21 @@ scene Marea {
             //  the protagonist.
             let levels.y = card.top + 237
             box { at: levels.x, levels.y; size: 210, 322; corner: 16; color: mix(#1b1b1c, ink, glassiness); opacity: mix(1, veil, glassiness) }
-            //  Three levels: brightness, volume and the microphone.
-            repeat k in 0..3 {
-                let sx = levels.x - 66 + k * 66
-                let val = pick(k, bright_level, vol_level, mic_level)
-                let silenced = pick(k, 0, if(sound.muted, 1, 0), if(sound.input_muted, 1, 0))
+            //  Three levels: brightness, volume and the microphone; and while it
+            //  rains on the windows, a fourth, the rain, which the others make
+            //  room for.
+            repeat k in 0..4 {
+                let step = 66 - 14 * four
+                let sx = levels.x - step * (1 + 0.5 * four) + k * step
+                let val = pick(k, bright_level, vol_level, mic_level, rain_level)
+                let silenced = pick(k, 0, if(sound.muted, 1, 0), if(sound.input_muted, 1, 0), 0)
                 let avail = if(k == 0, if(display.present, 1, 0), 1)
                 let track_top = levels.y - 137
                 let track_h = 200
+                let here = if(k == 3, four, 1)
+              group {
+                show: here > 0.01
+                opacity: here
                 group {
                     opacity: 25% + avail * 75%
                     //  The track, and the filled part from below.
@@ -3444,15 +3460,27 @@ scene Marea {
                     arc { at: sx, iy - 1; radius: 6.5; span: 180deg; width: 1.5; rotate: 90deg; color: ink; show: k == 2 }
                     line { from: sx, iy + 5.5; to: sx, iy + 9; width: 1.5; color: ink; show: k == 2 }
                     line { from: sx - 3.5, iy + 9; to: sx + 3.5, iy + 9; width: 1.5; color: ink; show: k == 2 }
+                    //  The rain: three streaks slanting down and a drop.
+                    line { from: sx - 5, iy - 8; to: sx - 7.5, iy - 1; width: 1.6; color: ink; show: k == 3 }
+                    line { from: sx + 1, iy - 10; to: sx - 1.5, iy - 3; width: 1.6; color: ink; show: k == 3 }
+                    line { from: sx + 7, iy - 8; to: sx + 4.5, iy - 1; width: 1.6; color: ink; show: k == 3 }
+                    ellipse { at: sx - 1.5, iy + 5.5; radius: 2.6; scale: 1, 1.25; color: ink; show: k == 3 }
                 }
                 line { from: sx - 9, iy - 9; to: sx + 9, iy + 9; width: 1.8; color: #e0655a; opacity: silenced }
-                text "Brightness" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 0 }
-                text "Volume" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 1 }
-                text "Microphone" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 2 }
+                //  (Four to a row, the names a little smaller, so they do not touch.)
+                group {
+                    pivot: sx, iy + 24
+                    scale: 1 - 0.14 * four
+                    text "Brightness" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 0 }
+                    text "Volume" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 1 }
+                    text "Microphone" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 2 }
+                    text "Rain" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 3 }
+                }
                 text "{val * 100, 0}%" { at: sx, iy + 42; anchor: center; size: 11.5; weight: 500; color: mint }
+              }
                 //  Drag the track, and press the icon to mute.
-                zone box track.$k { at: sx, track_top + track_h / 2; size: 34, track_h + 18; corner: 17; cursor: pointer; active: content > 0.9 }
-                zone box icon.$k { at: sx, iy; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 }
+                zone box track.$k { at: sx, track_top + track_h / 2; size: 34 - 6 * four, track_h + 18; corner: 17; cursor: pointer; active: content > 0.9 and (k < 3 or rain_on) }
+                zone box icon.$k { at: sx, iy; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 and (k < 3 or rain_on) }
 
             }
             //  The track: wherever you release your finger, that is where it goes.
@@ -3468,6 +3496,8 @@ scene Marea {
             on drag track.2 { emit set_mic(finger.0) }
             on press track.2 { emit set_mic(finger.0) }
             on press icon.2 { emit mute_mic }
+            on drag track.3 { emit set_rain(finger.0) }
+            on press track.3 { emit set_rain(finger.0) }
 
             // ── the sheet's three ────────────────────────────────────
             //  Each card is a `row` of three: the icon, what is read, and the

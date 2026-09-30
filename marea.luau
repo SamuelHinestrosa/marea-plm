@@ -298,6 +298,8 @@ local OWN = {
       function() if hooks.wm_restore then hooks.wm_restore() end end, "wm" },
     { "Rain on the windows", "rain lluvia llover llueve water agua drops gotas weather tiempo shader windows ventanas", 1,
       function() if hooks.wm_rain then hooks.wm_rain() end end, "wm" },
+    { "Rain intensity", "rain lluvia intensity intensidad light suave medium media heavy fuerte drizzle llovizna downpour chaparron chaparrón gotas drops", 1,
+      function() if hooks.wm_rain_level then hooks.wm_rain_level() end end, "wm" },
     { "Snow on the windows", "snow nieve nevar nieva winter invierno frost escarcha hielo ice weather tiempo shader windows ventanas", 1,
       function() if hooks.wm_snow then hooks.wm_snow() end end, "wm" },
     { "Ride a window", "ride montar subir súbete subete sit sentarse ventana window marea viaje", 1,
@@ -441,12 +443,46 @@ local function wm_toggle_free()
     run("pleamar-wm", { "--say", "wm", "emit toggle_free" }, nil, { output = false })
 end
 --  Rain on the windows, as if they were glass: the window manager's shader.
+--  While it rains, her menu has one more entry: how hard, from a drizzle to a
+--  downpour, a press going round the three.
+--  While it rains, her control center has a fourth level: how hard, from a
+--  drizzle to a downpour. Dragging it sends the window manager a new amount
+--  every few percent, not every pixel: each one is a process.
+local raining = false
+local rain_amount = 1
+local rain_sent = -1
+local function wm_rain_level_send(force)
+    if not force and math.abs(rain_amount - rain_sent) < 0.04 and rain_amount > 0.1 and rain_amount < 1 then return end
+    rain_sent = rain_amount
+    run("pleamar-wm", { "--say", "wm", "emit rain_level " .. string.format("%.2f", rain_amount) }, nil, { output = false })
+end
+local function refresh_rain()
+    fact.rain_on = in_wm and raining
+    fact.rain_amount = rain_amount
+end
 local function wm_toggle_rain()
     run("pleamar-wm", { "--say", "wm", "emit toggle_rain" }, nil, { output = false })
+    raining = not raining
+    if raining then wm_rain_level_send(true) end
+    refresh_rain()
 end
---  Or snow: frost on the glass and snow piled on top.
+on("set_rain", function(v)
+    rain_amount = math.max(0.1, math.min(1, v))
+    fact.rain_amount = rain_amount
+    wm_rain_level_send(false)
+end)
+--  From her finder: it rains (if it was not already), and her control center
+--  opens with the level to drag.
+local function wm_rain_level()
+    if not raining then wm_toggle_rain() end
+    fact.open = true
+    fact.page = "none"
+end
+--  Or snow: frost on the glass and snow piled on top (the rain stops).
 local function wm_toggle_snow()
     run("pleamar-wm", { "--say", "wm", "emit toggle_snow" }, nil, { output = false })
+    raining = false
+    refresh_rain()
 end
 --  She rides the window with the keyboard: she leaves by the top edge and the
 --  window manager draws her on its title bar (see `ride` in its scene). Asked
@@ -472,6 +508,7 @@ hooks.in_wm = in_wm
 hooks.wm_free = wm_toggle_free
 hooks.wm_restore = wm_restore_all
 hooks.wm_rain = wm_toggle_rain
+hooks.wm_rain_level = wm_rain_level
 hooks.wm_snow = wm_toggle_snow
 hooks.wm_ride = wm_ride
 if in_wm then

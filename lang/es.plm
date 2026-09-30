@@ -95,6 +95,7 @@ library SpanishUi {
         "Brightness" = "Brillo"
         "Volume" = "Volumen"
         "Microphone" = "Micrófono"
+        "Rain" = "Lluvia"
         "Join" = "Unirse"
         "Clear" = "Vaciar"
         "Carry anything over her: a link, a file, an image." = "Arrástrale lo que quieras: un enlace, un fichero, una imagen."
