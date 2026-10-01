@@ -12,6 +12,8 @@ args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 module = (root / 'windows/deriva-worker.luau').read_text(encoding='utf-8')
 generated = (root / 'marea-desktop.luau').read_text(encoding='utf-8')
+scene = (root / 'marea-desktop.plm').read_text(encoding='utf-8')
+assert 'She builds it herself when she starts, if Rust (cargo) is installed.' not in scene
 presentation = generated.split('-- ── Deriva:', 1)[1].split('\nlocal seen = {}', 1)[0]
 presentation = presentation[presentation.index('local drift_run'):]
 checks = r'''
@@ -115,6 +117,7 @@ reply(old, {}, 1)
 assert(text.windows_deriva_status == "", "late errors cannot replace current state")
 handlers.drift_open(); reply(#pending, {ok=false,error={message="database locked"}})
 assert(model.drift[1].title == "latest" and fact["drift.kept"] == 1 and text.windows_deriva_status:find("locked"))
+assert(not fact["drift.missing"], "a temporary query failure hid the previously loaded cards")
 text.drift_q = "none"; handlers["text:drift_q"](); timers[#timers]()
 reply(#pending, {result={items={}}})
 assert(#model.drift == 0 and fact["drift.kept"] == 1 and text.windows_deriva_status:find("Sin resultados"))

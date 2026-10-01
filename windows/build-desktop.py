@@ -261,6 +261,14 @@ scene = replace_once(scene, '                show: page == walls\n              
                      '                show: page == walls\n' + wall_area + '\n                grid {')
 
 logic = remove_between(logic, '-- ── the three cards', '-- ── sound:')
+# The Linux launcher builds Deriva on demand. Windows installs its binary;
+# keep the real adapter error/retry footer instead of promising a Rust build.
+scene = replace_once(scene, '''                group {
+                    show: drift.missing
+                    text "Deriva needs its library, deriva-worker." { at: card.x, card.y + 20; anchor: center; size: 12.5; weight: 500; color: ink }
+                    text "She builds it herself when she starts, if Rust (cargo) is installed." { at: card.x, card.y + 42; anchor: center; size: 11.5; color: #8b8f95 }
+                }
+''', '')
 scene = replace_once(scene, 'show: drift.kept < 1', 'show: windows_deriva_loaded and not windows_deriva_busy and drift.count < 1')
 scene = replace_once(scene, 'text "{drift.kept, 0} kept" {', 'text "{drift.kept, 0} kept" { opacity: if(windows_deriva_loaded, 1, 0);')
 scene = replace_once(scene, 'at: dx0, dy0 + 50; columns: 2; gap: 12; width: 456; row: 150', 'show: windows_deriva_loaded\n                    at: dx0, dy0 + 50; columns: 2; gap: 12; width: 456; row: 150')
@@ -296,7 +304,7 @@ logic = remove_between(logic, 'local function drift_load()\n', '--  Typing searc
         drift_run(args, function(r, error)
             if mine ~= drift_generation then return end
             fact.windows_deriva_busy = false
-            if not r then fact["drift.missing"] = true; text.windows_deriva_status = error; return end
+            if not r then fact["drift.missing"] = not fact.windows_deriva_loaded; text.windows_deriva_status = error; return end
             fact["drift.missing"] = false
             fact.windows_deriva_loaded = true
             text.windows_deriva_status = #r.items == 0 and (q == "" and "Biblioteca vacía." or "Sin resultados para esta búsqueda.") or ""
