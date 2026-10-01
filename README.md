@@ -84,6 +84,11 @@ screenshots, lock screen — written in [pleamar], on any Wayland compositor.
 
 # Install
 
+For native **Windows**, see the [Windows desktop guide](windows/DESKTOP.md) for
+requirements, PowerShell installation and the current capability matrix. The
+Windows port in this branch is under development and requires the native
+pleamar build with Luau.
+
 With [pleamar] and [pleamar-wm], in your home, from one line:
 
 ```sh

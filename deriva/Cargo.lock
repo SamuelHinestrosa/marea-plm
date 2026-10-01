@@ -326,6 +326,7 @@ dependencies = [
 name = "deriva-worker"
 version = "0.1.0"
 dependencies = [
+ "getrandom",
  "model2vec-rs",
  "rusqlite",
  "serde",

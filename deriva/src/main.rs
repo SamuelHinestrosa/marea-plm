@@ -21,6 +21,7 @@ mod paths;
 mod proto;
 mod reaparicion;
 mod search;
+#[cfg(unix)]
 mod serve;
 mod util;
 mod vectores;
@@ -34,10 +35,17 @@ fn main() {
 
     let salida = match orden {
         "serve" => {
+            #[cfg(unix)]
             if let Err(e) = serve::servir() {
                 eprintln!("deriva-worker: {}", e);
                 std::process::exit(1);
             }
+            #[cfg(not(unix))]
+            {
+                eprintln!("deriva-worker: Unix socket server is unavailable on Windows; Marea uses the native CLI commands");
+                std::process::exit(2);
+            }
+            #[cfg(unix)]
             return;
         }
         "ingest" => por_metodo("ingest", opcion(&args, "--request")),
@@ -120,7 +128,7 @@ fn main() {
                     "db": paths::db_path().to_string_lossy(),
                     "blobs": paths::blobs().to_string_lossy(),
                     "backups": paths::backups().to_string_lossy(),
-                    "socket": paths::socket().to_string_lossy(),
+                    "socket": paths::socket_description(),
                     "schema": db::VERSION,
                 })
             );
@@ -202,7 +210,7 @@ fn ayuda() {
     eprintln!(
         r#"deriva-worker · la biblioteca local de Deriva
 
-  serve                              atiende el socket; es como le habla Marea
+  serve                              Unix socket server (Unix only)
   ingest   --request <json>          guarda algo
   search   --query <texto> [--limit] busca
   get      --id <id>                 una captura entera
