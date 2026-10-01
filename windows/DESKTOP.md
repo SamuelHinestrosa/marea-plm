@@ -27,6 +27,8 @@ cargo build --release --locked --manifest-path deriva/Cargo.toml
 .\install-windows.ps1 -PleamarBinary ..\pleamar\target\release\pleamar.exe
 # Update an existing desktop installation, preserving a backup:
 .\update-desktop.ps1 -PleamarBinary ..\pleamar\target\release\pleamar.exe
+# Replace the package without opening the desktop (launch validation is deferred):
+.\update-desktop.ps1 -PleamarBinary ..\pleamar\target\release\pleamar.exe -NoStart
 ```
 
 Preparing DXC is recommended for faster startup. It stays beside `pleamar.exe`;

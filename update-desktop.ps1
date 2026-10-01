@@ -1,7 +1,8 @@
 param(
     [string]$PleamarBinary = (Join-Path $PSScriptRoot '../pleamar/target/release/pleamar.exe'),
     [string]$DerivaWorkerBinary = (Join-Path $PSScriptRoot 'deriva/target/release/deriva-worker.exe'),
-    [string]$Prefix = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Marea Windows')
+    [string]$Prefix = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Marea Windows'),
+    [switch]$NoStart
 )
 $ErrorActionPreference = 'Stop'
 $PleamarBinary = (Resolve-Path -LiteralPath $PleamarBinary).Path
@@ -108,9 +109,12 @@ try {
         UpdatedRuntimeFiles = $runtimeHashes
         Profile = 'marea-desktop'
         Backup = $backup
+        LaunchDeferred = [bool]$NoStart
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Prefix 'build-info.json') -Encoding UTF8
-    & powershell.exe -NoLogo -NoProfile -File $entry start
-    if ($LASTEXITCODE -ne 0) { throw 'The updated Marea failed to start.' }
+    if (-not $NoStart) {
+        & powershell.exe -NoLogo -NoProfile -File $entry start
+        if ($LASTEXITCODE -ne 0) { throw 'The updated Marea failed to start.' }
+    }
 } catch {
     $failure = $_
     & powershell.exe -NoLogo -NoProfile -File $entry stop
@@ -124,7 +128,7 @@ try {
         }
     }
     Copy-Item -LiteralPath (Join-Path $backup 'Marea Windows.lnk') -Destination $shortcutPath -Force
-    & powershell.exe -NoLogo -NoProfile -File $entry start
+    if (-not $NoStart) { & powershell.exe -NoLogo -NoProfile -File $entry start }
     throw $failure
 }
 Write-Host "Updated: $Prefix"
