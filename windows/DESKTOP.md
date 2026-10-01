@@ -118,7 +118,7 @@ Logs are in the installation's `logs` folder. Local calendar/settings live under
 | Tray | Live Explorer icons, native activation and application menus; tested from Marea. Three icons plus “…” keep the heading clear; “…” reaches all catalog entries in pages. Enumeration of protected/system icons and animated icon freshness remain limited |
 | Agent quotas | Packaged Node reader runs natively without a console window. Codex's actual local quota was displayed; Claude cache/error paths are tested, but live Claude usage still needs an authenticated-provider validation |
 | Deriva library | Bundled native Rust/SQLite CLI: ingestion, persistence, FTS search, deduplication, backup and export/import pass on isolated Unicode libraries. Interactive drag/drop and opening cards on this revision remain unverified; semantic model optional and untested |
-| Calendar weather | Native Windows curl.exe queries Open-Meteo. Choose a city in the calendar; no guessed location from Windows time-zone IDs. Transport logic is tested; live service and current visual review remain pending |
+| Calendar weather | Native Windows curl.exe queries Open-Meteo. Choose a city in the calendar; no guessed location from Windows time-zone IDs. Transport logic and real geocoding/forecast response contracts pass; current visual review remains pending |
 | Compositor rain/snow/window effects shown in the reference video | Unavailable: these depend on pleamar-wm. This includes upstream's new rain-intensity slider; Windows keeps the three native brightness/volume/microphone controls |
 
 Choose a look from the right-click menu, Settings, Appearance. Classic has the
