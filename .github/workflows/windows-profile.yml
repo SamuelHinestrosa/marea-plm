@@ -39,6 +39,9 @@ jobs:
       - name: Portable agent quota reader (isolated files, no credentials/network)
         working-directory: marea
         run: node tools/test-reservas.mjs
+      - name: YouTube preview fetching, cache and failure handling (offline fixtures)
+        working-directory: marea
+        run: node --test tools/test-deriva-preview.mjs
       - name: Real Deriva store with bundled SQLite
         working-directory: marea
         run: cargo test --locked --manifest-path deriva/Cargo.toml

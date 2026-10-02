@@ -81,6 +81,7 @@ def main():
     for relative in ['marea.plm','marea.luau','marea-desktop.plm','marea-desktop.luau','LICENSE','common','lang','wardrobe','shaders','assets']:
         copy(ROOT / relative, 'app/' + relative)
     copy(ROOT / 'tools/reservas', 'app/tools/reservas')
+    copy(ROOT / 'tools/deriva-preview.mjs', 'app/tools/deriva-preview.mjs')
     for name in ['desktop.ps1','run-desktop.ps1','installer-hooks.ps1']:
         copy(ROOT / 'windows' / name, 'windows/' + name)
     copy(ROOT / 'windows/DESKTOP.md', 'README.md')

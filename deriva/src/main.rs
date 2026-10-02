@@ -49,6 +49,20 @@ fn main() {
             return;
         }
         "ingest" => por_metodo("ingest", opcion(&args, "--request")),
+        "enrich" => {
+            if args.iter().any(|a| a == "--request-stdin") {
+                // Thumbnails exceed Windows' command-line limit. Keep binary
+                // payloads off argv and bound the input before decoding JSON.
+                use std::io::Read;
+                let mut request = String::new();
+                match std::io::stdin().take(1_048_577).read_to_string(&mut request) {
+                    Ok(_) if request.len() <= 1_048_576 => por_metodo("enrich", Some(request)),
+                    _ => (serde_json::json!({"ok": false, "error": "Invalid or oversized enrichment request"}).to_string(), false),
+                }
+            } else {
+                por_metodo("enrich", opcion(&args, "--request"))
+            }
+        }
         "search" => {
             let q = opcion(&args, "--query").unwrap_or_default();
             let n = opcion(&args, "--limit").unwrap_or_else(|| "20".into());
@@ -212,6 +226,7 @@ fn ayuda() {
 
   serve                              Unix socket server (Unix only)
   ingest   --request <json>          guarda algo
+  enrich   --request-stdin           enrich from bounded JSON on stdin
   search   --query <texto> [--limit] busca
   get      --id <id>                 una captura entera
   list     [--limit N]               lo último guardado

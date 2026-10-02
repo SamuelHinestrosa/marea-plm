@@ -64,6 +64,13 @@ jobs:
       - name: Prepare pinned installer and Node tools
         working-directory: marea
         run: ./windows/prepare-installer-tools.ps1
+      - name: Preview fetching and native enrichment storage
+        working-directory: marea
+        run: |
+          & .tools/installer-tools/node-v22.23.3-win-x64/node.exe --test tools/test-deriva-preview.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Preview tests failed.' }
+          python windows/test-deriva-native.py --worker deriva/target/release/deriva-worker.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Deriva storage tests failed.' }
       - name: Package the offline installer
         working-directory: marea
         run: |

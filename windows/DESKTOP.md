@@ -121,7 +121,7 @@ Logs are in the installation's `logs` folder. Local calendar/settings live under
 | Calendar reminders | Native Windows toasts while Marea runs. Delivery is confirmed in the publisher's own history before the event is marked sent; stable tags prevent duplicate retries. Disabled/error states are reported without changing Windows settings |
 | Tray | Live Explorer icons, native activation and application menus; tested from Marea. Three icons plus “…” keep the heading clear; “…” reaches all catalog entries in pages. Enumeration of protected/system icons and animated icon freshness remain limited |
 | Agent quotas | Packaged Node reader runs natively without a console window. Codex's actual local quota was displayed; Claude cache/error paths are tested, but live Claude usage still needs an authenticated-provider validation |
-| Deriva library | Bundled native Rust/SQLite CLI: ingestion, persistence, FTS search, deduplication, backup and export/import pass on isolated Unicode libraries. Interactive drag/drop and opening cards on this revision remain unverified; semantic model optional and untested |
+| Deriva library | Native Rust/SQLite ingestion, FTS, deduplication, backup and export/import. Empty model slots no longer draw or catch input; a native GPU-window rehearsal verifies card clicks and scrolling. YouTube cards fetch and cache public thumbnails/titles asynchronously. Cross-application drag/drop and a complete browser-opening walkthrough on this revision remain unverified; semantic model optional and untested |
 | Calendar weather | Native Windows curl.exe queries Open-Meteo. Choose a city in the calendar; no guessed location from Windows time-zone IDs. Transport logic and real geocoding/forecast response contracts pass; current visual review remains pending |
 | Compositor rain/snow/window effects shown in the reference video | Unavailable: these depend on pleamar-wm. This includes upstream's new rain-intensity slider; Windows keeps the three native brightness/volume/microphone controls |
 
@@ -260,6 +260,35 @@ content-addressed blobs and backups. `MAREA_DERIVA_DIR` overrides that root.
 The default directory inherits the user's profile ACL; custom locations inherit
 their parent's ACL. Unix retains its existing private modes. UI reload does not
 delete the library, and package rollback does not restore or replace user data.
+
+Visible YouTube cards request a public title/author (YouTube oEmbed) and a
+320×180 JPEG thumbnail (`i.ytimg.com`). The bundled Node helper downloads in
+the background, one card at a time; Deriva itself remains an offline worker.
+Only recognized YouTube video IDs are sent to these fixed hosts, without
+cookies or credentials. Responses are bounded (64 KiB metadata, 512 KiB image),
+with an eight-second network timeout and no redirects. The worker's existing
+`enrich` operation preserves user titles, notes, tags and favorites, and stores
+thumbnails as local blobs. Existing saved videos are enriched when shown too.
+Cached thumbnails need no further network request. Unavailable/private videos
+or offline requests retain the usable saved link and fallback card; Refresh
+can retry after two minutes. This does not download or embed video playback:
+clicking opens the original URL in the default browser.
+
+`node --test tools/test-deriva-preview.mjs` checks the URL allowlist, caching,
+response limits and failure handling with offline fixtures. The CLI regression
+in `windows/test-deriva-native.py` tests large thumbnail requests over stdin,
+persistence and preservation of existing metadata. For a native GPU window
+rehearsal, run after generating the profile:
+
+```powershell
+python windows/test-deriva-cards.py --binary ../pleamar/target/release/pleamar.exe --output .tools/deriva-card-check
+```
+
+Use a new output directory. This opens a temporary fixture using the actual
+generated card and scroll zones; synthetic input stays inside that process.
+It checks one real card, unused slots, URL dispatch and wheel events, and does
+not move the desktop mouse or launch a browser. It is not an end-to-end browser
+or cross-application drag/drop test.
 
 The adapter invokes `where`, `list`, `search` and `ingest` directly. It preserves
 previous results on failure and rejects stale asynchronous responses. Native

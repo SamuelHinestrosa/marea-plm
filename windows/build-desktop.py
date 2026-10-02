@@ -269,6 +269,10 @@ scene = replace_once(scene, '''                group {
                     text "She builds it herself when she starts, if Rust (cargo) is installed." { at: card.x, card.y + 42; anchor: center; size: 11.5; color: #8b8f95 }
                 }
 ''', '')
+# Background scroll zones must precede the clickable cards they cover.
+drift_area = '                zone box drift_area { from: dx0, dy0 + 50; size: 456, 312; active: page == drift and paging > 0.9 and not drift.missing }'
+scene = replace_once(scene, drift_area + '\n', '')
+scene = replace_once(scene, '                let dy0 = card.top + 96\n', '                let dy0 = card.top + 96\n' + drift_area + '\n')
 scene = replace_once(scene, 'show: drift.kept < 1', 'show: windows_deriva_loaded and not windows_deriva_busy and drift.count < 1')
 scene = replace_once(scene, 'text "{drift.kept, 0} kept" {', 'text "{drift.kept, 0} kept" { opacity: if(windows_deriva_loaded, 1, 0);')
 scene = replace_once(scene, 'at: dx0, dy0 + 50; columns: 2; gap: 12; width: 456; row: 150', 'show: windows_deriva_loaded\n                    at: dx0, dy0 + 50; columns: 2; gap: 12; width: 456; row: 150')
@@ -281,6 +285,7 @@ scene = replace_once(scene, '            on scroll drift_area', '''            g
             }
             on scroll drift_area''')
 logic = remove_between(logic, 'local DRIFT = "deriva-worker"', 'local function host_of', '''local drift_run, drift_file_path = install_deriva_worker(native_run)
+local drift_preview = install_deriva_preview(native_run)
 local drift_items, drift_offset, drift_blobs = {}, 0, nil
 local drift_generation = 0
 model.drift = {}
@@ -293,6 +298,21 @@ logic = replace_once(logic, 'if drift_blobs == nil or type(h) ~= "string" or #h 
     'if drift_blobs == nil or type(h) ~= "string" or #h < 4 or #h > 128 or not h:match("^%x+$") then return "" end')
 logic = replace_once(logic, 'source = source, kind =', 'source = tostring(source or ""), kind =')
 logic = replace_once(logic, 'math.floor((it.captured_at or 0) / 1000)', 'math.floor((tonumber(it.captured_at) or 0) / 1000)')
+logic = replace_once(logic, 'local function show_drift()\n', 'local show_drift\nshow_drift = function()\n')
+logic = replace_once(logic, '    model.drift = cards\n', '''    model.drift = cards
+    for k = drift_offset + 1, math.min(drift_offset + 4, #drift_items) do
+        drift_preview(drift_items[k], function(item)
+            -- Search/paging can change while the preview is downloading.
+            for index, current in ipairs(drift_items) do
+                if current.id == item.id then
+                    drift_items[index] = item
+                    show_drift()
+                    break
+                end
+            end
+        end)
+    end
+''')
 logic = remove_between(logic, 'local function drift_load()\n', '--  Typing searches, a moment after the last key.', '''local function drift_load()
     drift_generation += 1
     local mine = drift_generation
@@ -443,6 +463,7 @@ adapter = (root / 'windows/desktop-adapter.luau').read_text(encoding='utf-8')
 adapter = 'local install_weather = (function()\n' + (root / 'windows/weather.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_media_controls = (function()\n' + (root / 'windows/media-controls.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_deriva_worker = (function()\n' + (root / 'windows/deriva-worker.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
+adapter = 'local install_deriva_preview = (function()\n' + (root / 'windows/deriva-preview.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_calendar_reminders = (function()\n' + (root / 'windows/calendar-reminders.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_agent_reader = (function()\n' + (root / 'windows/agent-reader.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 levels = (root / 'windows/level-controls.luau').read_text(encoding='utf-8')

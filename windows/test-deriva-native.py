@@ -1,5 +1,6 @@
 """Run the real SQLite worker on isolated Unicode paths; no UI or user library."""
 import argparse
+import base64
 import concurrent.futures
 import hashlib
 import json
@@ -72,4 +73,27 @@ with tempfile.TemporaryDirectory(prefix='deriva native ñ ') as temporary:
     assert len(run('list', '--limit', '100', environment=other)['items']) == 27
     assert run('integrity-check', '--deep', environment=other)['ok']
     assert not list((library / 'blobs/.tmp').iterdir())
+    video = ingest({'type': 'url', 'source_url': 'https://youtu.be/dQw4w9WgXcQ'})['items'][0]['id']
+    # A payload above Windows' argv limit must cross stdin unchanged. The
+    # protocol stores bytes; the fetch helper separately checks JPEG responses.
+    preview = bytes(range(256)) * 200
+    request = {'id': video, 'title': 'Video title ñ 海', 'author': 'Author',
+        'preview_b64': base64.b64encode(preview).decode('ascii')}
+    def enrich(payload):
+        return subprocess.run([str(worker), 'enrich', '--request-stdin'], input=payload,
+            env=env, capture_output=True, text=True, encoding='utf-8', timeout=30,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    response = enrich(json.dumps(request, ensure_ascii=False))
+    assert response.returncode == 0, response.stdout + response.stderr
+    item = json.loads(response.stdout)['result']['item']
+    assert item['title'] == request['title'] and Path(item['preview_path']).read_bytes() == preview
+    response = enrich(json.dumps({'id': video, 'title': 'replacement', 'author': 'replacement',
+        'preview_b64': base64.b64encode(b'replacement').decode()}))
+    assert response.returncode == 0
+    persisted = run('get', '--id', video)['item']
+    assert persisted['title'] == request['title'] and persisted['author'] == request['author']
+    assert Path(persisted['preview_path']).read_bytes() == preview
+    assert enrich('x' * 1_048_577).returncode != 0
+    assert enrich('{broken json').returncode != 0
+    assert run('integrity-check', '--deep')['ok']
 print('PASS: real Deriva CLI, SQLite persistence, Unicode paths, concurrent IDs, deduplication, FTS, blobs, backup and export/import')

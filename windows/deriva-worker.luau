@@ -56,7 +56,7 @@ return function(native_run)
                         done(nil, "Deriva devolvió una entrada inválida.")
                         return
                     end
-                    for _, field in ipairs({"title", "blob_name", "excerpt", "source", "blob_hash", "preview_path", "source_url", "type"}) do
+                    for _, field in ipairs({"id", "canonical_url", "title", "blob_name", "excerpt", "source", "blob_hash", "preview_path", "source_url", "type"}) do
                         if item[field] ~= nil and type(item[field]) ~= "string" then
                             done(nil, "Deriva devolvió una entrada inválida.")
                             return

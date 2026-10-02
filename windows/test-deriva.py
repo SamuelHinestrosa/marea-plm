@@ -11,9 +11,11 @@ runner_arguments(parser)
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 module = (root / 'windows/deriva-worker.luau').read_text(encoding='utf-8')
+preview_module = (root / 'windows/deriva-preview.luau').read_text(encoding='utf-8')
 generated = (root / 'marea-desktop.luau').read_text(encoding='utf-8')
 scene = (root / 'marea-desktop.plm').read_text(encoding='utf-8')
 assert 'She builds it herself when she starts, if Rust (cargo) is installed.' not in scene
+assert scene.index('zone box drift_area') < scene.index('for d in drift { DriftCard('), 'scroll zone blocks card clicks'
 presentation = generated.split('-- ── Deriva:', 1)[1].split('\nlocal seen = {}', 1)[0]
 presentation = presentation[presentation.index('local drift_run'):]
 checks = r'''
@@ -27,10 +29,13 @@ local json = {
 local install_deriva_worker = (function()
 __MODULE__
 end)()
+local install_deriva_preview = (function()
+__PREVIEW__
+end)()
 local pending, reject = {}, false
 local function native_run(command, args, done, options)
     if reject then error("missing worker") end
-    assert(command == "deriva-worker" and options.cwd == ".")
+    assert((command == "deriva-worker" or command == "node") and options.cwd == ".")
     pending[#pending + 1] = {args=args, done=done}
 end
 local invoke, path = install_deriva_worker(native_run)
@@ -76,6 +81,27 @@ invoke({"where"}, function() count += 1 end)
 pending[#pending].done(json.encode({blobs="C:/store"}), 0)
 pending[#pending].done('bad', 1)
 assert(count == 1)
+
+do
+    local requests, received = {}, 0
+    local preview = install_deriva_preview(function(command, args, done)
+        assert(command == "node" and args[1] == "tools/deriva-preview.mjs")
+        requests[#requests + 1] = {id=args[3], done=done}
+    end)
+    local a = {id="0123456789abcdef0123456789ab", source="youtube"}
+    local b = {id="abcdef0123456789abcdef01234", source="youtube"}
+    preview(a, function() received += 1 end)
+    preview(a, function() error("duplicate enrichment") end)
+    preview(b, function() received += 1 end)
+    assert(#requests == 1, "preview downloads must be serialized")
+    requests[1].done("offline", 1)
+    assert(#requests == 2 and received == 0)
+    requests[1].done("offline", 1)
+    requests[2].done(json.encode({ok=true,result={item={id=b.id, title="second", preview_path="C:/preview"}}}), 0)
+    assert(received == 1)
+    preview(a, function() error("immediate failure retry") end)
+    assert(#requests == 2)
+end
 
 pending = {}
 local fact, text, model, hooks, handlers, timers, emitted = {page="other"}, {}, {}, {}, {}, {}, {}
@@ -147,6 +173,24 @@ assert(fact["drift.result"] == 1)
 handlers["drop:drift_drop"]("file:///C:/a.txt\nfile:///C:/b.txt", "text/uri-list")
 reply(#pending, {}, 1)
 assert(text["drift.toast"]:find("Fallidos: 2"))
+-- A single saved video paints one card and opens the original URL immediately;
+-- enrichment is asynchronous and must not reinsert a result of an old search.
+handlers.drift_open()
+local video = {id="0123456789abcdef01234567", source="youtube", title="saved video",
+    source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=example"}
+reply(#pending, {result={items={video}}})
+assert(#model.drift == 1 and not model.drift[1].has_preview)
+handlers.drift_pick(0); assert(opened == video.source_url)
+local preview_index = #pending
+assert(pending[preview_index].args[1] == "tools/deriva-preview.mjs")
+video = table.clone(video)
+video.preview_path, video.title = "C:/Library ñ/blobs/thumbnail", "Video title"
+reply(preview_index, {ok=true, result={item=video}})
+assert(#model.drift == 1 and model.drift[1].has_preview and model.drift[1].title == "Video title")
+local before_preview = #pending
+handlers.drift_scroll(1)
+assert(#pending == before_preview, "cached preview spawned another process")
+handlers.drift_pick(0); assert(opened == video.source_url)
 fact.page = "drift"
 do
 __PRESENTATION__
@@ -156,5 +200,5 @@ assert(pending[#pending].args[1] == "where", "reload of an open library must rec
 reply(#pending, {}, -1)
 assert(not fact.windows_deriva_busy and text.windows_deriva_status:find("PATH"))
 log("PASS: Deriva Windows URIs, mocked transport, stale queries, failure preservation, partial ingestion and retry")
-'''.replace('__MODULE__', module).replace('__PRESENTATION__', presentation)
+'''.replace('__MODULE__', module).replace('__PREVIEW__', preview_module).replace('__PRESENTATION__', presentation)
 run_checks(args, checks, 'PASS: Deriva Windows URIs', 'deriva')
