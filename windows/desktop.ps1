@@ -38,7 +38,7 @@ switch ($Action) {
         New-Item -ItemType Directory -Force $stateFolder | Out-Null
         $hostBinary = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
         $runner = Join-Path $PSScriptRoot 'run-desktop.ps1'
-        $process = Start-Process -FilePath $hostBinary -ArgumentList @('-NoLogo', '-NoProfile', '-File', ('"' + $runner + '"')) -WorkingDirectory $package -WindowStyle Hidden -PassThru
+        $process = Start-Process -FilePath $hostBinary -ArgumentList @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $runner + '"')) -WorkingDirectory $package -WindowStyle Hidden -PassThru
         $deadline = [DateTime]::UtcNow.AddSeconds(20)
         while (-not (Test-MareaInitialized)) {
             if ($process.HasExited) { throw "Marea exited with code $($process.ExitCode). Read $stateFolder" }

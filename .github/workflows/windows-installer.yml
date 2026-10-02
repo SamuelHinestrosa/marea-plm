@@ -1,0 +1,77 @@
+name: Windows preview installer
+on:
+  workflow_dispatch:
+    inputs:
+      pleamar_repository:
+        description: Repository containing the native Windows engine
+        default: k4ditano/pleamar
+        required: true
+        type: string
+      pleamar_ref:
+        description: Exact native engine commit
+        required: true
+        type: string
+      version:
+        description: Preview package version
+        default: 0.2.8-preview.1
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  installer:
+    runs-on: windows-2022
+    env:
+      ENGINE_REF: ${{ inputs.pleamar_ref }}
+      PACKAGE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: marea
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.pleamar_repository }}
+          ref: ${{ inputs.pleamar_ref }}
+          path: pleamar
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Build native engine with default Luau
+        working-directory: pleamar
+        run: cargo build --release --locked --bin pleamar
+      - name: Build bundled Deriva
+        working-directory: marea
+        run: cargo build --release --locked --manifest-path deriva/Cargo.toml
+      - name: Prepare app-local shader compiler
+        working-directory: pleamar
+        run: ./scripts/prepare-windows-runtime.ps1
+      - name: Prepare pinned installer and Node tools
+        working-directory: marea
+        run: ./windows/prepare-installer-tools.ps1
+      - name: Package the offline installer
+        working-directory: marea
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -property installationPath
+          $crt = Get-ChildItem -Path "$vs/VC/Redist/MSVC/*/x64/Microsoft.VC143.CRT" -Directory | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $crt) { throw 'Visual Studio x64 C++ redistributable directory is missing.' }
+          python windows/build-installer.py --pleamar-binary ../pleamar/target/release/pleamar.exe --worker deriva/target/release/deriva-worker.exe --node-directory .tools/installer-tools/node-v22.23.3-win-x64 --crt-directory $crt.FullName --iscc .tools/installer-tools/inno-6.7.3/ISCC.exe --version $env:PACKAGE_VERSION --engine-source $env:ENGINE_REF --output dist/windows
+          if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
+      - name: Real silent installation, update and uninstall
+        working-directory: marea
+        run: python windows/test-installer.py --setup "dist/windows/Marea-$env:PACKAGE_VERSION-windows-x64-setup.exe" --payload dist/windows/payload --output .tools/installer-smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marea-windows-x64-preview
+          path: |
+            marea/dist/windows/*.exe
+            marea/dist/windows/*.sha256
+            marea/dist/windows/build.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-validation
+          path: |
+            marea/.tools/installer-smoke/*.log
+            marea/.tools/installer-smoke/report.json
+          if-no-files-found: ignore

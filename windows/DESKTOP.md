@@ -4,20 +4,24 @@ This separate profile uses the native Windows x64/MSVC port of pleamar, with
 Luau, Win32 and DirectComposition/DX12. It keeps the Linux originals unchanged.
 No WSL, Wayland, Unix shell or Linux helper programs are required.
 
-Install from PowerShell with Python 3 and a built native pleamar executable:
+For the self-contained Windows preview, see [the Setup installer](INSTALLER.md).
+It includes the native binaries and runtimes and does not require Python or Rust.
+The PowerShell source-installation instructions below require Python 3 and built
+native executables:
 
 The executable needs a DX12 driver and the x64 Microsoft C++ v14 runtime
 ([official Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)).
 The runtime must be at least as recent as the MSVC build tools used to compile
 pleamar. Windows 10/11 N also needs the
 [Media Feature Pack](https://support.microsoft.com/en-us/windows/experience/platform-variants/media-feature-pack-for-windows-n),
-because this build imports Media Foundation. These components are not bundled
-or downloaded by Marea's installer. A development PC with Visual Studio is not
+because this build imports Media Foundation. The source installer does not
+bundle the C++ runtime; Setup includes it app-locally. The Media Feature Pack is
+not bundled. A development PC with Visual Studio is not
 evidence that an arbitrary PC has all runtime dependencies.
 
-The optional Agents page also needs Node.js 22.7 or newer on PATH. Check it with
+With a source installation, the optional Agents page also needs Node.js 22.7 or newer on PATH. Check it with
 `node --version` before starting Marea. The installer copies `tools/reservas`;
-it does not install Node or change PATH.
+it does not install Node or change PATH. Setup includes a private Node runtime.
 
 ```powershell
 # Build the bundled native Deriva worker (MSVC and bundled SQLite):

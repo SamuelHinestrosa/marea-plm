@@ -4,3 +4,4 @@ __pycache__/
 /marea-desktop.plm
 /marea-desktop.luau
 deriva/target/
+/dist/
