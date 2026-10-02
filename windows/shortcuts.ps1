@@ -36,6 +36,8 @@ namespace Marea.Windows {
         public string Arguments;
         public string WorkingDirectory;
         public string Description;
+        public string Icon;
+        public int IconIndex;
     }
 
     public static class Shortcuts {
@@ -48,6 +50,9 @@ namespace Marea.Windows {
             return value;
         }
         public static void Create(string path, string target, string arguments, string directory, string description) {
+            Create(path, target, arguments, directory, description, "");
+        }
+        public static void Create(string path, string target, string arguments, string directory, string description, string icon) {
             path = Path.GetFullPath(Text(path));
             if (!String.Equals(Path.GetExtension(path), ".lnk", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("A shortcut path must end in .lnk.");
@@ -61,6 +66,7 @@ namespace Marea.Windows {
                 link.SetArguments(Text(arguments));
                 link.SetWorkingDirectory(Text(directory));
                 link.SetDescription(Text(description));
+                if (icon.Length != 0) link.SetIconLocation(Path.GetFullPath(Text(icon)), 0);
                 ((IPersistFile)instance).Save(temporary, true);
                 // File.Move on the supported .NET runtimes refuses to replace
                 // a destination created by another installer in the meantime.
@@ -70,6 +76,17 @@ namespace Marea.Windows {
                 if (File.Exists(temporary)) File.Delete(temporary);
             }
         }
+        public static void SetIcon(string path, string icon) {
+            path = Path.GetFullPath(Text(path));
+            icon = Path.GetFullPath(Text(icon));
+            if (!File.Exists(icon)) throw new FileNotFoundException("Missing shortcut icon.", icon);
+            object instance = NewLink();
+            try {
+                ((IPersistFile)instance).Load(path, 2);
+                ((IShellLinkW)instance).SetIconLocation(icon, 0);
+                ((IPersistFile)instance).Save(path, true);
+            } finally { Marshal.FinalReleaseComObject(instance); }
+        }
         public static ShortcutInfo Read(string path) {
             object instance = NewLink();
             try {
@@ -77,12 +94,16 @@ namespace Marea.Windows {
                 IShellLinkW link = (IShellLinkW)instance;
                 StringBuilder target = new StringBuilder(32768), arguments = new StringBuilder(32768);
                 StringBuilder directory = new StringBuilder(32768), description = new StringBuilder(32768);
+                StringBuilder icon = new StringBuilder(32768);
+                int iconIndex;
                 link.GetPath(target, target.Capacity, IntPtr.Zero, 4); // SLGP_RAWPATH; never resolve/launch a target.
                 link.GetArguments(arguments, arguments.Capacity);
                 link.GetWorkingDirectory(directory, directory.Capacity);
                 link.GetDescription(description, description.Capacity);
+                link.GetIconLocation(icon, icon.Capacity, out iconIndex);
                 return new ShortcutInfo { Target=target.ToString(), Arguments=arguments.ToString(),
-                    WorkingDirectory=directory.ToString(), Description=description.ToString() };
+                    WorkingDirectory=directory.ToString(), Description=description.ToString(),
+                    Icon=icon.ToString(), IconIndex=iconIndex };
             } finally { Marshal.FinalReleaseComObject(instance); }
         }
     }

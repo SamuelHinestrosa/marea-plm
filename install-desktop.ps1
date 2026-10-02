@@ -10,7 +10,7 @@ $runtimeFiles = Get-PleamarRuntimeFiles $PleamarBinary
 $Prefix = [IO.Path]::GetFullPath($Prefix)
 $shortcutPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'Marea Windows.lnk'
 # Detect an incomplete source package before creating an installation folder.
-foreach ($relative in @('marea.plm', 'marea.luau', 'LICENSE', 'common', 'lang', 'wardrobe', 'shaders', 'assets', 'tools/reservas', 'windows/desktop.ps1', 'windows/run-desktop.ps1', 'windows/shortcuts.ps1', 'windows/runtime_probe.py', 'windows/DESKTOP.md')) {
+foreach ($relative in @('marea.plm', 'marea.luau', 'LICENSE', 'common', 'lang', 'wardrobe', 'shaders', 'assets', 'assets/marea.ico', 'tools/reservas', 'windows/desktop.ps1', 'windows/run-desktop.ps1', 'windows/shortcuts.ps1', 'windows/runtime_probe.py', 'windows/DESKTOP.md')) {
     if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot $relative))) { throw "Missing packaged input: $relative" }
 }
 if (Test-Path -LiteralPath $Prefix) { throw "Target already exists: $Prefix. Choose another -Prefix to preserve it." }
@@ -44,8 +44,8 @@ foreach ($item in @('desktop.ps1', 'run-desktop.ps1')) {
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'windows/DESKTOP.md') -Destination (Join-Path $Prefix 'README.md')
 $launcherTarget = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
-$launcherArguments = '-NoLogo -NoProfile -WindowStyle Hidden -File "' + (Join-Path $Prefix 'windows/desktop.ps1') + '" start'
-[Marea.Windows.Shortcuts]::Create($shortcutPath, $launcherTarget, $launcherArguments, $Prefix, 'Marea: native Windows desktop companion.')
+$launcherArguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + (Join-Path $Prefix 'windows/desktop.ps1') + '" start'
+[Marea.Windows.Shortcuts]::Create($shortcutPath, $launcherTarget, $launcherArguments, $Prefix, 'Marea: native Windows desktop companion.', (Join-Path $Prefix 'app/assets/marea.ico'))
 & (Join-Path $Prefix 'bin/pleamar.exe') --register-notification-shortcut $shortcutPath
 if ($LASTEXITCODE -ne 0) { throw 'Could not register the Marea notification publisher.' }
 Write-Host "Installed: $Prefix"

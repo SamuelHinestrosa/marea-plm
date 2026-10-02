@@ -65,6 +65,14 @@ try:
     assert ctypes.windll.shell32.SHGetFolderPathW(None, 2, None, 0, programs) == 0
     menu = Path(programs.value) / group
     assert (menu / 'Marea.lnk').is_file()
+    icon = target / 'app/assets/marea.ico'
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key, 0, flags) as k:
+        display_icon = winreg.QueryValueEx(k, 'DisplayIcon')[0]
+    assert display_icon in [str(icon), str(icon) + ',0', f'"{icon}"', f'"{icon}",0'], display_icon
+    run([host, '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+        '-File', Path(__file__).with_name('test-icons.ps1'), '-Icon', icon,
+        '-Setup', setup, '-Uninstaller', target / 'unins000.exe', '-Shortcut', menu / 'Marea.lnk'])
+    report['stages'].append('native icon sizes, setup/uninstaller pixels, Start-menu icon and Installed apps registration')
     hook()
     report['stages'].append('silent Unicode install, native Luau/worker/Node and shortcut registration')
     # Check that a bad payload cannot pass preflight, independently of compiler CRCs.

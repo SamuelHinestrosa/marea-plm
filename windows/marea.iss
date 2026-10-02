@@ -21,7 +21,8 @@ MinVersion=10.0.17763
 LicenseFile={#Payload}\app\LICENSE
 InfoBeforeFile=installer-notes.txt
 UninstallDisplayName=Marea Windows
-UninstallDisplayIcon={app}\bin\pleamar.exe
+SetupIconFile={#Payload}\app\assets\marea.ico
+UninstallDisplayIcon={app}\app\assets\marea.ico
 OutputBaseFilename=Marea-{#AppVersion}-windows-x64-setup
 Compression=lzma2
 SolidCompression=yes
@@ -45,9 +46,9 @@ Source: "{#Payload}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs cr
 Name: "{app}\logs"; Flags: uninsneveruninstall
 
 [Icons]
-Name: "{group}\Marea"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\windows\desktop.ps1"" start"; WorkingDir: "{app}"
+Name: "{group}\Marea"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\windows\desktop.ps1"" start"; WorkingDir: "{app}"; IconFilename: "{app}\app\assets\marea.ico"
 Name: "{group}\Uninstall Marea"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\Marea"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\windows\desktop.ps1"" start"; Tasks: desktopicon
+Name: "{userdesktop}\Marea"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\windows\desktop.ps1"" start"; Tasks: desktopicon; IconFilename: "{app}\app\assets\marea.ico"
 
 [Run]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\windows\desktop.ps1"" start"; Description: "{cm:LaunchProgram,Marea}"; Flags: postinstall unchecked skipifsilent runhidden

@@ -15,6 +15,14 @@ launch uses a process-scoped policy; organization-enforced restrictions still
 apply. This preview is unsigned: there is no publisher signing certificate.
 The adjacent SHA-256 file detects download changes; it is not a signature.
 
+The setup, uninstaller, Installed apps entry and shortcuts use Marea's original
+dark companion with two white eyes. `assets/marea-icon.svg` extracts it from
+the repository's `assets/header.svg`; `assets/marea.ico` contains ten sizes
+from 16 to 256 pixels with a transparent background. These assets are checked
+in, so normal builds need no image tools. To regenerate them with Node and
+Sharp installed, run `node windows/build-icon.cjs` (optionally set
+`MAREA_SHARP_MODULE` to an existing Sharp module path).
+
 Run a newer setup to update the same installation. It verifies all payload
 hashes, executes Luau without a display, checks the generated scene, and runs
 the real worker before replacing files. It closes only Marea processes from

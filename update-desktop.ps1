@@ -99,6 +99,7 @@ try {
         New-Item -ItemType Directory -Force (Split-Path $destination -Parent) | Out-Null
         Copy-MareaUpdateFile -Source $files[$relative] -Destination $destination
     }
+    [Marea.Windows.Shortcuts]::SetIcon($shortcutPath, (Join-Path $Prefix 'app/assets/marea.ico'))
     & (Join-Path $Prefix 'bin/pleamar.exe') --register-notification-shortcut $shortcutPath
     if ($LASTEXITCODE -ne 0) { throw 'Could not register the updated Marea notification publisher.' }
     # Old test counts describe the previous executable. Keep them in its

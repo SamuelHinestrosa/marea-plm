@@ -12,10 +12,12 @@ try {
     $target = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
     $arguments = '-NoProfile -File "' + (Join-Path $fixture ('script ' + $unicode + '.ps1')) + '" start'
     $description = 'Marea ' + $unicode
-    [Marea.Windows.Shortcuts]::Create($link, $target, $arguments, $fixture, $description)
+    $icon = Join-Path $fixture ('Marea ' + $unicode + '.ico')
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../assets/marea.ico') -Destination $icon
+    [Marea.Windows.Shortcuts]::Create($link, $target, $arguments, $fixture, $description, $icon)
     function Assert-Shortcut {
         $value = [Marea.Windows.Shortcuts]::Read($link)
-        if ($value.Target -ne $target -or $value.Arguments -cne $arguments -or $value.WorkingDirectory -ne $fixture -or $value.Description -cne $description) {
+        if ($value.Target -ne $target -or $value.Arguments -cne $arguments -or $value.WorkingDirectory -ne $fixture -or $value.Description -cne $description -or $value.Icon -cne $icon -or $value.IconIndex -ne 0) {
             throw ('Shortcut lost Unicode or metadata: ' + ($value | ConvertTo-Json -Compress))
         }
     }
@@ -24,12 +26,17 @@ try {
     $rejected = $false
     try { [Marea.Windows.Shortcuts]::Create($link, $target, 'changed', $fixture, 'changed') } catch { $rejected = $true }
     if (-not $rejected -or (Get-FileHash -LiteralPath $link -Algorithm SHA256).Hash -ne $original) { throw 'An existing shortcut was overwritten.' }
+    # Updating an older installation must keep its launch metadata intact.
+    $icon = Join-Path $fixture ('Updated ' + $unicode + '.ico')
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../assets/marea.ico') -Destination $icon
+    [Marea.Windows.Shortcuts]::SetIcon($link, $icon)
+    Assert-Shortcut
     if ($PleamarBinary) {
         & $PleamarBinary --register-notification-shortcut $link
         if ($LASTEXITCODE -ne 0) { throw 'Native notification registration failed.' }
         Assert-Shortcut
     }
-    Write-Host 'PASS: native Unicode shortcut arguments, directory, description, no overwrite and optional publisher roundtrip'
+    Write-Host 'PASS: native Unicode shortcut fields, icon creation/update, no overwrite and optional publisher roundtrip'
 } finally {
     # This directory was exclusively created by this test below the checked temp root.
     if ([IO.Path]::GetFullPath($fixture) -ne $resolvedFixture) { throw 'Fixture path changed.' }

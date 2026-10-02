@@ -45,6 +45,13 @@ jobs:
       - name: Test release validation
         working-directory: marea
         run: python windows/test-release-installer.py
+      - name: Native icon and Unicode shortcut roundtrip
+        working-directory: marea
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/test-icons.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Native icon validation failed.' }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/test-shortcuts.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Shortcut validation failed.' }
       - name: Build native engine with default Luau
         working-directory: pleamar
         run: cargo build --release --locked --bin pleamar
