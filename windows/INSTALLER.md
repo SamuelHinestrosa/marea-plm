@@ -30,6 +30,37 @@ tokens or test data are included in the distribution.
 
 ## Rebuild
 
+### Build and prepare downloads without a Windows computer
+
+A maintainer can do this entirely in the GitHub website. Once this workflow
+is on the default branch, open **Actions → Windows preview installer → Run
+workflow** and select the Marea branch to release. Enter the pleamar repository
+and its full 40-character Windows-capable commit hash, and choose a new version
+such as `0.2.8-preview.1`. Until the engine port is merged, use the port's fork
+and exact commit instead of the upstream engine.
+
+Enable **Prepare a draft GitHub prerelease after the installer tests pass**.
+GitHub's Windows runner compiles the native default-Luau engine, Deriva and the
+installer, then actually installs, updates and uninstalls it. Only if that job
+passes, a separate job verifies the installer checksum, source commits and the
+matching successful test report and creates a **draft prerelease**. It attaches
+the `.exe`, `.exe.sha256` and `build.json`, with notes linking the source and
+test run. No local Windows machine or extra secret is required; the workflow
+uses the repository's `GITHUB_TOKEN`, with release write access only in that job.
+
+Open **Releases**, review the draft and Windows tester feedback, then choose
+**Publish release** to make the download public. Keep **pre-release** selected:
+the draft is unsigned and automated tests do not cover desktop interaction,
+hardware or performance. The tag is `windows-vVERSION`; existing tags/releases
+are not overwritten. Choose a new version for another build. If an upload
+fails, inspect and remove the incomplete draft before retrying that version.
+
+Leaving the option disabled only saves downloads as Actions artifacts, with
+the repository's retention period. It does not create a Release. Drafts made
+in a fork remain in that fork; they do not publish anything upstream.
+
+### Build locally on Windows
+
 Use the repository's native default-Luau release build and Deriva release build.
 Prepare app-local DXC with pleamar's `scripts/prepare-windows-runtime.ps1`.
 Run `windows/prepare-installer-tools.ps1` to obtain checksum-pinned official

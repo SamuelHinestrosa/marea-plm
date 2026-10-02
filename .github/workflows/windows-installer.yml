@@ -16,6 +16,11 @@ on:
         default: 0.2.8-preview.1
         required: true
         type: string
+      create_draft_release:
+        description: Prepare a draft GitHub prerelease after the installer tests pass
+        default: false
+        required: true
+        type: boolean
 permissions:
   contents: read
 jobs:
@@ -37,6 +42,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+      - name: Test release validation
+        working-directory: marea
+        run: python windows/test-release-installer.py
       - name: Build native engine with default Luau
         working-directory: pleamar
         run: cargo build --release --locked --bin pleamar
@@ -67,6 +75,7 @@ jobs:
             marea/dist/windows/*.exe
             marea/dist/windows/*.sha256
             marea/dist/windows/build.json
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -75,3 +84,42 @@ jobs:
             marea/.tools/installer-smoke/*.log
             marea/.tools/installer-smoke/report.json
           if-no-files-found: ignore
+  release:
+    name: Prepare draft download
+    needs: installer
+    if: ${{ inputs.create_draft_release }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Test release validation on Linux
+        run: python windows/test-release-installer.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: marea-windows-x64-preview
+          path: dist/windows
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer-validation
+          path: dist/validation
+      - name: Create a draft with the tested installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          MAREA_COMMIT: ${{ github.sha }}
+          ENGINE_REPOSITORY: ${{ inputs.pleamar_repository }}
+          ENGINE_COMMIT: ${{ inputs.pleamar_ref }}
+          PACKAGE_VERSION: ${{ inputs.version }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+        run: >-
+          python windows/release-installer.py
+          --directory dist/windows --report dist/validation/report.json
+          --repository "$RELEASE_REPOSITORY" --marea-commit "$MAREA_COMMIT"
+          --engine-repository "$ENGINE_REPOSITORY" --engine-commit "$ENGINE_COMMIT"
+          --version "$PACKAGE_VERSION" --run-id "$BUILD_RUN_ID"
