@@ -37,6 +37,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', required=True, type=Path)
     parser.add_argument('--scene', type=Path, default=Path(__file__).resolve().parents[1] / 'marea-desktop.plm')
+    parser.add_argument('--screen', help='Confine all per-monitor surfaces to this exact output name')
     parser.add_argument('--output', required=True, type=Path, help='New directory for logs, isolated state and report')
     parser.add_argument('--seconds', type=int, default=30, help='Seconds per state, 5 to 300')
     parser.add_argument('--repeats', type=int, default=2, help='Complete Classic/Liquid/Lens cycles, 1 to 10')
@@ -110,12 +111,13 @@ def main():
                   scene_sha256=hashlib.sha256(scene.read_bytes()).hexdigest(),
                   logical_cpus=os.cpu_count(), samples=[], complete=False,
                   skins=args.skins, states=args.states,
+                  requested_screen=args.screen,
                   note='Native update intervals, not physical display FPS. Isolated preferences/quota data; existing GPU driver/cache.')
     process = None
     try:
         with log_path.open('w', encoding='utf-8') as log:
             process = subprocess.Popen([str(binary), '--scene', str(scene), '--no-hud', '--stall', '0',
-                                        '--record', 'open,skin'], env=env, cwd=scene.parent,
+                                        '--record', 'open,skin', *(['--screen', args.screen] if args.screen else [])], env=env, cwd=scene.parent,
                                        stdout=log, stderr=log, creationflags=subprocess.CREATE_NO_WINDOW)
             deadline = time.monotonic() + 45
             while True:
@@ -125,6 +127,8 @@ def main():
                     report['first_frame_ms'] = int(frame[1])
                     report['startup'] = [line for line in content.splitlines() if 'GPU startup ms' in line]
                     report['surfaces'] = [line for line in content.splitlines() if line.startswith('render · surface')]
+                    if args.screen and (not report['surfaces'] or any(' on ' + args.screen + ' ·' not in line for line in report['surfaces'])):
+                        raise RuntimeError('A surface was created outside the requested output')
                     break
                 if process.poll() is not None or time.monotonic() >= deadline:
                     raise RuntimeError('Native initialization failed: ' + content)
