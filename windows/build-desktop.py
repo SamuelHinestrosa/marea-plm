@@ -36,6 +36,20 @@ scene = replace_once(scene, 'image i.icon { at: 3, 3 - rise * 1.5; size: 22, 22 
 assert 'fact skin: lens | liquid | classic = classic' in scene
 scene = replace_once(scene, 'fact hidden = true', 'fact hidden = false')
 scene = replace_once(scene, 'fact demo = true', 'fact demo = false')
+# The main Marea panels are only 820x680; their screen facts are not the
+# full wallpaper area. Publish each tide surface's actual measured geometry.
+scene = replace_once(scene, 'model tidepics max 1 { pic: image 1280, 720 }', '''model tidepics max 2 { pic: image 1280, 720 }
+    repeat k in 0..2 {
+        fact windows_tide_width.$k = 0
+        fact windows_tide_height.$k = 0
+    }''')
+scene = replace_once(scene, '        let tw = tide.width\n        let th = tide.height', '''        let tw = tide.width
+        let th = tide.height
+        on change tw { windows_tide_width.$screen = tw }
+        on change th { windows_tide_height.$screen = th }''')
+scene = replace_once(scene, '            for t in tidepics {\n                group {', '''            for t in tidepics {
+                group {
+                    show: t.index == screen.index''')
 # A flattened water ellipse still casts a wide SDF shadow. Once detached,
 # the edge geometry must leave the body as well as becoming visually thin.
 scene = replace_once(scene, 'ellipse tether { at: cx, 0; radius: 30;', 'ellipse tether { at: cx, 0; radius: if(wet > 0.01, 30, 0);')

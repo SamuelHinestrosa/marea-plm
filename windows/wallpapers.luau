@@ -58,15 +58,45 @@ on("wall_pick", function(index)
     if not item or wall_busy or same_wall(item.path, WALLPAPER) then return end
     wall_busy = true
     local home = fact["hosts.1"] and 1 or 0
-    local w = fact["screen." .. home .. ".width"] or 1920
-    local h = fact["screen." .. home .. ".height"] or 1080
-    ask_wallpaper("wallpaper.preview", { item.path, math.max(w, 1), math.max(h, 1) }, function(preview, error)
-        if error then wall_busy = false; wallpaper_error(error); return end
-        wall_selected = item.path
-        model.tidepics = { { pic = preview } }
-        fact["tide.home"] = home
-        emit("tide_start")
-    end)
+    local count = math.min(tonumber(fact["screens.count"]) or 0, 2)
+    local sizes, pictures = {}, {}
+    for k = 0, count - 1 do
+        local w, h = fact["windows_tide_width." .. k], fact["windows_tide_height." .. k]
+        if type(w) ~= "number" or type(h) ~= "number" or w <= 0 or h <= 0 then
+            wall_busy = false; wallpaper_error("Las pantallas aún no están listas para la transición."); return
+        end
+        sizes[k + 1] = {w, h, text["screen." .. k .. ".name"]}
+    end
+    if count == 0 then wall_busy = false; wallpaper_error("No hay pantallas disponibles."); return end
+    local function prepare(index)
+        if index > count then
+            -- A hotplug/DPI change during preparation invalidates the crops.
+            if math.min(tonumber(fact["screens.count"]) or 0, 2) ~= count then
+                wall_busy = false; wallpaper_error("Las pantallas han cambiado. Vuelve a elegir el fondo."); return
+            end
+            for k, size in ipairs(sizes) do
+                if fact["windows_tide_width." .. (k - 1)] ~= size[1]
+                    or fact["windows_tide_height." .. (k - 1)] ~= size[2]
+                    or text["screen." .. (k - 1) .. ".name"] ~= size[3] then
+                    wall_busy = false; wallpaper_error("Las pantallas han cambiado. Vuelve a elegir el fondo."); return
+                end
+            end
+            wall_selected = item.path
+            model.tidepics = pictures
+            fact["tide.home"] = math.min(home, count - 1)
+            emit("tide_start")
+            return
+        end
+        local size = sizes[index]
+        ask_wallpaper("wallpaper.preview", { item.path, size[1], size[2] }, function(preview, error)
+            if error or type(preview) ~= "string" or preview == "" then
+                wall_busy = false; wallpaper_error(error or "No se pudo preparar el fondo."); return
+            end
+            pictures[index] = {pic = preview}
+            prepare(index + 1)
+        end)
+    end
+    prepare(1)
 end)
 on("tide_done", function()
     local selected = wall_selected

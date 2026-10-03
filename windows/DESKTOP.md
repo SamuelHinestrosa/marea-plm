@@ -453,3 +453,28 @@ tag and saved receipt. All-day events do not raise timed reminders. Marea must
 be running; this does not schedule an OS task when the app is closed. Focus
 Assist/DND may suppress Windows banners even when the history accepts a toast.
 These informational reminders have no custom Windows action buttons.
+
+## Wallpaper transitions across monitors
+
+The Windows profile prepares the wallpaper crop from each tide surface's
+measured dimensions, independently of the control panel's 820 × 680 size. It
+waits for both previews before starting; a display change during preparation
+reports an error so the selection can be retried. The profile's existing limit
+is two monitors. Equal-aspect monitors reuse the native preview cache.
+
+This requires the matching pleamar fix for independent measured properties in
+`screens: each` surfaces. Updating only the scene leaves the older engine bug.
+Run `python windows/test-wallpapers.py --help` for the mocked Luau regression,
+or, on Windows with two connected monitors, generate the profile and run:
+
+```powershell
+python windows/build-desktop.py
+python windows/test-wallpaper-monitors.py --binary ..\pleamar\target\release\pleamar.exe
+```
+
+The native check uses the actual tide shader and checks both measured sizes
+before/after hot reload. Add `--hold 25 --overlay` to inspect its settled image
+above other windows. It does not change the wallpaper or inject input. Native
+1440p + 1080p at 125% DPI passed; mixed DPI/portrait are covered by automated
+geometry/logic tests only. See pleamar's `docs/windows-wallpaper-monitors.md`
+for results and captures.
