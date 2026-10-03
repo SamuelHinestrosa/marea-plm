@@ -64,14 +64,16 @@ with tempfile.TemporaryDirectory(prefix='Marea búsqueda ñ ') as tmp:
             ask('emit search')
             expect('searching', 'true')
             ask('text query previous')
-            ask('text query canción')
+            ask('text query busqueda cancion')
             expect('search_found', 'true')
             expect('search_stale', 'false')
+            ask('text query cancionn')
+            expect('search_found', 'true')
             time.sleep(.5)
             log.flush()
             output = (Path(tmp)/'run.log').read_text(encoding='utf-8')
             assert 'runtime error:' not in output, output
-            print('PASS: actual Marea search, Unicode and spaces, stale query discarded, no external search helper.')
+            print('PASS: actual Marea search, accent folding, word order, typo, Unicode and spaces, stale query discarded, no external search helper.')
         finally:
             if process.poll() is None:
                 try:

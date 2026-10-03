@@ -14,6 +14,7 @@ local function tr(value) return value end
 local function on(name, callback) handlers[name] = callback end
 local function after(_, callback) timers[#timers + 1] = callback end
 local function notice(value) notices[#notices + 1] = value end
+local function install_media_volume() return function() end end
 local install = (function() __MODULE__ end)()
 install({
     watch = function(name, callback) assert(name == "media"); listener = callback; return true end,

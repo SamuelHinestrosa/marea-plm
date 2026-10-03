@@ -69,7 +69,7 @@ return function(native_sys, notice)
                 fact["windows_level_available." .. k] = false
                 fact["windows_level_drag." .. k] = false
                 fact["windows_level_pending." .. k] = false
-                notice("El dispositivo no ha respondido. Espera a que termine la operacion antes de reintentar.")
+                notice("El dispositivo no ha respondido. Espera a que termine la operación antes de reintentar.")
             end)
             local ok, error = pcall(native_sys.call_async, state.command, { value }, completed)
             if not ok then completed(error, -1) end
@@ -129,7 +129,7 @@ return function(native_sys, notice)
     end
     native_sys.watch("audio", function(value)
         observe(1, value.volume, true, "No hay una salida de audio activa.")
-        observe(2, value.input, true, "No hay un microfono activo.")
+        observe(2, value.input, true, "No hay un micrófono activo.")
     end)
     native_sys.watch("brightness", function(value)
         observe(0, value.level, value.present == true, value.error, value.levels)

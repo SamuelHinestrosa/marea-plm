@@ -1,5 +1,6 @@
 -- Keep playback state native; accepting a command is not playback confirmation.
 return function(native_sys, notice)
+    local observe_volume = install_media_volume(native_sys, notice)
     local state, busy, sequence, revision = {}, false, 0, 0
     local function paint()
         local available = state.available == true and type(state.player) == "string" and state.player ~= ""
@@ -15,6 +16,7 @@ return function(native_sys, notice)
         if value.player ~= state.player then sequence += 1; busy = false end
         if value.error and value.error ~= "" and value.error ~= state.error then notice(value.error) end
         state = value
+        observe_volume(value)
         revision += 1
         paint()
     end

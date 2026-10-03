@@ -1,6 +1,7 @@
 """Generate a native desktop profile; keep the upstream Linux files untouched."""
 from pathlib import Path
 import re
+import json
 
 root = Path(__file__).resolve().parents[1]
 scene = (root / 'marea.plm').read_text(encoding='utf-8')
@@ -78,7 +79,7 @@ logic = replace_once(logic, '''do
     in_wm = ok and type(where) == "string" and where:find("pleamar%-pleamar") ~= nil
 end''', '-- An inherited Linux socket hint cannot provide a Windows compositor.')
 logic = remove_between(logic, 'on("set_rain", function(v)', '--  From her finder:',
-    'on("set_rain", function() notice("El efecto de lluvia de pleamar-wm no esta disponible en Windows.") end)\n')
+    'on("set_rain", function() notice("El efecto de lluvia de pleamar-wm no está disponible en Windows.") end)\n')
 for k, event in enumerate(('set_brightness', 'set_volume', 'set_mic')):
     for gesture in ('press', 'drag'):
         scene = replace_once(scene, f'on {gesture} track.{k} {{ emit {event}(finger.0) }}',
@@ -158,6 +159,29 @@ scene = scene.replace('column output_list {\n                    at: card.x - 22
 scene = scene.replace('column mic_list {\n                    at: card.x - 228, card.top + 164 + output_list.height', 'column mic_list {\n                    view: 456, 126\n                    at: card.x - 228, card.top + 306')
 scene = scene.replace('card.top + 150 + output_list.height', 'card.top + 292')
 scene = scene.replace('on press icon.1 {', 'on press icon.0 { emit windows_display_info }\n            on press icon.1 {')
+# A row slot can hold another notice after a native update. Its gesture state
+# belongs to that identity, and pressing must not resolve a row before release.
+scene = replace_once(scene, '        fact alive.$k = true', '        fact alive.$k = true\n        fact windows_row_revision.$k = 0')
+scene = replace_once(scene, '            on press row_zone.$k { emit resolve(k) }', '')
+scene = replace_once(scene, 'opacity: rise.$k * (1 - flung.$k)', 'opacity: rise.$k * (1 - abs(flung.$k))')
+scene = replace_once(scene, 'active: tray > 0.9 and visible.$k > 0.5', 'active: tray > 0.9 and visible.$k > 0.5 and alive.$k and abs(flung.$k) < 0.05')
+scene = replace_once(scene, '        on drag row_zone.$k while alive.$k', '''        on change windows_row_revision.$k {
+            pull.$k: 0 ~0ms; flung.$k: 0 ~0ms; freed.$k: 0 ~0ms; touch.$k: 0 ~0ms
+        }
+        on drag row_zone.$k while alive.$k''')
+
+scene = replace_once(scene, 'scene Marea {', 'scene Marea {\n    text windows_search_status = ""\n' + (root / 'windows/media-volume.plm').read_text(encoding='utf-8'))
+scene = replace_once(scene, '        //  The selection is ONE single one', '        text windows_search_status { at: bx0 + 594, by0 + 126; anchor: right center; width: 480; lines: 1; size: 10; color: #8b8f95 }\n        //  The selection is ONE single one')
+scene = replace_once(scene, 'let by = card.top + 466', 'let by = card.top + 455')
+scene = replace_once(scene, '                on press next_btn { emit next }', '                on press next_btn { emit next }\n' + (root / 'windows/media-volume-row.plm').read_text(encoding='utf-8'))
+scene = scene.replace('by - 9; anchor: left center; size: 12.5; width: 130;', 'by - 9; anchor: left center; size: 12.5; width: 250;')
+scene = scene.replace('by + 10; anchor: left center; size: 11; width: 130;', 'by + 10; anchor: left center; size: 11; width: 250;')
+scene = replace_once(scene, 'Each piece chases in its own way: the hat rests, the glasses stay stuck on, the mug keeps her company and the headphones go on air when the screen is shared.', 'Choose a hat or headphones. Glasses and the cup can be combined with either.')
+# Minimized applications can fold into Marea while retaining a reachable count.
+scene = replace_once(scene, '    model stones max 6', (root / 'windows/window-shelf.plm').read_text(encoding='utf-8') + '\n    model stones max 6')
+scene = replace_once(scene, 'landed.$k and not open and not searching and not tray_open', 'landed.$k and not windows_shelf_folded and not open and not searching and not tray_open')
+scene = replace_once(scene, 'let sx.$k = cx - r - 24 - place.stone.$k * 34', 'let sx.$k = cx - (r + 24 + place.stone.$k * 34) * windows_shelf_unfold')
+scene = replace_once(scene, 'active: stone.$k > 0.6', 'active: stone.$k > 0.6 and not windows_shelf_folded')
 # A visible status explains unsupported actions instead of logging invisible errors.
 notice = '''    text windows_status = ""
     text windows_agents_status = "Leyendo las cuotas de agentes…"
@@ -405,32 +429,37 @@ logic = remove_between(logic, '-- ── the stones:', 'if not sys.watch("window
     (root / 'windows/window-shelf.luau').read_text(encoding='utf-8') + '\n\n')
 logic = replace_once(logic, 'function() if hooks.wm_restore then hooks.wm_restore() end end, "wm"',
     'function() if hooks.wm_restore then hooks.wm_restore() end end')
-# These upstream entries include portable history and the new desktop pages.
-# Keep them when regenerating, rather than dropping every new menu entry.
-logic = remove_between(logic, '    run("fd", { "--max-depth", "4"', '\nend\n\nif not sys.watch("apps"', '''    after(120, function()
-        if mine ~= generation then return end
-        sys.ask_async("search.files", { home_dir, q }, function(result, error)
-            if mine ~= generation then return end
-            if error then log("search:", error); return end
-            for _, item in ipairs(result.items or {}) do
-                if #list >= 7 then break end
-                list[#list + 1] = {
-                    name = item.name,
-                    kind_label = tr(item.directory and "Folder" or "File"),
-                    icon = "windows-file:" .. item.path,
-                    filepath = item.path,
-                    path = item.path,
-                }
-            end
-            paint(q, list)
-        end)
-    end)
-''')
+logic = replace_once(logic, 'local apps = {}', 'local search_match = (function()\n' + (root / 'windows/search-match.luau').read_text(encoding='utf-8') + '\nend)()\nlocal apps = {}')
+logic = remove_between(logic, 'local function own_matches(q)', 'if not sys.watch("apps"',
+    (root / 'windows/search.luau').read_text(encoding='utf-8') + '\n')
 logic = replace_once(logic, 'after(600, playBatch)', 'fact.demo = false -- Never substitute demo notices for unavailable native data')
 logic = replace_once(logic, 'local CATEGORY_OF = { TELEGRAM = 1, MAIL = 2, CALENDAR = 3, SYSTEM = 4 }',
     'local CATEGORY_OF = { TELEGRAM = 1, MAIL = 2, CALENDAR = 3, SYSTEM = 4, ["MAREA WINDOWS"] = 3 }')
 logic = remove_between(logic, '--  When its time comes: once, and marked', '\ndo\n    local y, m, d = today()',
     'install_calendar_reminders(native_sys, notice, cal, save_calendar, tr)\n')
+# Do not revive dismissed rows when their ages or translations refresh.
+logic = replace_once(logic, 'local function render()\n    for k = 1, 5 do', '''local windows_row_keys, windows_row_serial = {}, 0
+local function render()
+    for k = 1, 5 do''')
+logic = replace_once(logic, '        fact["alive." .. k] = f ~= nil', '''        local key = f and (f.id or f) or nil
+        if windows_row_keys[k] ~= key then
+            if fact.undoable and fact.resolved_row == k then fact.undoable = false end
+            windows_row_keys[k] = key
+            windows_row_serial += 1
+            fact["windows_row_revision." .. k] = windows_row_serial
+        end
+        fact["alive." .. k] = f ~= nil and not f.done''')
+logic = replace_once(logic, 'local function refill()\n    if live == nil or fact.tray_open then return end',
+    'local function refill(force)\n    if live == nil or (fact.tray_open and not force) then return end')
+logic = replace_once(logic, '        if not gone[n.id] then', '        if not gone[n.id] and not finished[n.id] then')
+logic = replace_once(logic, 'local function from_service(list)',
+    (root / 'windows/notification-dismiss.luau').read_text(encoding='utf-8') + '\nlocal function from_service(list)')
+logic = re.sub(r'sys\.call\("notifications\.dismiss", ([nfr]\.id)\)', r'dismiss_native(\1)', logic)
+logic = replace_once(logic, 'on("resolve", function(k)\n    local f = rows[k]\n    if f == nil then return end',
+    'on("resolve", function(k)\n    local f = rows[k]\n    if f == nil or f.done then return end')
+logic = replace_once(logic, 'on("dismiss", function(k)\n    local f = rows[k]\n    if f == nil then return end',
+    'on("dismiss", function(k)\n    local f = rows[k]\n    if f == nil or f.done then return end')
+
 logic = replace_once(logic, '    sys.call("notifications.keep", true)', '    -- Windows remains responsible for toast expiration.')
 logic = replace_once(logic, 'local function quiet_for(n)\n', 'local function quiet_for(n)\n    if fact.windows_notifications_sync then return true end\n')
 logic = replace_once(logic, 'text["row." .. k .. ".age"] = tr(AGES[k])', 'text["row." .. k .. ".age"] = notification_age(f.time, os.time(), tr("now"))')
@@ -456,8 +485,8 @@ logic = replace_once(logic, '''elseif n.title ~= f.title or n.body ~= f.detail t
 logic = logic.replace('log("notifications · the real ones: this is who receives them now")', 'log("notifications · mirroring the Windows notification center")')
 logic = replace_once(logic, 'a.key == "default" end', 'a.key == "open-app" end')
 logic = replace_once(logic, 'if a.key ~= "default" and #arriving_actions < 2', 'if a.key ~= "open-app" and #arriving_actions < 2')
-logic = replace_once(logic, 'if can_open then sys.call("notifications.invoke", f.id, "default") else sys.call("notifications.dismiss", f.id) end',
-    'if can_open then sys.call("notifications.invoke", f.id, "open-app") else notice("Windows no proporciona una aplicacion que abrir para este aviso.") end')
+logic = replace_once(logic, 'if can_open then sys.call("notifications.invoke", f.id, "default") else dismiss_native(f.id) end',
+    'if can_open then sys.call("notifications.invoke", f.id, "open-app") else notice("Windows no proporciona una aplicación que abrir para este aviso.") end')
 logic = logic.replace('log("demo · the notices are made up: pleamar gives up the place to whoever already has it")', 'log("Windows: notification collection is unavailable")')
 logic = '\n'.join(line for line in logic.splitlines() if 'log("demo · another batch:' not in line)
 logic = logic.replace('on("set_brightness", function(v) sys.call("brightness.level", v) end)', '')
@@ -465,6 +494,9 @@ logic = logic.replace('on("set_volume", function(v) sys.call("audio.volume", v) 
 logic = logic.replace('on("set_mic", function(v) sys.call("audio.input", v) end)', '')
 for event, command in [('play_pause', 'toggle'), ('previous', 'previous'), ('next', 'next')]:
     logic = replace_once(logic, f'on("{event}", function() sys.call("media.{command}") end)', '')
+logic = remove_between(logic, '--  And what she had on,', '-- ── the language',
+    (root / 'windows/wardrobe.luau').read_text(encoding='utf-8') + '\n')
+logic = replace_once(logic, '    settings.skin = fact.skin', '    settings.skin = fact.skin\n    settings.shelf_folded = fact.windows_shelf_folded == true')
 # Development shells often inject C.UTF-8; it is not a user language choice.
 logic = replace_once(logic, 'value ~= "C" and value ~= "POSIX"', 'value ~= "C" and not value:match("^C%.") and value ~= "POSIX"')
 # Keep the original portable animation/calendar/settings logic. Linux command
@@ -476,6 +508,7 @@ logic = remove_between(logic, '-- ── the wallpapers, and the tide', '--  Whi
 adapter = (root / 'windows/desktop-adapter.luau').read_text(encoding='utf-8')
 adapter = 'local install_weather = (function()\n' + (root / 'windows/weather.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_media_controls = (function()\n' + (root / 'windows/media-controls.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
+adapter = 'local install_media_volume = (function()\n' + (root / 'windows/media-volume.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_deriva_worker = (function()\n' + (root / 'windows/deriva-worker.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_deriva_preview = (function()\n' + (root / 'windows/deriva-preview.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_calendar_reminders = (function()\n' + (root / 'windows/calendar-reminders.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
@@ -486,6 +519,21 @@ adapter = 'local install_notification_controls = (function()\n' + (root / 'windo
 adapter = 'local install_device_controls = (function()\n' + devices + '\nend)()\n' + adapter
 adapter = 'local install_level_controls = (function()\n' + levels + '\nend)()\n' + adapter
 logic = 'fact.windows_initialized = false\n' + adapter + '\n' + logic + '\nfact.demo = false\nfact.windows_initialized = true\n'
+# Windows UI uses the same language table as the portable scene.
+windows_translations = json.loads((root / 'windows/translations.json').read_text(encoding='utf-8'))
+old_labels = {"Abrir app": "Open app", "Actualizar": "Refresh", "Anterior": "Previous", "Buscar redes": "Find networks",
+    "Cancelar": "Cancel", "Conectar": "Connect", "Contrasena": "Password", "Contrasena de la red": "Network password",
+    "Marea se silencia. Los banners de Windows se gestionan en Windows": "Marea is silenced. Manage Windows banners in Windows",
+    "Permitir": "Allow", "Siguiente": "Next", "Silencia los avisos dentro de Marea": "Silence notices inside Marea", "Red": "Network"}
+old_labels.update({"Deriva: esperando al servicio de biblioteca.": "Waiting for the library service…", "Leyendo Bluetooth…": "Reading Bluetooth…", "Leyendo Wi-Fi…": "Reading Wi-Fi…", "Leyendo dispositivos…": "Reading devices…", "Leyendo el permiso de notificaciones…": "Reading notification access…", "Leyendo las cuotas de agentes…": "Reading agent quotas…"})
+for old, new in old_labels.items():
+    scene = scene.replace(json.dumps(old, ensure_ascii=False), json.dumps(new, ensure_ascii=False))
+existing = set()
+for language in (root / 'lang').glob('es*.plm'):
+    existing.update(re.findall(r'"((?:[^"\\]|\\.)*)"\s*=', language.read_text(encoding='utf-8')))
+entries = '\n'.join('        ' + json.dumps(key, ensure_ascii=False) + ' = ' + json.dumps(value, ensure_ascii=False)
+    for key, value in windows_translations.items() if key not in existing)
+scene = replace_once(scene, 'scene Marea {', 'scene Marea {\n    translations es {\n' + entries + '\n    }')
 (root / 'marea-desktop.plm').write_text(scene, encoding='utf-8')
 (root / 'marea-desktop.luau').write_text(logic, encoding='utf-8')
 print('Generated native Windows desktop profile (Linux originals preserved).')

@@ -119,6 +119,16 @@ def main():
             wait(lambda: log_path.read_text(encoding='utf-8').count('render · scene:') > before)
             wait(lambda: measure() == measured)
             report['after_reload'] = measure()
+            # Closed Windows targets release their full-size buffers. Reopening
+            # must restore them without changing the measured scene geometry.
+            for _ in range(10):
+                ask('fact tide.on false')
+                wait(lambda: ask('get tide.on') == 'false')
+                time.sleep(.12)
+                ask('fact tide.on true')
+                wait(lambda: ask('get tide.on') == 'true' and measure() == measured)
+                time.sleep(.12)
+            report['close_reopen_cycles'] = 10
             (work / 'ready.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
             print('READY: native tide surfaces and hot reload: ' + json.dumps(measured), flush=True)
             if args.hold:

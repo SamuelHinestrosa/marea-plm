@@ -59,7 +59,7 @@ end)
 install_level_controls(native_sys, notice)
 local watch_notifications, refresh_notification_row, notification_age = install_notification_controls(native_sys, notice)
 native_sys.watch("tray.state", function(state)
-    if state.available == false then notice(state.error or "La bandeja de Windows no esta disponible.") end
+    if state.available == false then notice(state.error or "La bandeja de Windows no está disponible.") end
 end)
 local sys = {
     ask_async = native_sys.ask_async,
@@ -101,7 +101,7 @@ local run = function(command, args, callback, options)
         return
     end
     if not seen[command] then log("Windows: external integration unavailable:", command); seen[command] = true end
-    if command == "grim" or command == "slurp" or command == "wf-recorder" then notice("Esta integracion externa no esta disponible en Windows.") end
+    if command == "grim" or command == "slurp" or command == "wf-recorder" then notice("Esta integración externa no está disponible en Windows.") end
     if callback then after(1, function() callback("", -1) end) end
 end
 local spawn = function(command)

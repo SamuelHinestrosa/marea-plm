@@ -478,3 +478,50 @@ above other windows. It does not change the wallpaper or inject input. Native
 1440p + 1080p at 125% DPI passed; mixed DPI/portrait are covered by automated
 geometry/logic tests only. See pleamar's `docs/windows-wallpaper-monitors.md`
 for results and captures.
+
+## Desktop controls update (preview.5)
+
+- Notification rows reset their gesture state when another notification takes
+  their slot. Refreshing ages or language cannot revive a dismissed row. A tap
+  opens the sender app; dragging can mark it read (with undo) or dismiss it.
+  Dismissal is asynchronous and a rejected native command restores the item.
+- The media footer includes **application volume** for an identifiable Core
+  Audio session. It does not change the device master volume. The player must
+  expose Windows media metadata and an identifiable audio session; otherwise
+  the footer says that its volume is unavailable. Drags retain only the newest
+  pending level and read the actual level back from Windows.
+- The small chevron below the left side of Marea folds minimized application
+  icons into her. Their count remains reachable; press it to expand them. This
+  preference survives restarts. Restoring windows still uses their live IDs.
+- Hat and headphones share one head slot: selecting one removes the other.
+  Glasses and the cup remain compatible. Existing conflicting saved settings
+  prefer headphones on load.
+- Search ranks exact names, prefixes, words in either order, common Latin accent
+  variants, initials, and one-letter mistakes in words of at least four letters.
+  Files get result space even when many apps match. Application discovery uses
+  the Windows application catalog; unregistered portable programs are not added
+  automatically. Filename search walks the user folder to eight directory
+  levels, at most 40,000 entries/250 ms per query, returns at most 12 candidates,
+  and marks partial results. Junctions/cloud placeholders and development cache
+  directories are skipped. This is not a persistent whole-disk/content index.
+  Browser history and bookmarks are not read.
+- Windows-specific labels use the Spanish translation table; network password
+  labels and several status messages have corrected accents. Native error
+  details remain the text reported by the operating system.
+
+The paired engine releases hidden Windows swapchain buffers and temporary
+compositing layers; reopening restores their full physical size. Graphics
+memory and process RAM are different metrics. See the paired engine's
+`docs/windows-desktop-controls.md` for measured results and validation limits.
+
+Optional native regression checks, with a real Windows desktop:
+
+```powershell
+python windows/test-desktop-native.py --binary ../pleamar/target/release/pleamar.exe
+python windows/test-media-volume-native.py --binary ../pleamar/target/release/pleamar.exe --fixture ../pleamar/target/release/examples/media-fixture.exe
+```
+
+They open owned windows and use the renderer's scripted input. Notifications
+are in-memory fixtures; the audio fixture publishes a real silent player.
+They do not move the desktop mouse, dismiss OS notifications or change master
+volume. They verify rendering/logic integration, not a visual screenshot review.
