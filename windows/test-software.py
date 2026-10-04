@@ -76,3 +76,35 @@ assert(text.windows_sw_search_error:find('network unavailable') and #model['sw.f
 log('PASS: software selection, explicit confirmation, exact IDs/versions, streamed progress, cancellation, partial failure, catalogue races and finder')
 '''.replace('__MODULE__', module).replace('local function log(...) end', 'local log = log')
 run_checks(args, checks, 'PASS: software selection', 'software')
+
+# The native model returns copies. Appending delayed catalogue results must keep
+# keyboard selection by row identity rather than by Lua table identity.
+search = Path(__file__).with_name('search.luau').read_text(encoding='utf-8')
+search_checks = r'''local fact, text, model = {selected=0}, {query="query"}, {}
+local timers, file_reply, package_reply = {}, nil, nil
+local generation, home_dir, OWN, open_windows = 0, ".", {}, {}
+local apps = {{name="First",exec="first.exe"},{name="Second",exec="second.exe"}}
+local search_match = {fold=function(v) return v end,score=function(_,_) return 1 end}
+local hooks = {packages=function(_,done) package_reply=done end}
+local sys = {ask_async=function(_,_,done) file_reply=done end}
+local function tr(s) return s end
+local function after(ms,fn) timers[ms]=fn end
+local function prefer(a,b) return a.name < b.name end
+local function paint(_,rows)
+    model.results={}
+    for _,row in ipairs(rows) do model.results[#model.results+1]=table.clone(row) end
+    fact.selected=0
+end
+__SEARCH__
+search()
+fact.selected=1
+timers[120](); file_reply({items={{name="File",path="C:/query.txt"}}},nil)
+assert(fact.selected==1 and model.results[2].exec=="second.exe")
+timers[400](); package_reply({{name="Package",package="Publisher.App"}})
+assert(fact.selected==1 and #model.results==4, "catalogue append lost keyboard selection")
+text.query="new query"; search()
+package_reply({{name="Stale",package="Old.App"}})
+assert(#model.results==2,"obsolete catalogue reply repainted new query")
+log("PASS: asynchronous finder selection and stale catalogue replies")
+'''.replace('__SEARCH__', search)
+run_checks(args, search_checks, 'PASS: asynchronous finder selection', 'software-search')

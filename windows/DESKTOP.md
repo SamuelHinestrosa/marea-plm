@@ -4,7 +4,7 @@ This separate profile uses the native Windows x64/MSVC port of pleamar, with
 Luau, Win32 and DirectComposition/DX12. It keeps the Linux originals unchanged.
 No WSL, Wayland, Unix shell or Linux helper programs are required.
 
-The upstream refresh uses pleamar 0.2.13. **Control center → Programs** now
+The upstream refresh uses pleamar 0.2.14. **Control center → Programs** now
 offers native WinGet updates and a catalogue. Search results can also suggest
 programs to install. Select the updates, review the confirmation and press
 **Confirm**; Marea never asks for an administrator password. Windows handles
@@ -605,3 +605,6 @@ two distinct real SMTC thumbnails, dynamic Spanish menu labels, shelf folding,
 mocked startup toggle readback and unchanged foreground HWND. It caught and
 fixed missing Luau signal forwarding in the new startup control. Real sign-in
 and actual Spotify/YouTube versions were not exercised during this update.
+
+The new upstream desktop-agent controls require pleamar-wm on Linux and are not
+part of the native Windows profile. The authoring skill remains available.

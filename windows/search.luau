@@ -27,6 +27,14 @@ local function search()
         if a.score ~= b.score then return a.score > b.score end
         return prefer(a.row, b.row)
     end)
+    local function key(row)
+        if row.filepath then return "file:" .. row.filepath end
+        if row.exec then return "app:" .. row.exec end
+        if row.window_id then return "window:" .. tostring(row.window_id) end
+        if row.own then return "own:" .. tostring(row.own) end
+        if row.package then return "package:" .. row.package end
+        return "name:" .. tostring(row.name)
+    end
     local list = {}
     for i = 1, math.min(7, #candidates) do list[i] = candidates[i].row end
     text.windows_search_status = ""
@@ -42,7 +50,7 @@ local function search()
                 paint(q, list)
                 if selected then
                     for i, row in ipairs(list) do
-                        if row == selected then fact.selected = i - 1; break end
+                        if key(row) == key(selected) then fact.selected = i - 1; break end
                     end
                 end
             end)
@@ -67,7 +75,6 @@ local function search()
             local selected = (model.results or {})[(fact.selected or 0) + 1]
             paint(q, list)
             if selected then
-                local function key(row) return row.filepath or row.exec or row.window_id or row.own end
                 for i, row in ipairs(list) do
                     if key(row) == key(selected) then fact.selected = i - 1; break end
                 end
