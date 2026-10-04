@@ -102,3 +102,13 @@ begin
   Result := RunHook(ExpandConstant('{app}'), 'stop', '', ResultPath);
   if not Result then SuppressibleMsgBox(FailureMessage(ResultPath), mbError, MB_OK, IDOK);
 end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var ResultPath: String;
+begin
+  if CurUninstallStep = usUninstall then begin
+    ResultPath := ExpandConstant('{tmp}\marea-startup-remove.txt');
+    if not RunHook(ExpandConstant('{app}'), 'unregister', '', ResultPath) then
+      RaiseException('Could not remove the Marea startup entry. Close Marea and retry.');
+  end;
+end;

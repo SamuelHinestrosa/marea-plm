@@ -40,6 +40,7 @@ foreach ($item in @('marea.plm', 'marea.luau', 'marea-desktop.plm', 'marea-deskt
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/reservas') -Destination (Join-Path $Prefix 'app/tools/reservas')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/deriva-preview.mjs') -Destination (Join-Path $Prefix 'app/tools/deriva-preview.mjs')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/startup.ps1') -Destination (Join-Path $Prefix 'app/tools/startup.ps1')
 foreach ($item in @('desktop.ps1', 'run-desktop.ps1')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "windows/$item") -Destination (Join-Path $Prefix 'windows')
 }

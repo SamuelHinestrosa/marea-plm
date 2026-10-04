@@ -79,6 +79,10 @@ jobs:
         if: runner.os == 'Windows'
         working-directory: marea
         run: powershell.exe -NoLogo -NoProfile -File windows/test-update-files.ps1
+      - name: Optional startup registration in an isolated HKCU subtree
+        if: runner.os == 'Windows'
+        working-directory: marea
+        run: powershell.exe -NoLogo -NoProfile -File windows/test-startup.ps1
       - name: Reject a native runtime built without Luau
         if: runner.os == 'Windows'
         working-directory: pleamar

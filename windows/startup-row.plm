@@ -1,0 +1,10 @@
+                        // Fits below the three existing rows of settings tiles.
+                        group {
+                            box { at: card.x, card.top + 460; size: 456, 64; corner: 14; color: #202122 }
+                            text "Start with Windows" { at: card.x - 210, card.top + 449; anchor: left center; size: 13; color: ink }
+                            text windows_startup_status { at: card.x - 210, card.top + 470; anchor: left center; size: 11; color: st.faint; width: 350; lines: 1 }
+                            box { at: card.x + 192, card.top + 460; size: 38, 22; corner: 11; color: if(windows_startup_enabled, mint, #363839) }
+                            ellipse { at: card.x + 192 + if(windows_startup_enabled, 8, -8), card.top + 460; radius: 8; color: ink; opacity: if(windows_startup_busy, 0.4, 1) }
+                            zone box windows_startup_switch { at: card.x, card.top + 460; size: 456, 64; corner: 14; cursor: pointer; active: page == settings and section == menu and paging > 0.9 and windows_startup_available and not windows_startup_busy }
+                            on press windows_startup_switch { emit windows_toggle_startup }
+                        }

@@ -9,8 +9,11 @@ required; Windows N requires the Media Feature Pack.
 
 Run the setup, choose the directory and install. The default destination is
 `%LOCALAPPDATA%\Programs\Marea`. Launch **Marea Windows → Marea** from Start.
-Launching after installation is optional and unchecked. There is no automatic
-startup or change to global PATH or execution policy. The bundled PowerShell
+Launching after installation is optional and unchecked. **Settings → Start with
+Windows** opts into starting Marea when this user signs in; it is off by default.
+The per-user entry survives upgrades and is removed on uninstall. A disable in
+Windows Startup apps is reported in Marea, not silently overridden. There is no
+change to global PATH or execution policy. The bundled PowerShell
 launch uses a process-scoped policy; organization-enforced restrictions still
 apply. This preview is unsigned: there is no publisher signing certificate.
 The adjacent SHA-256 file detects download changes; it is not a signature.

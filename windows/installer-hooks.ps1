@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('validate', 'prepare', 'stop', 'register')][string]$Action = 'validate',
+    [ValidateSet('validate', 'prepare', 'stop', 'register', 'unregister')][string]$Action = 'validate',
     [Parameter(Mandatory = $true)][string]$Package,
     [string]$Target,
     [string]$Shortcut,
@@ -67,7 +67,7 @@ function Test-Package {
         }
     }
     foreach ($required in @('bin/pleamar.exe','bin/deriva-worker.exe','bin/node.exe','bin/dxcompiler.dll','bin/dxil.dll',
-        'bin/vcruntime140.dll','bin/vcruntime140_1.dll','bin/msvcp140.dll','app/marea-desktop.plm','app/marea-desktop.luau','app/assets/marea.ico','app/tools/deriva-preview.mjs')) {
+        'bin/vcruntime140.dll','bin/vcruntime140_1.dll','bin/msvcp140.dll','app/marea-desktop.plm','app/marea-desktop.luau','app/assets/marea.ico','app/tools/deriva-preview.mjs','app/tools/startup.ps1')) {
         if (-not $manifest.files.PSObject.Properties[$required]) { throw "Missing package manifest entry: $required" }
     }
     # Real execution checks both the loader dependencies and default Luau. It
@@ -127,6 +127,10 @@ try {
             }
         }
         'stop' { Stop-OwnedMarea $Package }
+        'unregister' {
+            . (Join-Path $Package 'app/tools/startup.ps1') -Library
+            $null = Invoke-MareaStartup -Package $Package -Action disable
+        }
         'register' { $null = Invoke-PackageProcess (Join-Path $Package 'bin/pleamar.exe') ('--register-notification-shortcut "' + $Shortcut + '"') }
     }
     if ($ResultFile) { [IO.File]::WriteAllText($ResultFile, 'OK') }

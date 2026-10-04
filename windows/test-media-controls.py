@@ -8,7 +8,7 @@ runner_arguments(parser)
 args = parser.parse_args()
 module = Path(__file__).with_name('media-controls.luau').read_text(encoding='utf-8')
 checks = r'''
-local fact, text, handlers, timers, notices, commands, queries = {}, {}, {}, {}, {}, {}, {}
+local fact, text, model, handlers, timers, notices, commands, queries = {}, {}, {}, {}, {}, {}, {}, {}
 local listener, reject_command, reject_query
 local function tr(value) return value end
 local function on(name, callback) handlers[name] = callback end
@@ -33,7 +33,12 @@ local function state(player, playing, can_next)
             can_previous = false, can_next = can_next, error = ""}
 end
 assert(not fact.windows_media_available and not fact.windows_media_can_toggle)
+local covered = state("spotify-fixture", true, true); covered.art = "C:/covers/track ñ.png"
+listener(covered)
+assert(fact.windows_media_has_art and model.windows_media_cover[1].pic == covered.art)
+local same = model.windows_media_cover; listener(covered); assert(model.windows_media_cover == same)
 listener(state("owned-player", false, true))
+assert(not fact.windows_media_has_art and #model.windows_media_cover == 0, "stale artwork survived a new track")
 assert(fact.windows_media_available and fact.windows_media_can_toggle)
 assert(not fact.windows_media_can_previous and fact.windows_media_can_next)
 handlers.previous(); assert(#commands == 0)

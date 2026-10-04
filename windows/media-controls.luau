@@ -2,8 +2,15 @@
 return function(native_sys, notice)
     local observe_volume = install_media_volume(native_sys, notice)
     local state, busy, sequence, revision = {}, false, 0, 0
+    local artwork
     local function paint()
         local available = state.available == true and type(state.player) == "string" and state.player ~= ""
+        local art = available and type(state.art) == "string" and state.art or ""
+        if art ~= artwork then
+            artwork = art
+            model.windows_media_cover = art ~= "" and {{pic = art}} or {}
+        end
+        fact.windows_media_has_art = art ~= ""
         fact.windows_media_available = available
         fact.windows_media_busy = busy
         fact.windows_media_can_toggle = available and not busy and state.can_toggle == true

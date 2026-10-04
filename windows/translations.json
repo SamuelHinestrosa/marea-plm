@@ -25,5 +25,15 @@
   "Reading agent quotas…": "Leyendo las cuotas de agentes…",
   "Hide applications": "Ocultar aplicaciones",
   "Show applications": "Mostrar aplicaciones",
-  "Choose a hat or headphones. Glasses and the cup can be combined with either.": "Elige gorro o auriculares. Puedes combinar cualquiera de ellos con las gafas y la taza."
+  "Choose a hat or headphones. Glasses and the cup can be combined with either.": "Elige gorro o auriculares. Puedes combinar cualquiera de ellos con las gafas y la taza.",
+  "Tuck applications away": "Recoger aplicaciones",
+  "Start with Windows": "Iniciar con Windows",
+  "Starts when you sign in": "Se inicia al entrar en tu sesión",
+  "Start manually": "Inicio manual",
+  "Available after installation": "Disponible al instalar Marea",
+  "Managed by another installation": "Gestionado por otra instalación",
+  "Disabled in Windows startup apps": "Desactivado en Inicio de Windows",
+  "Could not read startup settings": "No se pudo consultar el inicio automático",
+  "Could not update startup settings": "No se pudo cambiar el inicio automático",
+  "Checking…": "Comprobando…"
 }

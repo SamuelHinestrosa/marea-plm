@@ -60,7 +60,8 @@ built using `--no-default-features`.
 The default destination is `Documents\Marea Windows`, outside MSIX LocalAppData
 redirection. Existing destinations are preserved. Older window-preview
 installations are left in place; the preview is no longer a source/install target.
-No autostart, PATH or execution-policy changes are made.
+Source-script installation makes no autostart, PATH or execution-policy changes.
+The Setup package offers optional sign-in startup in Marea Settings (off by default).
 
 The Start-menu shortcut is created and read through Windows' Unicode shell-link
 interface, so installation paths containing CJK or emoji remain intact. Closing
@@ -490,9 +491,10 @@ for results and captures.
   expose Windows media metadata and an identifiable audio session; otherwise
   the footer says that its volume is unavailable. Drags retain only the newest
   pending level and read the actual level back from Windows.
-- The small chevron below the left side of Marea folds minimized application
-  icons into her. Their count remains reachable; press it to expand them. This
-  preference survives restarts. Restoring windows still uses their live IDs.
+- Right-click Marea and choose **Tuck applications away / Show applications**
+  to fold or reveal minimized application icons. This preference survives
+  restarts; the former extra floating chevron has been removed. Restoring
+  windows still uses their live IDs.
 - Hat and headphones share one head slot: selecting one removes the other.
   Glasses and the cup remain compatible. Existing conflicting saved settings
   prefer headphones on load.
@@ -525,3 +527,49 @@ They open owned windows and use the renderer's scripted input. Notifications
 are in-memory fixtures; the audio fixture publishes a real silent player.
 They do not move the desktop mouse, dismiss OS notifications or change master
 volume. They verify rendering/logic integration, not a visual screenshot review.
+
+
+## Personalization update (preview.8)
+
+Right-click Marea to **Tuck applications away / Show applications**. In Spanish:
+**Recoger aplicaciones / Mostrar aplicaciones**. This replaces the floating
+shelf button and retains the saved folding preference. The dynamic menu now
+refreshes after applying the saved language and after switching languages.
+
+The media footer reads real artwork from Windows' active GSMTC session.
+Spotify and browser players such as YouTube can supply it through this common
+interface. When a player supplies no thumbnail, the footer shows a music icon;
+there is no title-based web search or fabricated match. A changed track/player
+replaces or clears its cover, including while paused. Encoded thumbnails are
+limited to 4 MiB, decoded to at most 4096×4096 with a 64 MiB allocation limit,
+and cached as at most 192×192 images (32 files). Unchanged tracks are checked
+at most every 15 seconds. This avoids re-decoding artwork on each media poll.
+
+In a Setup installation, **Settings → Start with Windows** registers only a
+per-user sign-in command, initially off. No administrator access is needed.
+Updates keep the choice; uninstall removes this installation's entry without
+affecting other applications. If Task Manager or Windows Startup apps disabled
+Marea, the UI reports that block; re-enable it there. Source-script profiles
+show “Available after installation”. No login/reboot or organization-policy
+validation is implied by the registry tests.
+
+Checks for this update:
+
+```powershell
+python windows/test-logic.py --binary ../pleamar/target/release/pleamar.exe --luau-runner ../pleamar/target/release/examples/luau-test.exe
+powershell.exe -NoProfile -File windows/test-startup.ps1
+python windows/test-personalization-native.py --binary ../pleamar/target/release/pleamar.exe --fixture ../pleamar/target/release/examples/media-fixture.exe --screen "\\.\DISPLAY2"
+```
+
+The first two checks are isolated logic/registry tests. The last renders the
+actual profile on the explicitly selected monitor with an owned SMTC player,
+mock startup writes and renderer/IPC events. It never sends physical mouse or
+keyboard input. Spotify and YouTube application versions and real Windows
+sign-in remain separate manual checks.
+
+Locally executed on 2026-10-04: all 17 isolated logic suites and the isolated
+HKCU registration test passed. The native DISPLAY2 profile check passed with
+two distinct real SMTC thumbnails, dynamic Spanish menu labels, shelf folding,
+mocked startup toggle readback and unchanged foreground HWND. It caught and
+fixed missing Luau signal forwarding in the new startup control. Real sign-in
+and actual Spotify/YouTube versions were not exercised during this update.

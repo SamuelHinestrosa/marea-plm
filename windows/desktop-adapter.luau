@@ -16,6 +16,7 @@ local function perform(name, ...)
 end
 local run_agent_reader = install_agent_reader(native_run, notice)
 install_media_controls(native_sys, notice)
+install_startup(native_run, native_sys, notice)
 
 local hotkey_sequence
 native_sys.watch("hotkeys", function(value)

@@ -17,7 +17,14 @@ def remove_between(source, begin, end, replacement=''):
     return source[:start] + replacement + source[stop:]
 
 scene = remove_between(scene, '    surface lockscreen {', '    // ── the adventure\'s stage')
-scene = re.sub(r'^        run: .*$', '        run: "node", "deriva-worker", "curl.exe"', scene, flags=re.M)
+scene = re.sub(r'^        run: .*$', '        run: "node", "deriva-worker", "curl.exe", "powershell.exe"', scene, flags=re.M)
+scene = replace_once(scene, '    fact language:', (root / 'windows/startup.plm').read_text(encoding='utf-8') + '\n    fact language:')
+scene = replace_once(scene, '''                        }
+                    }
+
+                    // ── where she lives ──''', '                        }\n' + (root / 'windows/startup-row.plm').read_text(encoding='utf-8') + '''                    }
+
+                    // ── where she lives ──''')
 scene = replace_once(scene, 'text "Reading your windows…" {', 'text windows_agents_status {')
 logic = replace_once(logic, 'if g.observed then\n                local ago = now - g.observed', '''if #g.limits == 0 then table.insert(parts, "Sin datos de cuota") end
             if g.observed and g.observed <= now then
@@ -36,6 +43,18 @@ scene = replace_once(scene, 'image i.icon { at: 3, 3 - rise * 1.5; size: 22, 22 
             }''')
 assert 'fact skin: lens | liquid | classic = classic' in scene
 scene = replace_once(scene, 'fact hidden = true', 'fact hidden = false')
+scene = replace_once(scene, '    service media as playback', '''    model windows_media_cover max 1 { pic: image 112, 112 }
+    fact windows_media_has_art = false
+    service media as playback''')
+scene = replace_once(scene, '''                //  The cover, which here is a gradient: there is no artwork yet.
+                body {
+                    gradient: radial x0 + 28, by - 6 radius 44, #e8c9a8, #6f8f7d
+                    box { at: x0 + 28, by; size: 56, 56; corner: 12 }
+                }''', '''                box { at: x0 + 28, by; size: 56, 56; corner: 12; color: #242628 }
+                text "♪" { at: x0 + 28, by; anchor: center; size: 28; color: mint; show: not windows_media_has_art }
+                for cover in windows_media_cover {
+                    image cover.pic { at: x0 + 4, by - 24; size: 48, 48 }
+                }''')
 scene = replace_once(scene, 'fact demo = true', 'fact demo = false')
 # The main Marea panels are only 820x680; their screen facts are not the
 # full wallpaper area. Publish each tide surface's actual measured geometry.
@@ -497,6 +516,23 @@ for event, command in [('play_pause', 'toggle'), ('previous', 'previous'), ('nex
 logic = remove_between(logic, '--  And what she had on,', '-- ── the language',
     (root / 'windows/wardrobe.luau').read_text(encoding='utf-8') + '\n')
 logic = replace_once(logic, '    settings.skin = fact.skin', '    settings.skin = fact.skin\n    settings.shelf_folded = fact.windows_shelf_folded == true')
+# Lua writes do not echo a fact event back to their own handlers. Rebuild the
+# dynamic labels explicitly after choosing the language, including at startup.
+logic = replace_once(logic, '    fact.locale = LOCALES[fact.language] or system_locale()', '''    fact.locale = LOCALES[fact.language] or system_locale()
+    emit("windows_language_updated")
+    render()
+    set_menu()
+    if fact.searching == true then search() end''')
+logic = replace_once(logic, 'local plugin_entries = {', '''local plugin_entries = {
+    { id = "windows.shelf", group = "Desktop", title = "Tuck applications away" },''')
+logic = replace_once(logic, 'title = tr(e.title), first = e.first', 'title = tr(e.id == "windows.shelf" and (fact.windows_shelf_folded and "Show applications" or "Tuck applications away") or e.title), first = e.first')
+logic = replace_once(logic, 'set_menu()\n\non("menu_entry"', '''set_menu()
+on("fact:windows_shelf_folded", set_menu)
+on("fact:menu_open", function(value) if value then set_menu() end end)
+
+on("menu_entry"''')
+logic = replace_once(logic, '    local e = plugin_entries[i + 1]', '''    local e = plugin_entries[i + 1]
+    if e ~= nil and e.id == "windows.shelf" then emit("windows_toggle_shelf"); return end''')
 # Development shells often inject C.UTF-8; it is not a user language choice.
 logic = replace_once(logic, 'value ~= "C" and value ~= "POSIX"', 'value ~= "C" and not value:match("^C%.") and value ~= "POSIX"')
 # Keep the original portable animation/calendar/settings logic. Linux command
@@ -506,6 +542,7 @@ logic = remove_between(logic, '--  Only the `swaybg`', '-- ── her home:')
 logic = remove_between(logic, '-- ── the wallpapers, and the tide', '--  Which monitor each copy is,',
     (root / 'windows/wallpapers.luau').read_text(encoding='utf-8') + '\n\n')
 adapter = (root / 'windows/desktop-adapter.luau').read_text(encoding='utf-8')
+adapter = 'local install_startup = (function()\n' + (root / 'windows/startup.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_weather = (function()\n' + (root / 'windows/weather.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_media_controls = (function()\n' + (root / 'windows/media-controls.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_media_volume = (function()\n' + (root / 'windows/media-volume.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter

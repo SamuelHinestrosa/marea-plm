@@ -45,6 +45,10 @@ def hook(action='validate', package=target, expect=0):
     return run([host,'-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',
         package / 'windows/installer-hooks.ps1','-Package',package,'-Action',action], expect)
 
+def startup(action='state'):
+    return json.loads(run([host,'-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',
+        target / 'app/tools/startup.ps1','-Action',action]).stdout)
+
 report = {'passed': False, 'graphical_validation': False, 'setup_sha256': hashlib.sha256(setup.read_bytes()).hexdigest(), 'stages': []}
 try:
     # An arbitrary existing directory must not be adopted or overwritten.
@@ -75,6 +79,8 @@ try:
     report['stages'].append('native icon sizes, setup/uninstaller pixels, Start-menu icon and Installed apps registration')
     hook()
     report['stages'].append('silent Unicode install, native Luau/worker/Node and shortcut registration')
+    assert startup()['available'] and not startup()['registered']
+    assert startup('enable')['enabled']
     # Check that a bad payload cannot pass preflight, independently of compiler CRCs.
     readme = target / 'README.md'
     original = readme.read_bytes()
@@ -82,6 +88,7 @@ try:
     hook(expect='failure')
     install('repair-update')
     assert readme.read_bytes() == original
+    assert startup()['enabled'], 'Upgrade lost the opt-in startup entry'
     report['stages'].append('changed payload rejected and reinstall restores packaged bytes')
     # Hold a real DLL with no sharing; the update must stop before replacement.
     kernel = ctypes.WinDLL('kernel32', use_last_error=True)
@@ -105,12 +112,17 @@ try:
     assert library_bytes
     run([target / 'unins000.exe','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/LOG=' + str(output / 'uninstall.log')])
     assert registration() is None
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Run') as k:
+        try: winreg.QueryValueEx(k, 'Marea')
+        except FileNotFoundError: pass
+        else: raise AssertionError('Uninstall left Marea startup registered')
     assert not (target / 'bin/pleamar.exe').exists() and not (target / 'bin/deriva-worker.exe').exists()
     assert (target / 'logs/keep.txt').read_text(encoding='utf-8') == 'user log'
     assert (target / 'keep-user-file.txt').read_text(encoding='utf-8') == 'user file'
     assert not menu.exists()
     assert library_bytes == {f.relative_to(library): f.read_bytes() for f in library.rglob('*') if f.is_file()}
     report['stages'].append('uninstall removes registered package and shortcuts, retains actual Deriva library and user files/logs')
+    report['stages'].append('startup off by default, explicit opt-in survives upgrade, own entry removed on uninstall')
     report['passed'] = True
 finally:
     # Only uninstall the owned smoke installation; never another registered path.
