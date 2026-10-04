@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+#  Starts Marea's AI worker inside bubblewrap.
+#
+#  Pi ships no sandbox, and its documentation says the isolation has to come
+#  from the operating system: this is that part. The worker can talk to its
+#  model over the network, and nothing else: no home folder, no session bus,
+#  no Wayland socket, no SSH agent, no other program's configuration. It
+#  cannot touch the desktop either: it only PROPOSES actions, and Marea's
+#  logic, outside, decides and does them.
+#
+#  What is mounted:
+#    /usr and the root symlinks      read-only: Node and its libraries
+#    /etc/resolv.conf, /etc/ssl…     read-only: names and certificates
+#    /marea                          the worker's code, read-only
+#    /state                          its state, the only thing it can write
+#                                    (credentials, and the pictures Marea
+#                                    hands it when it looks at a window)
+#    /tmp                            its own, empty
+#
+#  Never $HOME, /run/user, ~/.ssh, ~/.pi, the Wayland or D-Bus sockets. If a
+#  test fails for want of one, the answer is to ask why it needs it, not a
+#  wider bind.
+#
+#  Usage:  sandbox [-- COMMAND…]         the worker by default
+set -euo pipefail
+
+here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+state="${MAREA_AGENT_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/marea-plm/agent}"
+
+command -v bwrap > /dev/null 2>&1 || { echo "marea: bubblewrap (bwrap) is missing; the worker does not start without its sandbox" >&2; exit 3; }
+node="$(command -v node || true)"
+[ -n "$node" ] || { echo "marea: node is missing" >&2; exit 3; }
+node="$(readlink -f "$node")"
+[ -d "$here/node_modules/@earendil-works/pi-coding-agent" ] || { echo "marea: the worker's packages are missing: (cd $here && npm ci --ignore-scripts)" >&2; exit 3; }
+
+mkdir -p "$state/pi/work"
+chmod 700 "$state"
+#  The sign-in of the Marea that came before (Quickshell's), once: the same
+#  account, without signing in again. Copied, never linked: each keeps its own.
+old="${XDG_STATE_HOME:-$HOME/.local/state}/proyecto-marea/pi"
+for f in auth.json models-store.json; do
+  if [ ! -e "$state/pi/$f" ] && [ -f "$old/$f" ]; then
+    cp "$old/$f" "$state/pi/$f"
+    chmod 600 "$state/pi/$f"
+  fi
+done
+
+args=(
+  --unshare-all
+  --share-net
+  --die-with-parent
+  --new-session
+  #  An empty environment, rebuilt by hand: an API key exported for something
+  #  else must not become hers without anyone deciding it.
+  --clearenv
+  --ro-bind /usr /usr
+  --symlink usr/lib /lib
+  --symlink usr/lib /lib64
+  --symlink usr/bin /bin
+  --symlink usr/bin /sbin
+  --proc /proc
+  --dev /dev
+  --tmpfs /tmp
+  --ro-bind "$here" /marea
+  --ro-bind "$node" /marea-node
+  --bind "$state" /state
+  --ro-bind-try /etc/resolv.conf /etc/resolv.conf
+  --ro-bind-try /etc/ssl /etc/ssl
+  --ro-bind-try /etc/ca-certificates /etc/ca-certificates
+  --ro-bind-try /etc/pki /etc/pki
+  --setenv HOME /state
+  --setenv XDG_STATE_HOME /state
+  --setenv XDG_CONFIG_HOME /state/config
+  --setenv XDG_CACHE_HOME /state/cache
+  --setenv MAREA_AGENT_DIR /state
+  --setenv PI_TELEMETRY 0
+  #  Pi checks whether this EXISTS: no catalogue or update lookups. The model
+  #  itself is still reached.
+  --setenv PI_OFFLINE 1
+  --setenv PATH /usr/bin
+  --setenv LANG C.UTF-8
+  --chdir /state
+)
+
+if (($#)); then
+  [ "$1" = "--" ] && shift
+  exec bwrap "${args[@]}" -- /marea-node "$@"
+fi
+exec bwrap "${args[@]}" -- /marea-node /marea/worker.mjs

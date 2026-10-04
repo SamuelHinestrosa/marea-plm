@@ -241,5 +241,13 @@ library SpanishUi {
         "AUR" = "AUR"
         "It may want an answer of yours: in a terminal you can give it" = "Puede que quiera una respuesta tuya: en una terminal se la puedes dar"
         "Open a terminal" = "Abrir una terminal"
+        // the chat
+        "Not this" = "Esto no"
+        "Allow" = "Permitir"
+        "Allowed" = "Permitido"
+        "Not allowed" = "No permitido"
+        "Ask me anything" = "Pregúntame lo que quieras"
+        "I can also use your desktop: open the browser, look something up, fill a form. I will ask before each step." = "También puedo usar tu escritorio: abrir el navegador, buscar algo, rellenar un formulario. Te preguntaré antes de cada paso."
+        "Ask Marea…" = "Pregúntale a Marea…"
     }
 }

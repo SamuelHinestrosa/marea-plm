@@ -35,7 +35,7 @@ scene Marea {
         //  Software: `checkupdates` and the AUR's helper look, `pacman` and
         //  `sudo` update and install (the password goes on sudo's input),
         //  `kitty` takes what wants an answer by hand.
-        run: "curl", "timedatectl", "node", "notify-send", "fd", "deriva-worker", "kill", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm", "checkupdates", "pacman", "yay", "paru", "sudo", "pkill", "kitty", "uname", "grep"
+        run: "curl", "timedatectl", "node", "notify-send", "fd", "deriva-worker", "kill", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm", "checkupdates", "pacman", "yay", "paru", "sudo", "pkill", "kitty", "uname", "grep", "agent/sandbox"
     }
     service clock as now { time: text = "--:--"; date: text; hour: number; minute: number }
     service audio as sound { volume: number; muted: bool; input: number; input_muted: bool }
@@ -191,7 +191,7 @@ scene Marea {
         //  the catcher. Exclusive was tried —so Esc worked without moving the
         //  mouse— and on closing the window below did not get the keyboard
         //  back.
-        keyboard: on_demand while searching or menu_open or open or tray_open or reel_open
+        keyboard: on_demand while searching or chatting or menu_open or open or tray_open or reel_open
         //  Above everything while something of hers is open —so the catcher
         //  below can take the click outside—, and in its layer the rest of the
         //  time, so a video in full screen still covers her.
@@ -451,6 +451,46 @@ scene Marea {
     prop magnifier = 0 ~320ms          // the face, turning into a magnifying glass
     prop finder = 0 ~290ms             // the panel's geometry
     prop finder_content = 0 ~200ms     // and what is read inside
+
+    // ── the chat: talking to her, and her hands on the desktop ───
+    //  Her AI (the Pi SDK, in its sandbox: `agent/`) talks here, and can use
+    //  the desktop with pleamar-wm's agent hands —a pointer and a keyboard of
+    //  her own—. It proposes; the logic asks you when it has to, and does.
+    //  The panel comes out of her like the finder: one more drop of her water.
+    fact chatting = false
+    //  Let her use the computer: no cards (Settings). Off unless chosen.
+    fact chat.free = false
+    event chat ->                      // `marea chat`, Super+Shift+A, her menu, the finder
+    text chat.input = ""
+    event chat_send ->
+    event chat_stop ->
+    event chat_new ->
+    event chat_allow ->                // (i): that card's action, yes
+    event chat_deny ->                 // (i): no
+    event chat_scroll ->
+    //  idle · starting · thinking (the model) · acting (something being done) ·
+    //  awaiting (a card waits for you) · offline (no engine: why in chat.status)
+    fact chat.state: idle | starting | thinking | acting | awaiting | offline = idle
+    text chat.model = ""
+    text chat.status = ""
+    //  The thread, as the logic paints it: 1 you, 2 her, 3 a tool she used,
+    //  4 a card that asks you, 5 a note (an error, a stop). `state`: 0 going,
+    //  1 done, 2 failed, 3 denied.
+    model chat.rows max 24 { kind: number; text: text; detail: text; state: number }
+    //  Her answer arriving: which row and how many letters it has; `reveal`
+    //  follows them, and the letters rise out of the water as it passes.
+    fact chat.live = -1
+    fact chat.letters = 0
+    prop chat.reveal = 0 ~420ms
+    follow chat.reveal = chat.letters
+    prop chat = 0 ~300ms               // the panel's geometry
+    prop chat_content = 0 ~200ms       // and what is read in it
+    prop chat.t = 0                    // what turns and ripples while she works
+    spin chat.t by if(chat.state == thinking or chat.state == acting or chat.state == starting, 1, 0.15)
+    prop chat.length = 0 ~0ms
+    prop chat.from_end = 0 ~0ms
+    prop chat.ask = 0 ~lively          // a card that waits beats
+    follow chat.ask = if(chat.state == awaiting, 1, 0)
 
     // ── software: updates, and programs to install ───────────────
     //  What the system has to update —its repositories and the AUR—, looked
@@ -1474,9 +1514,15 @@ scene Marea {
     let finder.h = finder_h * finder
     let finder.x = cx + 6 + finder.w / 2
     let finder.y = cy_actual + finder.h / 2 - 8
+    //  The chat, from the same side and the same way, a little narrower and
+    //  much taller: a conversation is read downwards.
+    let chat.w = 600 * chat
+    let chat.h = 560 * chat
+    let chat.x = cx + 6 + chat.w / 2
+    let chat.y = cy_actual + chat.h / 2 - 8
     //  How much panel there is out: the card, the tray or the finder. It is what
     //  takes her halo from light to shadow.
-    let panel = clamp(max(max(card, tray), finder) * 2, 0, 1)
+    let panel = clamp(max(max(max(card, tray), finder), chat) * 2, 0, 1)
     //  The capsule, 12 px lower than her: it measures 92 tall and, centred on
     //  her centre, it stuck out through the top edge.
     let capsule.y = cy_actual + 12
@@ -1666,6 +1712,14 @@ scene Marea {
             size: finder.w, finder.h
             corner: max(22 * finder, min(finder.w, finder.h) / 2 * (1 - finder))
             blend: 30 * 4 * finder * (1 - finder) + 24 * finder
+        }
+        //  The chat, one more box in her body too: while it unfolds the neck
+        //  between her and it is water, not a seam.
+        box chat_box {
+            at: chat.x, chat.y
+            size: chat.w, chat.h
+            corner: max(24 * chat, min(chat.w, chat.h) / 2 * (1 - chat))
+            blend: 30 * 4 * chat * (1 - chat) + 24 * chat
         }
         //  And her menu, on the same side and from the same box as the time: «in
         //  the same place where the clock note comes out and in the same box».
@@ -3164,6 +3218,156 @@ scene Marea {
         //  underneath, not her catcher.
         on carry touch { searching = false }
     }
+
+    // ── what is seen of the chat ─────────────────────────────────
+    //  A row of the thread. Yours, a bubble on the right, as wide as it says;
+    //  hers, loose on the water, the letters of the one arriving rising out of
+    //  it as they come; what she used, a small line with its mark; and a card
+    //  that asks you, in amber, beating, with its two answers.
+    component ChatRow(r: record) {
+        measure said
+        measure hers
+        measure asked
+        size: 556, if(r.kind == 1, said.height + 18, if(r.kind == 2, hers.height + 6, if(r.kind == 4, asked.height + 74, 26)))
+        prop allow.glow = 0 ~140ms
+        prop deny.glow = 0 ~140ms
+        let arriving = r.index == chat.live
+        //  1 · yours
+        group {
+            show: r.kind == 1
+            body {
+                color: #1d2b27
+                rim: 10%
+                box { from: 556 - said.width - 26, 0; size: said.width + 26, said.height + 14; corner: 14 }
+            }
+            text r.text { at: 556 - 13, 7; anchor: right top; width: 420; size: 13; color: ink; align: right; measure: said }
+        }
+        //  2 · hers: as each letter arrives it fades in and rises the last
+        //  few pixels, a ripple running along the newest ones.
+        text r.text { at: 2, 2; anchor: left top; width: 520; size: 13.5; line_height: 1.4; color: ink; measure: hers; show: r.kind == 2
+                      letter_opacity: if(arriving, clamp(chat.reveal - letter, 0, 1), 1)
+                      letter_move: 0, if(arriving, (1 - clamp(chat.reveal - letter, 0, 1)) * 7, 0) }
+        //  3 · something she used: a drop that fills while it goes, a tick, a
+        //  cross or a dash after.
+        group {
+            show: r.kind == 3
+            ellipse { at: 10, 13; radius: 5.5; stroke: 1.4; color: mix(mix(mint, #ef7a66, r.state == 2), #8b8f95, r.state == 3) }
+            arc { at: 10, 13; radius: 5.5; span: 110deg; width: 1.6; rotate: chat.t * 360deg; color: mint; show: r.state == 0 }
+            ellipse { at: 10, 13; radius: 3; color: mint; show: r.state == 1 }
+            text r.text { at: 24, 13; anchor: left center; size: 11.5; color: #b9bcc0; width: 440; lines: 1 }
+            text r.detail { at: 552, 13; anchor: right center; size: 10.5; color: #8b8f95; width: 120; lines: 1; align: right }
+        }
+        //  4 · it asks you
+        group {
+            show: r.kind == 4
+            body {
+                color: #24211a
+                rim: 8%
+                box { from: 0, 0; size: 556, asked.height + 66; corner: 14 }
+            }
+            box { from: 0, 0; size: 556, asked.height + 66; corner: 14; stroke: 1 + 1.2 * chat.ask * (r.state == 0); color: amber
+                  opacity: if(r.state == 0, 45% + 35% * (0.5 + 0.5 * sin(chat.t * 220)), 25%) }
+            text r.detail { at: 16, 16; anchor: left center; size: 9.5; weight: 700; color: amber; width: 400; lines: 1 }
+            text r.text { at: 16, 30; anchor: left top; width: 520; size: 12.5; color: ink; measure: asked }
+            group {
+                show: r.state == 0
+                box { from: 316, asked.height + 34; size: 110, 28; corner: 9; color: #2a2b2c; opacity: 80% + 20% * deny.glow }
+                text "Not this" { at: 371, asked.height + 48; anchor: center; size: 11.5; weight: 600; color: ink }
+                box { from: 432, asked.height + 34; size: 110, 28; corner: 9; color: amber; opacity: 85% + 15% * allow.glow }
+                text "Allow" { at: 487, asked.height + 48; anchor: center; size: 11.5; weight: 700; color: #0c0f12 }
+                zone box deny_zone { from: 316, asked.height + 34; size: 110, 28; corner: 9; cursor: pointer; active: chatting }
+                zone box allow_zone { from: 432, asked.height + 34; size: 110, 28; corner: 9; cursor: pointer; active: chatting }
+            }
+            text pick(r.state == 3, "Not allowed", "Allowed") { at: 540, asked.height + 48; anchor: right center; size: 11; color: #8b8f95; show: r.state != 0 }
+        }
+        //  5 · a note: what failed, what was stopped.
+        text r.text { at: 2, 13; anchor: left center; size: 11.5; color: #ef7a66; width: 540; lines: 2; show: r.kind == 5 }
+        on enter allow_zone { allow.glow: 1 }
+        on leave allow_zone { allow.glow: 0 }
+        on enter deny_zone { deny.glow: 1 }
+        on leave deny_zone { deny.glow: 0 }
+        on press allow_zone { emit chat_allow(r.index) }
+        on press deny_zone { emit chat_deny(r.index) }
+    }
+
+    group {
+    clip inset 2 box { at: chat.x, chat.y; size: chat.w, chat.h; corner: 24 * chat }
+    group {
+        opacity: chat_content
+        move: 0, (1 - chat_content) * 10
+        let kx0 = chat.x - 278
+        let ky0 = chat.y - chat.h / 2
+        //  The head: who she is, and with what.
+        text "MAREA" { at: kx0, ky0 + 24; anchor: left center; size: 9; weight: 600; color: mint; opacity: 80% }
+        text chat.model { at: kx0 + 48, ky0 + 24; anchor: left center; size: 9.5; color: #8b8f95; width: 300; lines: 1 }
+        prop new.glow = 0 ~140ms
+        group {
+            opacity: 55% + 45% * new.glow
+            line { from: kx0 + 512, ky0 + 24; to: kx0 + 524, ky0 + 24; width: 1.6; color: ink }
+            line { from: kx0 + 518, ky0 + 18; to: kx0 + 518, ky0 + 30; width: 1.6; color: ink }
+        }
+        zone box new_chat { at: kx0 + 518, ky0 + 24; size: 28, 28; corner: 14; cursor: pointer; active: chatting }
+        box { at: kx0 + 548, ky0 + 24; size: 36, 22; corner: 7; color: #202021 }
+        text "Esc" { at: kx0 + 548, ky0 + 24; anchor: center; size: 10.5; color: #8b8f95 }
+        line { from: kx0, ky0 + 44; to: kx0 + 556, ky0 + 44; width: 1; color: ink; opacity: 8% }
+        //  The thread. It scrolls with the wheel and by dragging, and follows
+        //  what arrives while you are at the bottom of it.
+        column chat_list ~quick {
+            at: kx0, ky0 + 56
+            view: 556, 404
+            gap: 12
+            for r in chat.rows { ChatRow(r) }
+        }
+        //  (Its length, in a property a rule can read: a layout's own names
+        //  are only known by the drawing of its group.)
+        follow chat.length = chat_list.content
+        follow chat.from_end = chat_list.content - chat_list.scroll
+        on change chat.letters + chat.rows.count while chat.from_end < 520 { chat_list.scroll: max(0, chat.length - 404) }
+        //  Nothing said yet: a few words of hers and what she can do.
+        group {
+            show: chat.rows.count < 1
+            text "Ask me anything" { at: chat.x, ky0 + 200; anchor: center; size: 20; weight: 500; color: ink; opacity: 85% }
+            text "I can also use your desktop: open the browser, look something up, fill a form. I will ask before each step." { at: chat.x, ky0 + 238; anchor: center; size: 12; color: #8b8f95; width: 420; lines: 3; align: center }
+        }
+        //  Working: the water at the foot of the thread breathes —three waves,
+        //  out of phase— and says what she is on.
+        group {
+            show: chat.state == thinking or chat.state == acting or chat.state == starting
+            repeat w in 0..3 {
+                path { at: kx0, ky0 + 468; color: mix(mint, #c9b3f2, w / 2); stroke: 1.6; opacity: 55% - 15% * w
+                       move 0, 0
+                       curve 140, 4 * sin(chat.t * 120 + w * 70) via 70, -6 * sin(chat.t * 90 + w * 60)
+                       curve 280, 0 via 210, 6 * sin(chat.t * 150 + w * 50)
+                       curve 420, -4 * sin(chat.t * 110 + w * 80) via 350, -6 * sin(chat.t * 130 + w * 40)
+                       curve 556, 0 via 490, 5 * sin(chat.t * 100 + w * 90) }
+            }
+            text chat.status { at: kx0 + 2, ky0 + 480; anchor: left center; size: 10.5; color: #8b8f95; width: 480; lines: 1 }
+        }
+        text chat.status { at: kx0 + 2, ky0 + 480; anchor: left center; size: 10.5; color: #ef7a66; width: 540; lines: 1; show: chat.state == offline }
+        //  What you write. Enter sends; while she works, Stop.
+        box { from: kx0, ky0 + 496; size: 556, 44; corner: 14; color: #141415 }
+        box { from: kx0, ky0 + 496; size: 556, 44; corner: 14; stroke: 1; color: mint; opacity: 18% }
+        input chat.input { at: kx0 + 16, ky0 + 518; width: 470; size: 14; color: ink; placeholder: "Ask Marea…"; selection: #2f5f52 }
+        prop send.glow = 0 ~140ms
+        let busy = chat.state == thinking or chat.state == acting or chat.state == awaiting or chat.state == starting
+        ellipse { at: kx0 + 532, ky0 + 518; radius: 15; color: mix(mint, #ef7a66, busy); opacity: 80% + 20% * send.glow }
+        path { at: kx0 + 526, ky0 + 511; color: #0c0f12; stroke: 2; show: not busy
+               move 6, 13; line 6, 1 }
+        path { at: kx0 + 526, ky0 + 511; color: #0c0f12; stroke: 2; show: not busy
+               move 1, 6; line 6, 1; line 11, 6 }
+        box { at: kx0 + 532, ky0 + 518; size: 10, 10; corner: 2; color: #0c0f12; show: busy }
+        zone ellipse send_btn { at: kx0 + 532, ky0 + 518; radius: 16; cursor: pointer; active: chatting }
+        zone box chat_area { from: kx0, ky0 + 56; size: 556, 404; active: chatting }
+    }
+    }
+    on enter new_chat { new.glow: 1 }
+    on leave new_chat { new.glow: 0 }
+    on press new_chat { emit chat_new }
+    on enter send_btn { send.glow: 1 }
+    on leave send_btn { send.glow: 0 }
+    on press send_btn while chat.state == thinking or chat.state == acting or chat.state == awaiting or chat.state == starting { emit chat_stop }
+    on press send_btn while not (chat.state == thinking or chat.state == acting or chat.state == awaiting or chat.state == starting) { emit chat_send }
+    on submit chat.input { emit chat_send }
 
     // ── the shots ────────────────────────────────────────────────
     //  Where each one lands, on her surface: around her and below, never on her.
@@ -5531,12 +5735,12 @@ scene Marea {
     //  brought out from there, was cut against the edge. Now she goes back when
     //  nothing is left out and it stays like that for 200 ms: if something else
     //  comes out in that time, she does not go back.
-    let anything_out = open or searching or tray_open
-    on change open while open { tray_open = false; searching = false }
+    let anything_out = open or searching or tray_open or chatting
+    on change open while open { tray_open = false; searching = false; chatting = false }
     //  Whatever opened the card —a press, the finder, a shortcut—, she wakes
     //  up for it: a card beside a sleeping ball was a page nobody was showing.
     on change open while open and asleep { asleep = false }
-    on change tray_open while tray_open { open = false; searching = false; menu_open = false }
+    on change tray_open while tray_open { open = false; searching = false; menu_open = false; chatting = false }
     on still anything_out for 200ms while not anything_out { offset: 0 ~homing }
 
     //  And neither the gulp nor the splash go by the clock: they go by what is
@@ -5548,6 +5752,31 @@ scene Marea {
         impulse bounce -70
     }
 
+    // ── opening and closing the chat ─────────────────────────────
+    //  As the finder: she moves aside and the panel comes out of her. Closing
+    //  it does not stop her: what she was doing goes on, and the thread is
+    //  there when it opens again.
+    on chat { chatting = true }
+    on change chatting while chatting {
+        open = false
+        menu_open = false
+        tray_open = false
+        searching = false
+        asleep = false
+        needed = true
+        wanted = true
+        offset: 1 ~300ms
+        chat: 1 ~300ms
+        chat_content: 1 ~200ms after 100ms
+        focus chat.input
+    }
+    on change chatting while not chatting {
+        chat_content: 0 ~50ms
+        chat: 0 ~220ms after 30ms
+        blur
+    }
+    on key Escape while chatting { chatting = false }
+
     // ── opening and closing the finder ───────────────────────────
     //  «She moves aside» and **turns into a magnifying glass**: both things at
     //  once, because it is the same movement. And on closing, the usual order
@@ -5555,6 +5784,7 @@ scene Marea {
     //  with her spring.
     on search { searching = true }
     on change searching while searching {
+        chatting = false
         open = false
         menu_open = false
         tray_open = false
@@ -6102,7 +6332,7 @@ scene Marea {
         anchor: top_left
         level: top
         screens: each max 2
-        open: open or tray_open or menu_open or reel_open or searching
+        open: open or tray_open or menu_open or reel_open or searching or chatting
         //  And the zone says it again: a full-screen zone that stays on by
         //  mistake is the whole desktop taken. It happened.
         zone box outside { from: 0, 0; size: catcher.width, catcher.height; active: open or tray_open or menu_open or reel_open }
@@ -6114,14 +6344,15 @@ scene Marea {
         //  the top: `ox` is where it starts on this one.)
         let ox = (catcher.width - 820) / 2
         let hole.x0 = ox + cx - r - 12
-        let hole.x1 = ox + finder.x + finder.w / 2 + 8
-        let hole.y1 = finder.y + finder.h / 2 + 8
-        zone box outside_left { from: 0, 0; size: hole.x0, catcher.height; active: searching }
-        zone box outside_right { from: hole.x1, 0; size: catcher.width - hole.x1, catcher.height; active: searching }
-        zone box outside_below { from: hole.x0, hole.y1; size: hole.x1 - hole.x0, catcher.height - hole.y1; active: searching }
-        on press outside_left { searching = false }
-        on press outside_right { searching = false }
-        on press outside_below { searching = false }
+        //  (The chat the same: whichever of the two is out.)
+        let hole.x1 = ox + max(finder.x + finder.w / 2, chat.x + chat.w / 2) + 8
+        let hole.y1 = max(finder.y + finder.h / 2, chat.y + chat.h / 2) + 8
+        zone box outside_left { from: 0, 0; size: hole.x0, catcher.height; active: searching or chatting }
+        zone box outside_right { from: hole.x1, 0; size: catcher.width - hole.x1, catcher.height; active: searching or chatting }
+        zone box outside_below { from: hole.x0, hole.y1; size: hole.x1 - hole.x0, catcher.height - hole.y1; active: searching or chatting }
+        on press outside_left { searching = false; chatting = false }
+        on press outside_right { searching = false; chatting = false }
+        on press outside_below { searching = false; chatting = false }
     }
 
     // ── the tide, under the windows ──────────────────────────────
