@@ -68,6 +68,8 @@ args=(
   --ro-bind-try /etc/ssl /etc/ssl
   --ro-bind-try /etc/ca-certificates /etc/ca-certificates
   --ro-bind-try /etc/pki /etc/pki
+  #  On NixOS, Node and its libraries are in the store (read-only).
+  --ro-bind-try /nix/store /nix/store
   --setenv HOME /state
   --setenv XDG_STATE_HOME /state
   --setenv XDG_CONFIG_HOME /state/config

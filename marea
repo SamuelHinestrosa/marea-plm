@@ -7,7 +7,7 @@
 #   marea status                       whether she is running, and what she says of herself
 #   marea report [--seconds N]         measures her (and the desktop's scenes) while you use
 #                                      it, and writes a report to send when something stutters
-#   marea <event>                      tells her something: search, lock,
+#   marea <event>                      tells her something: search, chat, lock,
 #                                      shot_region, shot_screen,
 #                                      shot_window, record_toggle, celebrate,
 #                                      rage, adventure, volume_up, volume_down,
@@ -37,6 +37,20 @@ build_deriva() {
     (cd "$HERE/deriva" && nice -n 10 cargo build --release --locked > "$STATE_DIR/deriva-build.log" 2>&1) &
 }
 
+# Her chat's engine (agent/: the Pi SDK, run in its sandbox) needs its
+# packages, fetched the first time and again when the lock changes, if there
+# is npm. Without them she starts as ever; only the chat says it is missing.
+# --ignore-scripts: no package runs anything while it is installed.
+prepare_agent() {
+    [ -f "$HERE/agent/package-lock.json" ] && [ -w "$HERE/agent" ] || return 0
+    command -v npm > /dev/null 2>&1 || return 0
+    stamp="$HERE/agent/node_modules/.package-lock.json"
+    if [ -f "$stamp" ] && [ ! "$HERE/agent/package-lock.json" -nt "$stamp" ]; then
+        return 0
+    fi
+    (cd "$HERE/agent" && nice -n 10 npm ci --ignore-scripts --no-audit --no-fund > "$STATE_DIR/agent-install.log" 2>&1) &
+}
+
 case "${1:-}" in
     start)
         shift
@@ -46,6 +60,7 @@ case "${1:-}" in
         # grow forever, but yesterday's can still be looked at.
         [ -f "$STATE_DIR/marea.log" ] && mv -f "$STATE_DIR/marea.log" "$STATE_DIR/marea.log.1"
         build_deriva
+        prepare_agent
         exec "$PLEAMAR" --scene marea.plm --no-hud "$@" > "$STATE_DIR/marea.log" 2>&1
         ;;
     stop)

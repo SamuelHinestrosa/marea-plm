@@ -5,10 +5,12 @@
 //    {"type":"start","model":"provider/id","locale":"es","history":[{"role":"user"|"assistant","text":"…"}]}
 //    {"type":"prompt","text":"…","images":[{"path":"/state/…png"}]}
 //    {"type":"result","id":"…","ok":true,"text":"…","denied":false,"image":{"path":"/state/…png"}}
+//    {"type":"login","provider":"openai-codex"}   {"type":"login_cancel"}
 //    {"type":"cancel"}   {"type":"shutdown"}
 //  Out, one a line on stdout (logs go to stderr, never here):
-//    ready {usable, model, reason}   delta {text}   propose {id, tool, args}
+//    ready {usable, model, reason, models}   delta {text}   propose {id, tool, args}
 //    tool_start {id, tool}   tool_end {id, ok}   done   cancelled   failed {reason}
+//    login_url {url}   login_done {ok, reason}
 //
 //  The rule this file keeps: the model PROPOSES. A tool call becomes a
 //  `propose` and waits for Marea's `result`; whether it happened is what
@@ -43,7 +45,7 @@ You talk, and you can use the user's desktop with tools: a pointer and a keyboar
 
 Using the desktop, always the same loop: desktop_windows to find the window (its pid), desktop_look to see it, then act with the coordinates of that picture, then look again after anything that changes the page —pages move, a banner or a dialog appears—. A click on the wrong thing is worse than one more look. Prefer the keyboard where there is a shortcut: in a browser desktop_hotkey ctrl+l, desktop_type the address, desktop_key enter. Click a field before typing in it. Typing is ASCII only: no accents, ñ or emoji; write around it or say what the user will finish by hand.
 
-You act as the user, in their accounts. Before anything that publishes, sends, buys, deletes, follows, likes, accepts terms or changes a setting, stop and ask them in the chat, even if it seems part of the task. Drafts, searches, reading and saving for later are fine. Never type a password or a payment detail; if a page asks for a login or a captcha, stop and say so. If an action comes back denied, accept it and look for another way; if there is none, say what is missing.
+You act as the user, in their accounts. Before anything that publishes, sends, buys, deletes, follows, likes, accepts terms or changes a setting, stop and ask them in the chat, even if it seems part of the task; and when they say yes, mark that very step final: true. Drafts, searches, reading and saving for later are fine. Never type a password or a payment detail; if a page asks for a login or a captcha, stop and say so. If an action comes back denied, accept it and look for another way; if there is none, say what is missing.
 
 Answer in the user's language ({LOCALE}). Short sentences, no long lists or headings unless asked. When you finish a task on the desktop, say what you did and what you left for them.`;
 
@@ -104,6 +106,9 @@ function restored(history, model) {
 
 let session = null;
 let usable = false;
+let runtime = null;
+let started = null;        // the last start message, to start again after a sign-in
+let login = null;          // the AbortController of a sign-in going on
 let busy = null;            // the AbortController of the turn going on
 let budget = { actions: 0, looks: 0 };
 const waiting = new Map();  // proposal id → resolve(result)
@@ -150,7 +155,8 @@ async function start(m) {
     const agentDir = join(STATE, "pi");
     const cwd = join(agentDir, "work");
     mkdirSync(cwd, { recursive: true, mode: 0o700 });
-    const runtime = await ModelRuntime.create({
+    started = m;
+    runtime = await ModelRuntime.create({
         authPath: join(agentDir, "auth.json"),
         modelsPath: join(agentDir, "models.json"),
         modelsStorePath: join(agentDir, "models-store.json"),
@@ -177,13 +183,72 @@ async function start(m) {
         settingsManager: SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: false } }),
     });
     session = created.session;
-    const ok = session.model && session.model.provider !== "unknown" && session.model.id !== "unknown";
+    //  Usable: a model, and a sign-in that reaches it.
+    let available = [];
+    try {
+        available = await runtime.getAvailable();
+    } catch (e) {
+        log("worker · models:", String(e?.message || e));
+    }
+    const ok = session.model && session.model.provider !== "unknown" && session.model.id !== "unknown"
+        && available.some((x) => x.provider === session.model.provider && x.id === session.model.id);
     usable = !!ok;
     if (Array.isArray(m.history) && m.history.length > 0) session.agent.state.messages = restored(m.history, session.model);
     const active = session.getActiveToolNames?.() ?? [];
     const extra = active.filter((n) => !toolNamed(n));
     if (extra.length > 0) throw new Error("unexpected_tools:" + extra.join(","));
-    send({ type: "ready", usable, model: ok ? `${session.model.provider}/${session.model.id}` : null, reason: ok ? null : (model ? "model_unavailable" : "no_model") });
+    //  The models that can be used with this sign-in and can see a picture:
+    //  without that, she cannot look at a window.
+    const models = available.filter((x) => x.input?.includes("image")).map((x) => `${x.provider}/${x.id}`);
+    send({ type: "ready", usable, model: ok ? `${session.model.provider}/${session.model.id}` : null, reason: ok ? null : (available.length === 0 ? "signed_out" : "model_unavailable"), models });
+}
+
+//  Signing in (OpenAI's ChatGPT account, as the Marea before did): Pi opens
+//  a little server on 127.0.0.1:1455 inside here —the sandbox shares the
+//  network, so the browser's redirect reaches it— and hands out the page to
+//  open, which Marea opens in the browser. Nothing is typed here.
+async function signIn(m) {
+    if (login) return;
+    const provider = typeof m.provider === "string" ? m.provider : "openai-codex";
+    login = new AbortController();
+    const signal = login.signal;
+    try {
+        if (!runtime) {
+            const agentDir = join(STATE, "pi");
+            mkdirSync(agentDir, { recursive: true, mode: 0o700 });
+            runtime = await ModelRuntime.create({
+                authPath: join(agentDir, "auth.json"),
+                modelsPath: join(agentDir, "models.json"),
+                modelsStorePath: join(agentDir, "models-store.json"),
+                allowModelNetwork: false,
+                refreshOnCreate: false,
+            });
+        }
+        await runtime.login(provider, "oauth", {
+            signal,
+            //  Asked which way: the browser. Asked to paste the code by hand:
+            //  never answered (the browser brings it), only let go.
+            prompt: (p) => p.type === "select"
+                ? Promise.resolve(p.options?.find((o) => /browser/i.test(o.id + " " + o.label))?.id ?? p.options?.[0]?.id ?? "")
+                : new Promise((_, fail) => {
+                    const stop = () => fail(new Error("cancelled"));
+                    if (p.signal?.aborted || signal.aborted) return stop();
+                    p.signal?.addEventListener("abort", stop, { once: true });
+                    signal.addEventListener("abort", stop, { once: true });
+                }),
+            notify: (e) => {
+                if (e.type === "auth_url" && typeof e.url === "string") send({ type: "login_url", url: e.url });
+                else if (e.type === "device_code") send({ type: "login_url", url: e.verificationUri, code: e.userCode });
+            },
+        });
+        send({ type: "login_done", ok: true });
+        session = null;
+        if (started) await start(started);
+    } catch (e) {
+        send({ type: "login_done", ok: false, reason: signal.aborted ? "cancelled" : String(e?.message || e).slice(0, 300) });
+    } finally {
+        login = null;
+    }
 }
 
 async function prompt(m) {
@@ -245,6 +310,12 @@ input.on("line", (line) => {
             done({ ok: m.ok === true, denied: m.denied === true, text: typeof m.text === "string" ? m.text.slice(0, 32 * 1024) : "", image: m.image });
             break;
         }
+        case "login":
+            signIn(m);
+            break;
+        case "login_cancel":
+            login?.abort();
+            break;
         case "cancel":
             busy?.abort();
             for (const [id, done] of waiting) {

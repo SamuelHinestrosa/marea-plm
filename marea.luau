@@ -2017,6 +2017,7 @@ local function save_settings()
     settings.dnd = fact.dnd == true
     settings.quiet_rec = fact.quiet_rec ~= false
     settings.snooze = math.floor(fact.snooze_k or 1)
+    settings.chat_free = fact["chat.free"] == true
     --  What she has on: it stays on through a restart.
     settings.wears = {}
     for _, piece in ipairs(PIECES) do settings.wears[piece] = fact["wears." .. piece] == true end
@@ -3254,7 +3255,19 @@ local function chat()
     local base = sys.ask("env", "XDG_STATE_HOME")
     if base == nil or base == "" then base = home_dir .. "/.local/state" end
     local STATE = base .. "/marea-plm/agent"
-    local MODEL = "openai-codex/gpt-5.6-luna"
+    local DEFAULT_MODEL = "openai-codex/gpt-5.6-luna"
+    local function chosen() return type(settings.chat_model) == "string" and settings.chat_model or DEFAULT_MODEL end
+    local PROVIDERS = { ["openai-codex"] = "ChatGPT" }
+    local models = {}
+    fact["chat.free"] = settings.chat_free == true
+    on("fact:chat.free", function() save_settings() end)
+    local function show_models()
+        local out = {}
+        for k, name in ipairs(models) do
+            out[k] = { name = name:gsub("^[^/]+/", ""), on = name == chosen() and 1 or 0 }
+        end
+        model["chat.models"] = out
+    end
     local ROWS = 24
     local rows = {}          -- the whole thread: { kind, text, detail, state, id }
     local history = {}       -- what is handed back to a fresh worker: { role, text }
@@ -3266,7 +3279,8 @@ local function chat()
     local programs = {}      -- pid -> program, from the last list of windows
     local looks = 0
     local idle_timer = nil
-    local scroll = 0         -- rows hidden at the top (0: the newest at the bottom)
+    local stopped_by_pill = false
+    local usable = false
 
     local function letters(s)
         local ok, n = pcall(utf8.len, s)
@@ -3297,6 +3311,8 @@ local function chat()
     local function add(kind, text, detail, state)
         rows[#rows + 1] = { kind = kind, text = text or "", detail = detail or "", state = state or 0 }
         paint()
+        --  It falls into the thread (after it is painted).
+        after(20, function() emit("chat_landed") end)
         return #rows
     end
     local function status(words)
@@ -3391,8 +3407,11 @@ local function chat()
         end
         if tool == "desktop_look" then
             looks += 1
+            fact["chat.looking"] = true
             local name = "look-" .. (looks % 3) .. ".png"
             run("pleamar-wm", { "agent", "look", tostring(math.floor(tonumber(args.pid) or 0)), STATE .. "/" .. name }, function(out, code)
+                --  The glass stays on her face a moment: the look is seen.
+                after(600, function() fact["chat.looking"] = false end)
                 if code == 0 then
                     local w, h = tostring(out):match("(%d+)x(%d+)")
                     finish_row(row, true)
@@ -3411,6 +3430,15 @@ local function chat()
             return
         end
         run("pleamar-wm", argv, function(out, code)
+            --  Stopped from the monitor's pill: the whole turn ends, not
+            --  only this step.
+            if code ~= 0 and tostring(out):find("stopped the agent", 1, true) then
+                finish_row(row, false)
+                answer(id, false, "The user stopped you from the monitor. Stop now.")
+                stopped_by_pill = true
+                send({ type = "cancel" })
+                return
+            end
             if tool == "desktop_windows" and code == 0 then
                 programs = {}
                 for pid, app in tostring(out):gmatch("(%d+)%s+(%S+)") do programs[tonumber(pid)] = app end
@@ -3430,7 +3458,7 @@ local function chat()
         --  of Node): the next message starts it again with the thread.
         idle_timer = after(3 * 60 * 1000, function()
             idle_timer = nil
-            if worker and fact["chat.state"] == "idle" then
+            if worker and (fact["chat.state"] == "idle" or fact["chat.state"] == "offline") and fact["chat.signing"] ~= true then
                 write(worker, json.encode({ type = "shutdown" }) .. "\n")
             end
         end)
@@ -3448,13 +3476,33 @@ local function chat()
         local kind = m.type
         if kind == "ready" then
             ready = true
+            usable = m.usable == true
             text["chat.model"] = m.model or ""
-            if not m.usable then
+            models = type(m.models) == "table" and m.models or {}
+            show_models()
+            fact["chat.signed_in"] = m.reason ~= "signed_out"
+            local provider = tostring(m.model or chosen()):match("^([^/]+)/") or ""
+            text["chat.account"] = string.format(tr("Signed in with %s"), PROVIDERS[provider] or provider)
+            if m.usable then
+                if fact["chat.state"] == "offline" or fact["chat.state"] == "starting" then
+                    fact["chat.state"] = "idle"
+                    status("")
+                end
+            else
                 fact["chat.state"] = "offline"
-                status(tr("No model to talk with yet: her sign-in is missing"))
+                --  Signed out, the panel itself says so and offers the way in.
+                status(m.reason == "signed_out" and "" or tr("That model cannot be used with her account: choose another in Settings"))
             end
             for _, line in ipairs(queue) do write(worker, line) end
             queue = {}
+        elseif kind == "login_url" then
+            fact["chat.signing"] = true
+            run("xdg-open", { tostring(m.url) }, function() end)
+        elseif kind == "login_done" then
+            fact["chat.signing"] = false
+            if not m.ok and m.reason ~= "cancelled" then
+                status(tr("The sign-in did not finish: ") .. tostring(m.reason or "?"))
+            end
         elseif kind == "delta" then
             if live == nil then
                 live = add(2, "")
@@ -3467,7 +3515,9 @@ local function chat()
             live = nil
             local tool, args = tostring(m.tool), (type(m.args) == "table" and m.args or {})
             local looks_only = tool == "desktop_windows" or tool == "desktop_look"
-            if looks_only or fact["chat.free"] == true then
+            --  Free hands: no card, except for a step that is the final one
+            --  (it sends, buys, deletes…): that one is always asked.
+            if looks_only or (fact["chat.free"] == true and args.final ~= true) then
                 local row = add(3, said(tool, args), looks_only and "" or tostring(args.why or ""), 0)
                 perform(m.id, tool, args, row)
             else
@@ -3487,11 +3537,16 @@ local function chat()
             if live then history[#history + 1] = { role = "assistant", text = rows[live].text } end
             settle("idle")
         elseif kind == "cancelled" then
-            add(5, tr("Stopped."))
+            add(5, stopped_by_pill and tr("You stopped her from the monitor.") or tr("Stopped."))
+            stopped_by_pill = false
             settle("idle")
         elseif kind == "failed" then
-            add(5, tr("Something went wrong: ") .. tostring(m.reason or "?"))
-            settle(ready and "idle" or "offline")
+            if m.reason == "no_model" or m.reason == "not_started" then
+                add(5, tr("She could not hear it: she is not signed in (Settings › Talking with her)."))
+            else
+                add(5, tr("Something went wrong: ") .. tostring(m.reason or "?"))
+            end
+            settle(usable and "idle" or "offline")
         end
     end
     local function start_worker()
@@ -3500,9 +3555,13 @@ local function chat()
         fact["chat.state"] = "starting"
         status(tr("Waking up…"))
         local partial = ""
+        local said_why = nil
         local ok, id = pcall(spawn, "agent/sandbox", {}, function(line)
             if line:sub(1, 1) ~= "{" then
                 log("chat · " .. line)
+                --  The sandbox's own words when something it needs is not
+                --  there (bubblewrap, node, her packages): those are shown.
+                if line:sub(1, 7) == "marea: " then said_why = line:sub(8) end
                 return
             end
             local good, m = pcall(json.decode, line)
@@ -3511,6 +3570,13 @@ local function chat()
             log("chat · the worker ended", code)
             worker = nil
             ready = false
+            if said_why then
+                fact["chat.state"] = "offline"
+                status(tr("Her engine cannot start: ") .. said_why)
+                if #rows > 0 and rows[#rows].kind == 1 then add(5, tr("Her engine cannot start: ") .. said_why) end
+                queue = {}
+                return
+            end
             if fact["chat.state"] ~= "idle" and fact["chat.state"] ~= "offline" then
                 add(5, tr("Her engine stopped."))
                 settle("idle")
@@ -3524,7 +3590,7 @@ local function chat()
         worker = id
         local recent = {}
         for k = math.max(1, #history - 40), #history do recent[#recent + 1] = history[k] end
-        local line = json.encode({ type = "start", model = MODEL, locale = fact.locale, history = recent }) .. "\n"
+        local line = json.encode({ type = "start", model = chosen(), locale = fact.locale, history = recent }) .. "\n"
         write(worker, line)
     end
 
@@ -3583,6 +3649,33 @@ local function chat()
         save()
     end)
     on("chat", function() paint() end)
+    --  Opening the chat wakes her engine: whether she is signed in is known
+    --  before the first word, and the first answer comes sooner.
+    on("fact:chatting", function(v)
+        if v == true and not worker then start_worker(); rest_later() end
+    end)
+    --  Settings › Talking with her: her engine wakes to say how she is.
+    on("fact:section", function(v)
+        if v == "talk" and not worker then start_worker(); rest_later() end
+    end)
+    on("chat_login", function()
+        start_worker()
+        send({ type = "login", provider = (chosen():match("^([^/]+)/") or "openai-codex") })
+    end)
+    on("chat_login_cancel", function()
+        if worker then write(worker, json.encode({ type = "login_cancel" }) .. "\n") end
+        fact["chat.signing"] = false
+    end)
+    on("chat_pick", function(i)
+        local name = models[(tonumber(i) or -1) + 1]
+        if not name or name == chosen() then return end
+        settings.chat_model = name
+        save_settings()
+        text["chat.model"] = name
+        show_models()
+        --  The next word starts her with it (the thread goes along).
+        if worker and fact["chat.state"] == "idle" then write(worker, json.encode({ type = "shutdown" }) .. "\n") end
+    end)
     paint()
     hooks.chat = function() fact.chatting = true; paint() end
 end
