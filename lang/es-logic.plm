@@ -167,6 +167,8 @@ library SpanishLogic {
         "Scroll in %s" = "Desplazar en %s"
         "Drag in %s" = "Arrastrar en %s"
         "Bring %s forward" = "Traer %s delante"
+        "Move %s to another monitor" = "Llevar %s a otro monitor"
+        "a dialog" = "un diálogo"
         "Open %s" = "Abrir %s"
         "No model to talk with yet: her sign-in is missing" = "Aún no tiene con qué hablar: falta su inicio de sesión"
         "Thinking…" = "Pensando…"

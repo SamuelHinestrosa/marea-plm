@@ -3255,6 +3255,9 @@ local function chat()
     local base = sys.ask("env", "XDG_STATE_HOME")
     if base == nil or base == "" then base = home_dir .. "/.local/state" end
     local STATE = base .. "/marea-plm/agent"
+    --  How her hands are run: what they say went wrong comes back too, and
+    --  the cursor on the desktop is labelled hers.
+    local HANDS = { errors = true, env = { PLEAMAR_AGENT_NAME = "Marea" } }
     local DEFAULT_MODEL = "openai-codex/gpt-5.6-luna"
     local function chosen() return type(settings.chat_model) == "string" and settings.chat_model or DEFAULT_MODEL end
     local PROVIDERS = { ["openai-codex"] = "ChatGPT" }
@@ -3355,17 +3358,25 @@ local function chat()
         desktop_scroll = "Scroll in %s",
         desktop_drag = "Drag in %s",
         desktop_focus = "Bring %s forward",
+        desktop_to_monitor = "Move %s to another monitor",
         open_app = "Open %s",
     }
+    --  A window as desktop_windows names it: «4521», or «4521.3» for one of
+    --  a program's several. Anything else is no window.
+    local function window_name(v)
+        local name = tostring(v or "")
+        if name:match("^%d+$") or name:match("^%d+%.%d+$") then return name end
+        return "0"
+    end
     local function program(args)
         if args.name then return tostring(args.name) end
-        return programs[tonumber(args.pid) or -1] or ("the window " .. tostring(args.pid or "?"))
+        return programs[window_name(args.pid)] or ("the window " .. tostring(args.pid or "?"))
     end
     local function said(tool, args)
         return string.format(tr(WORDS[tool] or tool), program(args))
     end
     local function agent_args(tool, a)
-        local pid = tostring(math.floor(tonumber(a.pid) or 0))
+        local pid = window_name(a.pid)
         local n = function(v) return tostring(tonumber(v) or 0) end
         if tool == "desktop_windows" then return { "agent", "windows" } end
         if tool == "desktop_click" then return { "agent", "click", pid, n(a.x), n(a.y), tostring(a.button or "left"), tostring(math.floor(tonumber(a.count) or 1)) } end
@@ -3375,8 +3386,49 @@ local function chat()
         if tool == "desktop_scroll" then return { "agent", "scroll", pid, n(a.x), n(a.y), tostring(a.direction or "down"), tostring(math.floor(tonumber(a.steps) or 3)) } end
         if tool == "desktop_drag" then return { "agent", "drag", pid, n(a.x1), n(a.y1), n(a.x2), n(a.y2) } end
         if tool == "desktop_focus" then return { "agent", "focus", pid } end
+        if tool == "desktop_to_monitor" then return { "agent", "send", pid, tostring(math.floor(tonumber(a.monitor) or 0)) } end
         return nil
     end
+    --  A program by what the model calls it: its name, its .desktop id, its
+    --  command or its class; or what it is («a file manager», «archivos»),
+    --  by the usual ones of that kind that are installed.
+    local KINDS = {
+        { words = { "file", "files", "archivos", "explorador", "explorer", "file manager", "gestor de archivos", "carpetas", "folders" }, apps = { "dolphin", "nautilus", "thunar", "nemo", "pcmanfm", "caja" } },
+        { words = { "terminal", "consola", "console", "shell" }, apps = { "kitty", "alacritty", "foot", "konsole", "gnome-terminal", "wezterm", "ghostty" } },
+        { words = { "browser", "navegador", "web", "internet" }, apps = { "zen", "firefox", "chromium", "brave", "chrome", "vivaldi", "librewolf" } },
+        { words = { "text editor", "editor", "editor de texto", "notepad", "bloc de notas" }, apps = { "gnome-text-editor", "kate", "gedit", "mousepad", "code", "zed" } },
+        { words = { "calculator", "calculadora" }, apps = { "calculator", "calculadora", "kcalc", "qalculate" } },
+        { words = { "settings", "ajustes", "configuración", "configuracion" }, apps = { "settings", "systemsettings", "ajustes" } },
+    }
+    local function app_matches(a, want)
+        for _, field in ipairs({ a.name, a.id, a.exec, a.wmclass }) do
+            if type(field) == "string" and field:lower():find(want, 1, true) then return true end
+        end
+        return false
+    end
+    local function find_app(name)
+        local want = name:lower():gsub("^%s+", ""):gsub("%s+$", "")
+        if want == "" then return nil end
+        for _, a in ipairs(apps) do
+            if a.name:lower() == want then return a end
+        end
+        for _, a in ipairs(apps) do
+            if app_matches(a, want) then return a end
+        end
+        for _, kind in ipairs(KINDS) do
+            for _, w in ipairs(kind.words) do
+                if want == w or want:find(w, 1, true) then
+                    for _, candidate in ipairs(kind.apps) do
+                        for _, a in ipairs(apps) do
+                            if app_matches(a, candidate) then return a end
+                        end
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
     local function finish_row(row, ok, denied)
         if row and rows[row] then
             rows[row].state = denied and 3 or (ok and 1 or 2)
@@ -3392,24 +3444,24 @@ local function chat()
         fact["chat.state"] = "acting"
         status(said(tool, args))
         if tool == "open_app" then
-            local want = tostring(args.name or ""):lower()
-            for _, a in ipairs(apps) do
-                if want ~= "" and a.name:lower():find(want, 1, true) then
-                    pcall(sys.call, "apps.launch", a.exec)
-                    finish_row(row, true)
-                    answer(id, true, "Opened " .. a.name .. ". It may take a moment to show: look at the windows.")
-                    return
-                end
+            local found = find_app(tostring(args.name or ""))
+            if found then
+                pcall(sys.call, "apps.launch", found.exec)
+                finish_row(row, true)
+                answer(id, true, "Opened " .. found.name .. ". Its window may take a moment to show, on the monitor where the user is: desktop_windows to find it.")
+                return
             end
+            local names = {}
+            for _, a in ipairs(apps) do names[#names + 1] = a.name end
             finish_row(row, false)
-            answer(id, false, "No installed program is called like that.")
+            answer(id, false, "No installed program matches that. These are the ones there are: " .. table.concat(names, ", "))
             return
         end
         if tool == "desktop_look" then
             looks += 1
             fact["chat.looking"] = true
             local name = "look-" .. (looks % 3) .. ".png"
-            run("pleamar-wm", { "agent", "look", tostring(math.floor(tonumber(args.pid) or 0)), STATE .. "/" .. name }, function(out, code)
+            run("pleamar-wm", { "agent", "look", window_name(args.pid), STATE .. "/" .. name }, function(out, code)
                 --  The glass stays on her face a moment: the look is seen.
                 after(600, function() fact["chat.looking"] = false end)
                 if code == 0 then
@@ -3420,13 +3472,37 @@ local function chat()
                     finish_row(row, false)
                     answer(id, false, tostring(out))
                 end
-            end, { errors = true })
+            end, HANDS)
             return
         end
         local argv = agent_args(tool, args)
         if not argv then
             finish_row(row, false)
             answer(id, false, "Marea does not know that tool.")
+            return
+        end
+        if tool == "desktop_windows" then
+            run("pleamar-wm", argv, function(out, code)
+                if code ~= 0 then
+                    finish_row(row, false)
+                    answer(id, false, tostring(out))
+                    return
+                end
+                programs = {}
+                for line in tostring(out):gmatch("[^\n]+") do
+                    local pid, app = line:match("^%s*([%d%.]+)%s+(%S+)%s+«")
+                    if pid then
+                        --  A dialog is called by what it is, not by the
+                        --  program that draws it (a portal's).
+                        if line:find("dialog of", 1, true) then app = tr("a dialog") end
+                        programs[pid] = app
+                    end
+                end
+                run("pleamar-wm", { "agent", "monitors" }, function(screens)
+                    finish_row(row, true)
+                    answer(id, true, tostring(out) .. "\n\nMonitors:\n" .. tostring(screens))
+                end, HANDS)
+            end, HANDS)
             return
         end
         run("pleamar-wm", argv, function(out, code)
@@ -3439,13 +3515,9 @@ local function chat()
                 send({ type = "cancel" })
                 return
             end
-            if tool == "desktop_windows" and code == 0 then
-                programs = {}
-                for pid, app in tostring(out):gmatch("(%d+)%s+(%S+)") do programs[tonumber(pid)] = app end
-            end
             finish_row(row, code == 0)
             answer(id, code == 0, code == 0 and (out ~= "" and tostring(out) or "Done.") or tostring(out))
-        end, { errors = true })
+        end, HANDS)
     end
 
     -- ── the worker ──
@@ -3468,7 +3540,7 @@ local function chat()
         status("")
         live = nil
         paint()
-        run("pleamar-wm", { "agent", "done" }, function() end)
+        run("pleamar-wm", { "agent", "done" }, function() end, HANDS)
         save()
         rest_later()
     end
@@ -3638,7 +3710,7 @@ local function chat()
         end
         send({ type = "cancel" })
         status(tr("Stopping…"))
-        run("pleamar-wm", { "agent", "done" }, function() end)
+        run("pleamar-wm", { "agent", "done" }, function() end, HANDS)
     end)
     on("chat_new", function()
         if worker then write(worker, json.encode({ type = "shutdown" }) .. "\n") end

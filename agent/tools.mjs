@@ -9,7 +9,9 @@
 
 import { Type } from "typebox";
 
-const pid = Type.Integer({ description: "The window's process number, from desktop_windows" });
+//  A window, as desktop_windows names it: its process (4521), or one of a
+//  program's several windows (4521.3).
+const pid = Type.Union([Type.Integer(), Type.String({ pattern: "^[0-9]+(\\.[0-9]+)?$" })], { description: "The window, as desktop_windows names it: 4521, or 4521.3 for one of a program's several windows" });
 const why = Type.String({ description: "What this is for, in a few words, in the user's language: they read it before allowing it", maxLength: 160 });
 //  When the user lets her use the computer without asking each step, the
 //  steps marked `final` still ask: that is how the line is kept.
@@ -21,13 +23,13 @@ export const TOOLS = [
     {
         name: "desktop_windows",
         looks: true,
-        description: "Lists the windows on the user's desktop: process number (pid), program, title, box, whether it is seen and whether it has the user's keyboard.",
+        description: "Lists the windows on the user's desktop —process number (pid), program, title, box, the monitor it is seen on, whether it has the user's keyboard, and «dialog of PID» for a dialog— and the monitors. A dialog (save, open, a confirmation) is a window of its own, often of another program.",
         parameters: Type.Object({}),
     },
     {
         name: "desktop_look",
         looks: true,
-        description: "A picture of one window, as it is now. Its pixels are the coordinates the other desktop tools take. Look again after anything that changes the page: what was at a point may not be there any more.",
+        description: "A picture of one window, as it is now. Its pixels are the coordinates the other desktop tools take. If the program has a dialog open (save, open, a confirmation), the picture is the dialog, and the actions on that pid go to it. Look again after anything that changes the page: what was at a point may not be there any more.",
         parameters: Type.Object({ pid }),
     },
     {
@@ -42,7 +44,7 @@ export const TOOLS = [
     },
     {
         name: "desktop_type",
-        description: "Types text into a window with your own keyboard, where its caret is (click the field first). ASCII only: no accents, ñ or emoji.",
+        description: "Types text into a window with your own keyboard, where its caret is (click the field first). Any text: accents, ñ and emoji too.",
         parameters: Type.Object({ pid, text: Type.String({ maxLength: 4000 }), why, final }),
     },
     {
@@ -76,8 +78,13 @@ export const TOOLS = [
         parameters: Type.Object({ pid, why, final }),
     },
     {
+        name: "desktop_to_monitor",
+        description: "Moves a window to another monitor (desktop_windows says where each one is, and lists the monitors by number). For when the user names one: «on the other monitor».",
+        parameters: Type.Object({ pid, monitor: Type.Integer({ minimum: 0, maximum: 7, description: "The monitor's number, from desktop_windows" }), why, final }),
+    },
+    {
         name: "open_app",
-        description: "Opens a program installed on the user's computer, by its name (Firefox, Files, Calculator…).",
+        description: "Opens a program installed on the user's computer, by its name (Firefox, Dolphin, Calculator…) or what it is (a file manager, a terminal, a browser). If none matches, it answers with the programs there are. Its window opens on the monitor where the user is: desktop_windows to find it.",
         parameters: Type.Object({ name: Type.String({ maxLength: 80 }), why, final }),
     },
 ];
