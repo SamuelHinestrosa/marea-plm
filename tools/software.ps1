@@ -40,9 +40,10 @@ function Invoke-MareaSoftware {
         Write-SoftwareRecord @{type='started'; token=$token}
         # The secondary runspace keeps structured results and the progress stream
         # separate. Stop() reaches the module's COM cancellation token.
+        $completion = [hashtable]::Synchronized(@{completed=@(); reboot=$false})
         $pipeline = [PowerShell]::Create()
         [void]$pipeline.AddScript({
-            param($Request, $ModulePath)
+            param($Request, $ModulePath, $Completion)
             $ErrorActionPreference = 'Stop'
             Import-Module -Name $ModulePath -ErrorAction Stop
             if ($Request.action -eq 'scan') {
@@ -63,18 +64,25 @@ function Invoke-MareaSoftware {
             foreach ($package in $Request.packages) {
                 Write-Progress -Id 1000 -Activity $package.name -Status 'Starting' -PercentComplete -1
                 $options = @{Id=[string]$package.id; Version=[string]$package.version; Source='winget'; MatchOption='Equals'; Mode='Silent'; ErrorAction='Stop'}
-                if ($Request.action -eq 'update') { $result = Update-WinGetPackage @options }
-                else { $result = Install-WinGetPackage @options }
+                try {
+                    if ($Request.action -eq 'update') { $result = Update-WinGetPackage @options }
+                    else { $result = Install-WinGetPackage @options }
+                } catch {
+                    return @{type='result'; ok=$false; error=$_.Exception.Message;
+                        completed=$completed; reboot=$restart}
+                }
                 $restart = $restart -or $result.RebootRequired
+                $Completion.reboot = $restart
                 if (-not $result.Succeeded()) {
                     return @{type='result'; ok=$false; error=$result.ErrorMessage(); status=$result.Status;
                         completed=$completed; reboot=$restart}
                 }
                 $completed += $package.id
+                $Completion.completed = $completed
                 Write-Progress -Id 1000 -Activity $package.name -Status 'Completed' -Completed
             }
             return @{type='result'; ok=$true; completed=$completed; reboot=$restart}
-        }).AddArgument($Request).AddArgument($ModulePath)
+        }).AddArgument($Request).AddArgument($ModulePath).AddArgument($completion)
         $operation = $pipeline.BeginInvoke()
         $watch = [Diagnostics.Stopwatch]::StartNew()
         $limit = if ($mutating) { 7200 } else { 90 }
@@ -97,13 +105,19 @@ function Invoke-MareaSoftware {
             Start-Sleep -Milliseconds 100
         }
         if ($stopped) {
-            Write-SoftwareRecord @{type='result'; ok=$false; cancelled=(-not $timeout);
+            Write-SoftwareRecord @{type='result'; ok=$false; cancelled=(-not $timeout); completed=$completion.completed; reboot=$completion.reboot;
                 error=$(if ($timeout) { 'WinGet timed out.' } else { 'Cancellation requested. An installer already applying changes may finish; check updates again.' })}
         } else {
             $results = @($pipeline.EndInvoke($operation))
-            if ($pipeline.HadErrors) { throw ($pipeline.Streams.Error | Out-String).Trim() }
             $result = $results | Where-Object { $_.type -eq 'result' } | Select-Object -Last 1
-            if ($null -eq $result) { throw 'WinGet returned no result.' }
+            if ($null -eq $result) {
+                if ($pipeline.HadErrors) { throw ($pipeline.Streams.Error | Out-String).Trim() }
+                throw 'WinGet returned no result.'
+            }
+            if ($pipeline.HadErrors -and $result.ok) {
+                $result.ok = $false
+                $result.error = ($pipeline.Streams.Error | Out-String).Trim()
+            }
             Write-SoftwareRecord $result
         }
     } finally {

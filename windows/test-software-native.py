@@ -26,6 +26,7 @@ function Find-WinGetPackage {
 function Install-WinGetPackage {
     [CmdletBinding()] param($Id,$Version,$Source,$MatchOption,$Mode)
     if ($Source -ne 'winget' -or $MatchOption -ne 'Equals' -or $Mode -ne 'Silent' -or $Version -ne '2') { throw 'Unsafe install arguments' }
+    if ($Id -eq 'Fixture.Throw') { throw 'Owned fixture exception' }
     Write-Progress -Id 2 -Activity $Id -Status Installing -PercentComplete 25
     if ($Id -eq 'Fixture.Cancel') { Start-Sleep -Seconds 30 } else { Start-Sleep -Milliseconds 250 }
     $value = [pscustomobject]@{Id=$Id; Status=$(if($Id -eq 'Fixture.Fail'){'InstallerError'}else{'Ok'}); RebootRequired=$true}
@@ -75,6 +76,8 @@ catch { Write-SoftwareRecord @{type='result';ok=$false;error=$_.Exception.Messag
         result = records[-1]
         assert not result['ok'] and result['completed'] == ['Fixture.Update'] and result['reboot'], records
         assert any(r['type'] == 'progress' and r['percent'] == 25 for r in records), records
+        _, records = invoke(script, dict(action='update', packages=[package('Fixture.Update'), package('Fixture.Throw')]))
+        assert not records[-1]['ok'] and records[-1]['completed'] == ['Fixture.Update'] and records[-1]['reboot'], records
         _, records = invoke(script, dict(action='install', packages=[package('Fixture.New')]))
         assert records[-1]['ok'] and records[-1]['completed'] == ['Fixture.New'], records
         code, records = invoke(script, dict(action='install', packages=[package('bad;command')]))
@@ -82,16 +85,21 @@ catch { Write-SoftwareRecord @{type='result';ok=$false;error=$_.Exception.Messag
         process = subprocess.Popen(PREFIX + [str(script)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             encoding='utf-8', creationflags=FLAGS)
         try:
-            process.stdin.write(json.dumps(dict(action='install',packages=[package('Fixture.Cancel')])))
+            process.stdin.write(json.dumps(dict(action='install',packages=[package('Fixture.Update'), package('Fixture.Cancel')])))
             process.stdin.close()
             started = json.loads(process.stdout.readline())
             assert started['type'] == 'started'
+            # Cancel after the first installer has completed, during the second.
+            while True:
+                progress = json.loads(process.stdout.readline())
+                if progress.get('type') == 'progress' and progress.get('item') == 'Fixture.Cancel': break
             began = time.monotonic()
             code, _ = invoke(ROOT / 'tools/software.ps1', dict(action='cancel', token=started['token']))
             assert code == 0
             process.wait(timeout=8)
             records = [json.loads(line) for line in process.stdout.read().splitlines()]
             assert records[-1]['cancelled'] and not records[-1]['ok'], records
+            assert records[-1]['completed'] == ['Fixture.Update'] and records[-1]['reboot'], records
             assert time.monotonic() - began < 8
         finally:
             if process.poll() is None: process.kill(); process.wait(timeout=5)

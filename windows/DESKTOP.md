@@ -608,3 +608,9 @@ and actual Spotify/YouTube versions were not exercised during this update.
 
 The new upstream desktop-agent controls require pleamar-wm on Linux and are not
 part of the native Windows profile. The authoring skill remains available.
+
+The software page preserves active installation/progress controls when a prior
+scan replies late. WinGet exceptions and cancellation retain completed package
+IDs and reboot requirements; the user can rescan to discover the final state
+of an installer that was already applying changes. Native owned-provider tests
+exercise these paths without changing installed third-party programs.

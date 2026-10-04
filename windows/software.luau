@@ -45,8 +45,10 @@ return function(native_run, native_spawn, hooks, notice)
         request({action="scan"}, function(value)
             sw.looking = false; fact["sw.looking"] = false
             if value.ok ~= true then
-                text["sw.error"] = tr("WinGet unavailable") .. ": " .. tostring(value.error or "")
-                fact["sw.state"] = "broken"
+                if not sw.busy and not sw.pending then
+                    text["sw.error"] = tr("WinGet unavailable") .. ": " .. tostring(value.error or "")
+                    fact["sw.state"] = "broken"
+                end
                 return
             end
             local skipped = {}
@@ -54,7 +56,10 @@ return function(native_run, native_spawn, hooks, notice)
             sw.list = value.items or {}
             for _, p in ipairs(sw.list) do p.skip = skipped[p.id] == true end
             sw.checked = os.time()
-            if fact["sw.state"] ~= "unlocking" then fact["sw.state"] = "ready" end
+            local state = fact["sw.state"]
+            if not sw.busy and not sw.pending and state ~= "finished" and state ~= "failed" then
+                fact["sw.state"] = "ready"
+            end
             paint()
         end)
     end
