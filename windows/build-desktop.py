@@ -19,6 +19,15 @@ def remove_between(source, begin, end, replacement=''):
 scene = remove_between(scene, '    surface lockscreen {', '    // ── the adventure\'s stage')
 scene = re.sub(r'^        run: .*$', '        run: "node", "deriva-worker", "curl.exe", "powershell.exe"', scene, flags=re.M)
 scene = replace_once(scene, '    fact language:', (root / 'windows/startup.plm').read_text(encoding='utf-8') + '\n    fact language:')
+settings_start = scene.index('                    page menu "Settings" {')
+settings_end = scene.index('                    // ── where she lives ──', settings_start)
+settings_menu = scene[settings_start:settings_end]
+settings_menu = replace_once(settings_menu, '                        grid {', '''                        let windows_settings_tile_h = 94
+                        grid {''')
+settings_menu = replace_once(settings_menu, 'width: 456; row: 106', 'width: 456; row: windows_settings_tile_h')
+assert settings_menu.count(', cell.w) {') == 6, 'The settings tile list changed'
+settings_menu = settings_menu.replace(', cell.w) {', ', cell.w, windows_settings_tile_h) {')
+scene = scene[:settings_start] + settings_menu + scene[settings_end:]
 scene = replace_once(scene, '''                        }
                     }
 
