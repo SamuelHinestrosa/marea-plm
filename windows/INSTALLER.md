@@ -3,6 +3,10 @@
 `Marea-VERSION-windows-x64-setup.exe` is an offline, per-user package. It
 contains pleamar with default Luau, the real Deriva worker, Node.js for the
 Agents page, app-local Microsoft C++ runtime DLLs and the DXC shader compiler.
+It also includes the checksum-pinned Microsoft.WinGet.Client 1.29.380 module and
+notices. The Programs page requires Windows App Installer/WinGet; Setup does not
+install or repair that operating-system component. Package discovery/downloads
+need a network connection even though Marea's own setup works offline.
 End users do not need Rust, Python, a separate Node installation or the source
 repository. Windows 10 build 17763 or newer, an x64 CPU and a DX12 driver are
 required; Windows N requires the Media Feature Pack.

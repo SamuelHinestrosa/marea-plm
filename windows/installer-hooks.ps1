@@ -67,7 +67,7 @@ function Test-Package {
         }
     }
     foreach ($required in @('bin/pleamar.exe','bin/deriva-worker.exe','bin/node.exe','bin/dxcompiler.dll','bin/dxil.dll',
-        'bin/vcruntime140.dll','bin/vcruntime140_1.dll','bin/msvcp140.dll','app/marea-desktop.plm','app/marea-desktop.luau','app/assets/marea.ico','app/tools/deriva-preview.mjs','app/tools/startup.ps1')) {
+        'bin/vcruntime140.dll','bin/vcruntime140_1.dll','bin/msvcp140.dll','app/marea-desktop.plm','app/marea-desktop.luau','app/assets/marea.ico','app/tools/deriva-preview.mjs','app/tools/startup.ps1','app/tools/software.ps1','app/tools/winget/Microsoft.WinGet.Client.psd1')) {
         if (-not $manifest.files.PSObject.Properties[$required]) { throw "Missing package manifest entry: $required" }
     }
     # Real execution checks both the loader dependencies and default Luau. It

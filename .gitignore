@@ -5,3 +5,5 @@ __pycache__/
 /marea-desktop.luau
 deriva/target/
 /dist/
+/tools/winget/
+/tools/winget-*.zip

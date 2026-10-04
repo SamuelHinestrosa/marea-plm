@@ -551,6 +551,24 @@ logic = remove_between(logic, '--  Only the `swaybg`', '-- ── her home:')
 logic = remove_between(logic, '-- ── the wallpapers, and the tide', '--  Which monitor each copy is,',
     (root / 'windows/wallpapers.luau').read_text(encoding='utf-8') + '\n\n')
 adapter = (root / 'windows/desktop-adapter.luau').read_text(encoding='utf-8')
+logic = logic[:logic.index('-- ── software: updates, and programs to install')] + '''-- Native WinGet software page.
+install_software(native_run, native_spawn, hooks, notice)
+'''
+adapter = 'local install_software = (function()\n' + (root / 'windows/software.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
+scene = replace_once(scene, '    text sw.pw = ""', '''    text sw.pw = ""
+    text windows_sw_search_error = ""
+    fact windows_sw_indeterminate = false''')
+scene = replace_once(scene, '    on change sw.state while sw.state == unlocking { focus sw.pw }', '')
+scene = replace_once(scene, '            on submit sw.pw { emit sw_auth }', '')
+scene = replace_once(scene, '''                    input sw.pw { at: sw.x0 + 26, ay + 48; width: 300; size: 13; color: ink; placeholder: "Your password"; secret: true; selection: #2f5f52 }''', '''                    text "Windows will request administrator permission if needed" { at: sw.x0 + 26, ay + 48; anchor: left center; width: 290; lines: 2; size: 10.5; color: ink }''')
+scene = replace_once(scene, 'text pick(sw.verifying, "Go", "…")', 'text pick(sw.verifying, "Confirm", "…")')
+scene = scene.replace('and not sw.busy }', 'and not sw.busy and sw.state != unlocking }')
+scene = replace_once(scene, 'text "{sw.bar * 100, 0}%" {', 'text pick(windows_sw_indeterminate, "{sw.bar * 100, 0}%", "…") {')
+scene = replace_once(scene, 'text "Open a terminal" {', 'text "Check again" {')
+scene = replace_once(scene, '"It may want an answer of yours: in a terminal you can give it"', '"WinGet errors are shown above; check again before retrying"')
+scene = replace_once(scene, '"Leave it be until it ends: it is changing the system"', '"Stopping requests cancellation; an installer may still finish"')
+scene = replace_once(scene, '                    input sw.query {', '''                    text windows_sw_search_error { at: sw.x0 + 4, card.top + 456; anchor: left center; width: 446; lines: 2; size: 10.5; color: #ef7a66 }
+                    input sw.query {''')
 adapter = 'local install_startup = (function()\n' + (root / 'windows/startup.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_weather = (function()\n' + (root / 'windows/weather.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_media_controls = (function()\n' + (root / 'windows/media-controls.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter

@@ -56,6 +56,7 @@ def main():
 
     engine, worker = args.pleamar_binary.resolve(strict=True), args.worker.resolve(strict=True)
     run(sys.executable, ROOT / 'windows/build-desktop.py')
+    run(sys.executable, ROOT / 'windows/prepare-winget.py')
     for source, name in [(engine, 'pleamar.exe'), (worker, 'deriva-worker.exe'), (args.node_directory / 'node.exe', 'node.exe')]:
         x64(source)
         copy(source, 'bin/' + name)
@@ -83,6 +84,13 @@ def main():
     copy(ROOT / 'tools/reservas', 'app/tools/reservas')
     copy(ROOT / 'tools/deriva-preview.mjs', 'app/tools/deriva-preview.mjs')
     copy(ROOT / 'tools/startup.ps1', 'app/tools/startup.ps1')
+    copy(ROOT / 'tools/software.ps1', 'app/tools/software.ps1')
+    bundle = json.loads((ROOT / 'tools/winget/bundle.json').read_text(encoding='utf-8'))
+    for relative, sha in bundle['files'].items():
+        source = ROOT / 'tools/winget' / relative
+        if digest(source) != sha: raise ValueError('Changed WinGet client file: ' + relative)
+        copy(source, 'app/tools/winget/' + relative)
+    copy(ROOT / 'tools/winget/bundle.json', 'app/tools/winget/bundle.json')
     for name in ['desktop.ps1','run-desktop.ps1','installer-hooks.ps1']:
         copy(ROOT / 'windows' / name, 'windows/' + name)
     copy(ROOT / 'windows/DESKTOP.md', 'README.md')

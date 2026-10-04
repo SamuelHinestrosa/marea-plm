@@ -28,6 +28,8 @@ python (Join-Path $PSScriptRoot 'windows/test-deriva-native.py') --worker $Deriv
 if ($LASTEXITCODE -ne 0) { throw 'The Deriva worker failed its isolated library check; the installed Marea was not stopped.' }
 python (Join-Path $PSScriptRoot 'windows/build-desktop.py')
 if ($LASTEXITCODE -ne 0) { throw 'Could not generate the desktop profile.' }
+python (Join-Path $PSScriptRoot 'windows/prepare-winget.py')
+if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the verified WinGet client; the installed Marea was not stopped.' }
 & $PleamarBinary --check (Join-Path $PSScriptRoot 'marea-desktop.plm')
 if ($LASTEXITCODE -ne 0) { throw 'The new scene did not compile.' }
 $files = [ordered]@{
@@ -38,6 +40,7 @@ $files = [ordered]@{
     'app/tools/reservas' = (Join-Path $PSScriptRoot 'tools/reservas')
     'app/tools/deriva-preview.mjs' = (Join-Path $PSScriptRoot 'tools/deriva-preview.mjs')
     'app/tools/startup.ps1' = (Join-Path $PSScriptRoot 'tools/startup.ps1')
+    'app/tools/software.ps1' = (Join-Path $PSScriptRoot 'tools/software.ps1')
     'windows/desktop.ps1' = (Join-Path $PSScriptRoot 'windows/desktop.ps1')
     'windows/run-desktop.ps1' = (Join-Path $PSScriptRoot 'windows/run-desktop.ps1')
     'README.md' = (Join-Path $PSScriptRoot 'windows/DESKTOP.md')
@@ -48,7 +51,7 @@ foreach ($relative in $runtimeFiles.Keys) { $files[$relative] = $runtimeFiles[$r
 foreach ($relative in @('marea.plm', 'marea.luau', 'LICENSE')) {
     $files[('app/' + $relative)] = Join-Path $PSScriptRoot $relative
 }
-foreach ($folder in @('common', 'lang', 'wardrobe', 'shaders', 'assets')) {
+foreach ($folder in @('common', 'lang', 'wardrobe', 'shaders', 'assets', 'tools/winget')) {
     $sourceRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot $folder)).Path
     foreach ($source in Get-ChildItem -LiteralPath $sourceRoot -Recurse -File) {
         $relative = $source.FullName.Substring($sourceRoot.Length + 1).Replace('\', '/')

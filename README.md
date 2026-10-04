@@ -42,6 +42,12 @@ screenshots, lock screen — written in [pleamar], on any Wayland compositor.
   Codex), settings — each page opens out of its own card.
 - **A finder for apps, files and folders**: `Super+Space`, type, Enter. Drag a
   file out of it into any program.
+- **Updates and programs, without a terminal** (Arch and its family): she looks
+  every three hours for what the repositories and the AUR (yay or paru) have
+  new, and Arch's news that ask you to do something first. Update all or some
+  with your password in her own field and watch it happen, line by line; then
+  she says whether to restart and which settings files (`.pacnew`) to review.
+  A program not installed shows up in the finder, and installs the same way.
 - **Screenshots and recording**: a piece of the screen, the screen or a window,
   and screen recording, with their own animations and a card to keep them.
 - **Her own lock screen** (`ext-session-lock`), checked with PAM.

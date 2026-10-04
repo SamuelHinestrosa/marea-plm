@@ -31,13 +31,30 @@ local function search()
     for i = 1, math.min(7, #candidates) do list[i] = candidates[i].row end
     text.windows_search_status = ""
     paint(q, list)
+    local function packages()
+        if not hooks.packages or #list >= 6 or mine ~= generation then return end
+        after(400, function()
+            if mine ~= generation then return end
+            hooks.packages(q, function(rows)
+                if mine ~= generation then return end
+                local selected = (model.results or {})[(fact.selected or 0) + 1]
+                for _, row in ipairs(rows) do if #list < 7 then list[#list+1] = row end end
+                paint(q, list)
+                if selected then
+                    for i, row in ipairs(list) do
+                        if row == selected then fact.selected = i - 1; break end
+                    end
+                end
+            end)
+        end)
+    end
     if #q < 3 then return end
     text.windows_search_status = tr("Searching files…")
     after(120, function()
         if mine ~= generation then return end
         sys.ask_async("search.files", {home_dir, q}, function(result, error)
             if mine ~= generation then return end
-            if error then text.windows_search_status = tr("File search unavailable"); log("search:", error); return end
+            if error then text.windows_search_status = tr("File search unavailable"); log("search:", error); packages(); return end
             local items = result.items or {}
             -- Keep files reachable even when many applications match the query.
             while #items > 0 and #list > 4 do table.remove(list) end
@@ -55,6 +72,7 @@ local function search()
                     if key(row) == key(selected) then fact.selected = i - 1; break end
                 end
             end
+            packages()
         end)
     end)
 end

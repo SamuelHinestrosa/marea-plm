@@ -4,6 +4,38 @@ This separate profile uses the native Windows x64/MSVC port of pleamar, with
 Luau, Win32 and DirectComposition/DX12. It keeps the Linux originals unchanged.
 No WSL, Wayland, Unix shell or Linux helper programs are required.
 
+The upstream refresh uses pleamar 0.2.13. **Control center → Programs** now
+offers native WinGet updates and a catalogue. Search results can also suggest
+programs to install. Select the updates, review the confirmation and press
+**Confirm**; Marea never asks for an administrator password. Windows handles
+UAC if required. Progress and installer errors stay in the panel. **Stop** requests
+cancellation; an installer already applying changes may still finish. Restart
+continues through Marea's existing session confirmation and is never automatic.
+
+This uses the configured **winget** repository and exact IDs/versions, with
+installer hash checks enabled. Microsoft Store apps, Windows Update, drivers,
+Arch/AUR/news and `.pacnew` review are outside this backend. Packages whose
+installed version WinGet cannot identify are omitted from the update list.
+App Installer/WinGet must already be installed and allowed by local policy;
+unavailability is shown as an error, not as an empty successful update scan.
+The signed Microsoft.WinGet.Client 1.29.380 module is bundled privately for
+Windows PowerShell 5.1; no global module install or separate PowerShell 7 is needed.
+Only one catalogue helper runs at a time; queued typing is coalesced and helpers
+exit when finished. Marea scans after a minute, then every three hours.
+
+For source builds, `python windows/prepare-winget.py` prepares the checksum-pinned
+client. The source installers and Setup builder call it before changing an
+installation. An offline archive can be supplied with `--archive PATH`.
+
+Validation: `python windows/test-software.py --luau-runner PATH` covers UI state,
+selection/confirmation, IDs, stale searches, progress and partial failure.
+`python windows/test-software-native.py` exercises actual Windows PowerShell
+runspaces, JSON/Unicode, progress and named-event cancellation with an owned
+provider. Add `--live` to query real WinGet (read-only). `python
+windows/test-software-runtime.py --binary PATH --screen '\\.\DISPLAY2'` opens
+an isolated, read-only native scene on that monitor. Installation and UAC through
+an arbitrary third-party package remain outside these checks.
+
 For the self-contained Windows preview, see [the Setup installer](INSTALLER.md).
 It includes the native binaries and runtimes and does not require Python or Rust.
 The PowerShell source-installation instructions below require Python 3 and built

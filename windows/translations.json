@@ -35,5 +35,21 @@
   "Disabled in Windows startup apps": "Desactivado en Inicio de Windows",
   "Could not read startup settings": "No se pudo consultar el inicio automático",
   "Could not update startup settings": "No se pudo cambiar el inicio automático",
-  "Checking…": "Comprobando…"
+  "Checking…": "Comprobando…",
+  "WinGet did not answer": "WinGet no respondió",
+  "WinGet unavailable": "WinGet no disponible",
+  "Install %s with WinGet?": "¿Instalar %s con WinGet?",
+  "Update %d selected programs with WinGet?": "¿Actualizar %d programas seleccionados con WinGet?",
+  "WinGet is applying the selected changes": "WinGet está aplicando los cambios seleccionados",
+  "Could not request cancellation": "No se pudo solicitar la cancelación",
+  "Windows will request administrator permission if needed": "Windows pedirá permiso de administrador si es necesario",
+  "Confirm": "Confirmar",
+  "Starting": "Iniciando",
+  "Installing": "Instalando",
+  "Downloading": "Descargando",
+  "Completed": "Completado",
+  "Queued": "En cola",
+  "Working": "En curso",
+  "WinGet errors are shown above; check again before retrying": "Comprueba el error de WinGet antes de volver a intentarlo",
+  "Stopping requests cancellation; an installer may still finish": "Se puede cancelar, pero una instalación en curso podría terminar"
 }

@@ -83,6 +83,10 @@ jobs:
         if: runner.os == 'Windows'
         working-directory: marea
         run: powershell.exe -NoLogo -NoProfile -File windows/test-startup.ps1
+      - name: Software JSON transport, progress and cancellation (owned provider)
+        if: runner.os == 'Windows'
+        working-directory: marea
+        run: python windows/test-software-native.py
       - name: Reject a native runtime built without Luau
         if: runner.os == 'Windows'
         working-directory: pleamar

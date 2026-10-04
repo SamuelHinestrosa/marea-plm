@@ -10,7 +10,7 @@ $runtimeFiles = Get-PleamarRuntimeFiles $PleamarBinary
 $Prefix = [IO.Path]::GetFullPath($Prefix)
 $shortcutPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'Marea Windows.lnk'
 # Detect an incomplete source package before creating an installation folder.
-foreach ($relative in @('marea.plm', 'marea.luau', 'LICENSE', 'common', 'lang', 'wardrobe', 'shaders', 'assets', 'assets/marea.ico', 'tools/reservas', 'windows/desktop.ps1', 'windows/run-desktop.ps1', 'windows/shortcuts.ps1', 'windows/runtime_probe.py', 'windows/DESKTOP.md')) {
+foreach ($relative in @('marea.plm', 'marea.luau', 'LICENSE', 'common', 'lang', 'wardrobe', 'shaders', 'assets', 'assets/marea.ico', 'tools/reservas', 'tools/software.ps1', 'windows/prepare-winget.py', 'windows/desktop.ps1', 'windows/run-desktop.ps1', 'windows/shortcuts.ps1', 'windows/runtime_probe.py', 'windows/DESKTOP.md')) {
     if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot $relative))) { throw "Missing packaged input: $relative" }
 }
 if (Test-Path -LiteralPath $Prefix) { throw "Target already exists: $Prefix. Choose another -Prefix to preserve it." }
@@ -23,6 +23,8 @@ python (Join-Path $PSScriptRoot 'windows/test-deriva-native.py') --worker $Deriv
 if ($LASTEXITCODE -ne 0) { throw 'The Deriva worker failed its isolated library check; no installation was created.' }
 python (Join-Path $PSScriptRoot 'windows/build-desktop.py')
 if ($LASTEXITCODE -ne 0) { throw 'Could not generate the desktop profile.' }
+python (Join-Path $PSScriptRoot 'windows/prepare-winget.py')
+if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the verified WinGet client; no installation was created.' }
 & $PleamarBinary --check (Join-Path $PSScriptRoot 'marea-desktop.plm')
 if ($LASTEXITCODE -ne 0) { throw 'The desktop profile did not compile.' }
 foreach ($folder in @('app', 'app/tools', 'bin', 'windows', 'logs')) {
@@ -41,6 +43,8 @@ foreach ($item in @('marea.plm', 'marea.luau', 'marea-desktop.plm', 'marea-deskt
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/reservas') -Destination (Join-Path $Prefix 'app/tools/reservas')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/deriva-preview.mjs') -Destination (Join-Path $Prefix 'app/tools/deriva-preview.mjs')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/startup.ps1') -Destination (Join-Path $Prefix 'app/tools/startup.ps1')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/software.ps1') -Destination (Join-Path $Prefix 'app/tools/software.ps1')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/winget') -Destination (Join-Path $Prefix 'app/tools/winget') -Recurse
 foreach ($item in @('desktop.ps1', 'run-desktop.ps1')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "windows/$item") -Destination (Join-Path $Prefix 'windows')
 }

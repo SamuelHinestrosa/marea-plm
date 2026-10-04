@@ -1,6 +1,7 @@
 -- Native Windows services. Unsupported features are never synthesized.
 local native_sys = sys
 local native_run = run
+local native_spawn = spawn
 local function notice(message)
     text.windows_status = message
     fact.windows_notice = true
