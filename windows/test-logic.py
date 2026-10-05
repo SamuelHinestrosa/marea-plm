@@ -28,7 +28,7 @@ run(sys.executable, root / 'windows/build-desktop.py')
 scene = (root / 'marea-desktop.plm').read_text(encoding='utf-8')
 settings = scene.split('pages section {', 1)[1].split("// ── the agents' reservoirs", 1)[0]
 assert re.findall(r'page (\w+) "[^"]+" \{', settings) == [
-    'menu', 'home', 'look', 'language', 'lock', 'notices', 'talk', 'memory', 'windows_shortcuts']
+    'menu', 'home', 'look', 'language', 'lock', 'notices', 'talk', 'tasks', 'keys', 'memory', 'windows_shortcuts']
 assert '"What she remembers", "Keyboard shortcuts") { at: px0' in scene
 run(binary, '--check', root / 'marea-desktop.plm')
 run(runner, '--compile-only', root / 'marea-desktop.luau')
@@ -38,4 +38,6 @@ for name in ['level-controls', 'device-controls', 'wallpapers', 'screenshots', '
     run(sys.executable, root / f'windows/test-{name}.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-window-overview.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-shortcuts.py', '--luau-runner', runner)
-print('PASS: generated PLM/Luau, native overview source and twenty-four isolated logic suites; no desktop or hardware validation')
+run(sys.executable, root / 'windows/test-chat-credentials.py', '--luau-runner', runner)
+run(sys.executable, root / 'windows/test-chat-tasks.py', '--luau-runner', runner)
+print('PASS: generated PLM/Luau, native overview source and twenty-six isolated logic suites; no desktop or hardware validation')

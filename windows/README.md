@@ -5,6 +5,10 @@ pleamar builds, installation, updates, controls and the capability matrix.
 The port is under development; the guide distinguishes implemented features
 from limited integrations and hardware checks that remain unverified.
 
+The latest integration includes upstream `0bc96d5`, pleamar 0.2.19 and
+pleamar-wm 0.2.22. See [scheduled tasks and named credentials](TASKS.md) for
+their native behavior, validation and the remaining unattended-input limits.
+
 The new upstream chat is being integrated separately; see its
 [Windows agent status and validation](AGENT.md). Packaging now includes its
 native host and locked SDK; full account and desktop interaction validation

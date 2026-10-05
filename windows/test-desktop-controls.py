@@ -66,6 +66,25 @@ assert(not finished[failed] and fact["n.4"] == 7 and #notices == 1)
 for _, row in ipairs(rows) do assert(not row.done) end
 reject = true; rows[1].done = true; dismiss_native(rows[1].id)
 assert(not rows[1].done and #notices == 2)
+do
+    local handlers, kept = {}, {}
+    local function on(name,fn) handlers[name]=fn end
+    local function remember(row) kept[#kept+1]=row.id end
+    __CLEAR_ALL__
+    reject=false
+    snoozed[8]=true
+    local first=#requests+1
+    handlers.clear_all();handlers.clear_all()
+    assert(#requests-first+1==6 and #kept==0)
+    for k=first,#requests do
+        local r=requests[k]
+        r.done(r.id==7 and 'denied' or '',r.id==7 and 1 or 0)
+    end
+    assert(#kept==5 and #live==2 and not finished[7] and fact['n.4']==1)
+    assert(snoozed[8] and not finished[8])
+    handlers.clear_all();requests[#requests].done('',0)
+    assert(#live==1 and live[1].id==8 and #kept==6 and fact['n.4']==0)
+end
 
 do
     local settings = {wears={hat=true, phones=true, glasses=true, mug=true}, shelf_folded=true}
@@ -118,6 +137,7 @@ end
 log("PASS: dismissed-row refresh/reuse, failed dismissal recovery/counts, exclusive head slot, folding persistence, accented/token/typo search")
 '''
 for marker, value in [('RENDER', render), ('COUNTS', counts), ('REFILL', refill),
+                      ('CLEAR_ALL', (root / 'windows/notification-clear-all.luau').read_text(encoding='utf-8')),
                       ('DISMISS', (root / 'windows/notification-dismiss.luau').read_text(encoding='utf-8')),
                       ('WARDROBE', (root / 'windows/wardrobe.luau').read_text(encoding='utf-8')),
                       ('MATCH', (root / 'windows/search-match.luau').read_text(encoding='utf-8')),

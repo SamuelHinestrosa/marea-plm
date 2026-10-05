@@ -57,8 +57,8 @@ scene = replace_once(scene, '''                    }
             }
 
             // ── the agents' reservoirs''')
-scene = replace_once(scene, '"Talking with her", "What she remembers") { at: px0',
-    '"Talking with her", "What she remembers", "Keyboard shortcuts") { at: px0')
+scene = replace_once(scene, '"What she remembers") { at: px0',
+    '"What she remembers", "Keyboard shortcuts") { at: px0')
 scene = replace_once(scene, 'text "Reading your windows…" {', 'text windows_agents_status {')
 scene = replace_once(scene, 'She talks with you, and can use your desktop with hands of her own.',
     'She talks with you. Desktop actions share your mouse and keyboard.')
@@ -69,6 +69,67 @@ logic = replace_once(logic, 'local fresh = g and g.observed and now - g.observed
 scene = scene.replace('"network",', '"network", "network.*", "bluetooth", "bluetooth.*",')
 scene = scene.replace('"apps.launch",', '"apps.*", "desktop.*",')
 logic = replace_once(logic, 'local chat_desktop = nil', 'local chat_desktop = install_desktop_agent(native_sys)')
+logic = replace_once(logic, '    local function perform(id, tool, args, row)\n', '''    local function perform(id, tool, args, row)
+        if running_task and (tool == "open_app" or (tool:sub(1, 8) == "desktop_" and tool ~= "desktop_windows" and tool ~= "desktop_look")) then
+            finish_row(row, false)
+            answer(id, false, "Unattended desktop input is not available on Windows. The shared keyboard and pointer must remain with the user. Ask them to continue in a normal chat.")
+            return
+        end
+''')
+task_start = logic.index('    -- ── her tasks:')
+task_end = logic.index('    -- ── what the panel asks', task_start)
+tasks = logic[task_start:task_end]
+tasks = remove_between(tasks, '    local function notice(title, body, actions, then_)', '\n    local run_task', '''    local task_notice = 0
+    local function notice(title, body, actions, then_)
+        task_notice += 1
+        -- The native publisher has no action callbacks yet. The same task's
+        -- controls remain available in Settings; never synthesize a selection.
+        body = body .. "\\n" .. tr("Open Settings > Talking with her > Her tasks for the task controls.")
+        local tag = string.format("task%08x%04x", bit32.band(os.time(), 0xffffffff), task_notice % 65536)
+        local function complete(_, code)
+            if code ~= 0 then text["tasks.status"] = tr("Windows could not show the task notification.") end
+        end
+        local ok = pcall(native_sys.call_async, "notifications.publish", {title, body, tag}, complete)
+        if not ok then complete(nil, -1) end
+    end
+''')
+logic = logic[:task_start] + tasks + logic[task_end:]
+scene = replace_once(scene, 'She does these on her own at their time. Ask her in the chat: «every day at 8:00, …».',
+    'Scheduled chat and reading; unattended desktop control is pending.')
+logic = remove_between(logic, '    --  The passwords you saved for her tasks', '    --  What goes to her in every conversation',
+    (root / 'windows/chat-credentials.luau').read_text(encoding='utf-8') + '\n')
+# Native typing consumes the credential inside pleamar. Neither Luau nor the
+# worker receives the saved value or launches a secret-tool subprocess.
+logic = remove_between(logic, '        if tool == "desktop_type_secret" then', '        local argv = agent_args(', '')
+scene = replace_once(scene, '"files", "files.write"', '"files", "credentials.*", "files.write"')
+scene = replace_once(scene, 'model keys.rows max 12 { name: text }', '''model keys.rows max 12 { name: text; token: number }
+    fact keys.page = 1
+    fact keys.pages = 1
+    fact keys.count = 0
+    fact keys.readable = false
+    text keys.page_label = ""
+    event keys_page ->
+    event keys_page_changed''')
+scene = replace_once(scene, 'text "{keys.rows.count}"', 'text "{keys.count}"')
+keys_start = scene.index('                    page keys "')
+keys_end = scene.index('                    // ── what she remembers', keys_start)
+keys = scene[keys_start:keys_end]
+keys = replace_once(keys, 'emit drop(r.index)', 'emit drop(r.token)')
+keys = replace_once(keys, 'show: keys.rows.count < 1', 'show: keys.rows.count < 1 and keys.readable')
+keys = replace_once(keys, 'width: 456; lines: 1 }', 'width: 456; lines: 2 }')
+keys = replace_once(keys, '                        //  A new one:', '''                        on keys_page_changed { keys_list.scroll: 0 ~0ms }
+                        group {
+                            show: keys.pages > 1
+                            text keys.page_label { at: card.x, card.top + 382; anchor: center; size: 10; color: st.faint }
+                            text "Previous" { at: card.x - 180, card.top + 382; anchor: center; size: 10; color: mint; show: keys.page > 1 }
+                            text "Next" { at: card.x + 180, card.top + 382; anchor: center; size: 10; color: mint; show: keys.page < keys.pages }
+                            zone box keys_prev { at: card.x - 180, card.top + 382; size: 90, 18; cursor: pointer; active: keys.page > 1 }
+                            zone box keys_next { at: card.x + 180, card.top + 382; size: 90, 18; cursor: pointer; active: keys.page < keys.pages }
+                            on press keys_prev { emit keys_page(-1) }
+                            on press keys_next { emit keys_page(1) }
+                        }
+                        //  A new one:''')
+scene = scene[:keys_start] + keys + scene[keys_end:]
 for first, windows in [('"dolphin"', '"explorer", "file explorer"'), ('"kitty"', '"windows terminal", "powershell", "command prompt"'), ('"zen"', '"microsoft edge"'), ('"gnome-text-editor"', '"notepad", "bloc de notas"')]:
     logic = replace_once(logic, 'apps = { ' + first, 'apps = { ' + windows + ', ' + first)
 scene = scene.replace('"apps.*",', '"apps.*", "search.*", "shell.open", "hotkeys", "hotkeys.*", "wallpaper.*", "screenshot.*", "recording.*", "clipboard.set",')
@@ -499,7 +560,7 @@ logic = remove_between(logic, '--  When its time comes: once, and marked', '\ndo
 logic = replace_once(logic, 'local function render()\n    for k = 1, 5 do', '''local windows_row_keys, windows_row_serial = {}, 0
 local function render()
     for k = 1, 5 do''')
-logic = replace_once(logic, '        fact["alive." .. k] = f ~= nil', '''        local key = f and (f.id or f) or nil
+logic = replace_once(logic, '        fact["alive." .. k] = f ~= nil and (not f.done or f.flying == true)', '''        local key = f and (f.id or f) or nil
         if windows_row_keys[k] ~= key then
             if fact.undoable and fact.resolved_row == k then fact.undoable = false end
             windows_row_keys[k] = key
@@ -513,6 +574,8 @@ logic = replace_once(logic, '        if not gone[n.id] then', '        if not go
 logic = replace_once(logic, 'local function from_service(list)',
     (root / 'windows/notification-dismiss.luau').read_text(encoding='utf-8') + '\nlocal function from_service(list)')
 logic = re.sub(r'sys\.call\("notifications\.dismiss", ([nfr]\.id)\)', r'dismiss_native(\1)', logic)
+logic = remove_between(logic, 'on("clear_all", function()', '-- ── the calendar',
+    (root / 'windows/notification-clear-all.luau').read_text(encoding='utf-8') + '\n')
 logic = replace_once(logic, 'on("resolve", function(k)\n    local f = rows[k]\n    if f == nil then return end',
     'on("resolve", function(k)\n    local f = rows[k]\n    if f == nil or f.done then return end')
 logic = replace_once(logic, 'on("dismiss", function(k)\n    local f = rows[k]\n    if f == nil then return end',
@@ -520,15 +583,7 @@ logic = replace_once(logic, 'on("dismiss", function(k)\n    local f = rows[k]\n 
 
 logic = replace_once(logic, '    sys.call("notifications.keep", true)', '    -- Windows remains responsible for toast expiration.')
 logic = replace_once(logic, 'local function quiet_for(n)\n', 'local function quiet_for(n)\n    if fact.windows_notifications_sync then return true end\n')
-logic = replace_once(logic, 'text["row." .. k .. ".age"] = tr(AGES[k])', 'text["row." .. k .. ".age"] = notification_age(f.time, os.time(), tr("now"))')
-logic = replace_once(logic, 'return { id = n.id, app = app, title = n.title, detail = n.body,', 'return { id = n.id, app = app, title = n.title, detail = n.body, time = n.time,')
-logic = replace_once(logic, 'arrive({ id = n.id, app = string.upper(', 'arrive({ id = n.id, time = n.time, app = string.upper(')
-logic = replace_once(logic, 'on("fact:tray_open", refill)', '''on("fact:tray_open", refill)
-local function refresh_notification_ages()
-    if fact.tray_open then render() end
-    after(30000, refresh_notification_ages)
-end
-after(30000, refresh_notification_ages)''')
+logic = replace_once(logic, 'text["row." .. k .. ".age"] = age_of(f, k)', 'text["row." .. k .. ".age"] = notification_age(f.time, os.time(), tr("now"))')
 logic = replace_once(logic, '''elseif n.title ~= f.title or n.body ~= f.detail then
                 f.title, f.detail = n.title, n.body
                 changed = true''', '''elseif refresh_notification_row(f, n, tr("notice")) then

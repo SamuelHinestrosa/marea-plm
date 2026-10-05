@@ -29,6 +29,7 @@ local function after(delay, callback)
     timers[#timers+1]=timer;return #timers
 end
 local function cancel(id) timers[id].cancelled=true end
+local function every() end
 local function emit() end
 local json = {}
 json.encode=function(value) wire[#wire+1]=value;return '{'..#wire..'}' end

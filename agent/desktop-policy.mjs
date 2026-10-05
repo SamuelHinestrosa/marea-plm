@@ -13,6 +13,14 @@ export function describeDesktopTool(tool, platform = process.platform) {
         desktop_click: "Clicks using the user's shared pointer. Requires this window in the foreground and a fresh picture; covered or out-of-bounds points are rejected.",
         desktop_type: "Types Unicode text using the user's shared foreground keyboard. Click the field, then look again before typing. Do not act while the user is typing or gaming.",
         desktop_focus: "Restores and requests foreground focus for a window. This changes the user's active application. Windows may refuse focus; a failure is not success.",
+        desktop_type_secret: "Types a named saved credential through the Windows native service using the shared foreground keyboard. The value is never returned to the model. Requires a fresh picture, foreground target and user approval like other desktop actions.",
+        task_schedule: "Schedules a confirmed prompt while Marea is running. Windows tasks can talk, remember and inspect windows. Unattended application launch and keyboard/pointer actions are unavailable; ask the user to continue those in a normal chat. Scheduling does not wake a sleeping PC.",
     };
     return descriptions[tool.name] ?? tool.description;
+}
+
+export function scheduledDesktopPolicy(platform = process.platform) {
+    return platform === "win32"
+        ? "In a scheduled task on Windows, only desktop_windows and desktop_look are available. Do not request launch, focus, typing or pointer actions: they are unavailable unattended. Explain what needs the user to continue in a normal chat."
+        : "In a task, do not use desktop_focus (it takes the keyboard of whoever may be at the computer): open_app puts what you open on your monitor, and the other tools work on any window that is seen.";
 }

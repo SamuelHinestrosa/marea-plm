@@ -245,5 +245,12 @@ library SpanishLogic {
         "The keyring did not take it" = "El llavero no la aceptó"
         "Kept as «%s»" = "Guardada como «%s»"
         "Type a saved password in %s" = "Escribir una contraseña guardada en %s"
+        "Windows could not update the saved passwords. Try again." = "Windows no ha podido actualizar las contraseñas guardadas. Inténtalo de nuevo."
+        "Could not save tasks. The previous schedule is still kept." = "No se han podido guardar las tareas. Se conserva la programación anterior."
+        "Could not read tasks. The saved schedule has been left untouched." = "No se han podido leer las tareas. Se conserva la programación guardada."
+        "Her engine could not start." = "Su motor no ha podido arrancar."
+        "Open Settings > Talking with her > Her tasks for the task controls." = "Abre Ajustes > Hablar con ella > Sus tareas para controlar la tarea."
+        "Windows could not show the task notification." = "Windows no ha podido mostrar el aviso de la tarea."
+        "Scheduled chat and reading; unattended desktop control is pending." = "Chat y lectura programados. Control del escritorio desatendido: pendiente."
     }
 }

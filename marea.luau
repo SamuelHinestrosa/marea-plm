@@ -4362,14 +4362,46 @@ local function chat()
     --  its time —the screen locked, the computer off, her account out—, a
     --  notice says why and asks whether to do it now.
     local tasks, task_next = {}, 1
+    local tasks_ready = true
+    local function task_copy(value)
+        if type(value) ~= "table" then return value end
+        local copy = {}
+        for k, v in pairs(value) do copy[k] = task_copy(v) end
+        return copy
+    end
+    local function task_error()
+        text["tasks.status"] = tr("Could not save tasks. The previous schedule is still kept.")
+    end
     do
         local ok, saved = pcall(sys.ask, "files.read", "tasks.json", "json")
-        if ok and type(saved) == "table" then
-            tasks = type(saved.tasks) == "table" and saved.tasks or {}
-            task_next = tonumber(saved.next) or (#tasks + 1)
-        end
+        if ok and saved == nil then
+            -- No schedule has been saved yet.
+        elseif ok and type(saved) == "table" and type(saved.tasks) == "table" then
+            local ids, count = {}, 0
+            for k, item in pairs(saved.tasks) do
+                local h, m
+                if type(item) == "table" then h, m = tostring(item.time):match("^(%d%d?):(%d%d)$") end
+                if type(k) ~= "number" or k < 1 or k > #saved.tasks or k % 1 ~= 0 or type(item) ~= "table"
+                    or type(item.id) ~= "string" or not item.id:match("^t%d+$") or ids[item.id]
+                    or type(item.what) ~= "string" or type(item.days) ~= "string" or not h or tonumber(h) > 23 or tonumber(m) > 59
+                    or (item.last ~= nil and (type(item.last) ~= "table" or type(item.last.day) ~= "string"
+                        or type(item.last.at) ~= "number" or type(item.last.said) ~= "string")) then
+                    tasks_ready = false; break
+                end
+                local id = tonumber(item.id:sub(2))
+                if not id or id >= 9e15 then tasks_ready = false; break end
+                ids[item.id] = true
+                task_next = math.max(task_next, id + 1)
+                count += 1
+            end
+            if count ~= #saved.tasks or count > 120 then tasks_ready = false end
+            if saved.next ~= nil and (type(saved.next) ~= "number" or saved.next < 1 or saved.next >= 9e15 or saved.next % 1 ~= 0) then tasks_ready = false end
+            if tasks_ready then tasks = saved.tasks; task_next = math.max(task_next, saved.next or 1) end
+        else tasks_ready = false end
+        if not tasks_ready then text["tasks.status"] = tr("Could not read tasks. The saved schedule has been left untouched.") end
     end
-    local task_shelf = {}     -- Settings' rows, in order: the task's id
+    local saved_tasks, saved_next = task_copy(tasks), task_next
+    local task_shelf, task_page, task_token = {}, 0, 0
     local waiting_tasks = {}  -- due while she was busy with you: after
     local today = function() return os.date("%Y-%m-%d") end
     --  When Marea started today: what was due before then, she was not there for.
@@ -4418,16 +4450,22 @@ local function chat()
     local function show_tasks()
         local out = {}
         task_shelf = {}
-        for _, t in ipairs(tasks) do
+        local pages = math.max(1, math.ceil(#tasks / 12))
+        task_page = math.clamp(task_page, 0, pages - 1)
+        fact["tasks.page"], fact["tasks.pages"] = task_page + 1, pages
+        fact["tasks.readable"] = tasks_ready
+        text["tasks.page_label"] = string.format("%d / %d", task_page + 1, pages)
+        for i = task_page * 12 + 1, math.min(#tasks, (task_page + 1) * 12) do
+            local t = tasks[i]
             local last, state = tr("Not done yet"), 0
             if t.last then
                 last = (t.last.ok and tr("Done ") or tr("Not done ")) .. os.date("%d/%m %H:%M", t.last.at or 0) .. (t.last.said ~= "" and (" · " .. short(t.last.said, 80)) or "")
                 state = t.last.ok and 1 or 2
             end
             if running_task == t.id then last, state = tr("Doing it now…"), 3 end
-            out[#out + 1] = { when = tostring(t.time), days = task_days(t.days), what = short(t.what, 120), last = last, state = state, on = t.on == false and 0 or 1 }
-            task_shelf[#task_shelf + 1] = t.id
-            if #out >= 12 then break end
+            task_token += 1
+            out[#out + 1] = { token = task_token, when = tostring(t.time), days = task_days(t.days), what = short(t.what, 120), last = last, state = state, on = t.on == false and 0 or 1 }
+            task_shelf[task_token] = t.id
         end
         model["tasks.rows"] = out
         local n = 0
@@ -4435,8 +4473,18 @@ local function chat()
         text["tasks.summary"] = n == 0 and tr("None yet") or string.format(tr("%d on"), n)
     end
     local function keep_tasks()
-        pcall(sys.call, "files.write", "tasks.json", { tasks = tasks, next = task_next })
+        if not tasks_ready then return false end
+        local ok = pcall(sys.call, "files.write", "tasks.json", { tasks = tasks, next = task_next })
+        if not ok then
+            tasks, task_next = task_copy(saved_tasks), saved_next
+            task_error()
+            show_tasks()
+            return false
+        end
+        saved_tasks, saved_next = task_copy(tasks), task_next
+        text["tasks.status"] = ""
         show_tasks()
+        return true
     end
     local function task_by_id(id)
         for k, t in ipairs(tasks) do
@@ -4458,7 +4506,7 @@ local function chat()
     local function missed(t, why)
         if t.missed == today() then return end
         t.missed = today()
-        keep_tasks()
+        if not keep_tasks() then return end
         log("tasks · «" .. short(t.what, 40) .. "» not done at " .. tostring(t.time) .. ": " .. why)
         notice(tr("Marea could not do a task"),
             string.format(tr("«%s», at %s: %s. Shall she do it now?"), short(t.what, 90), tostring(t.time), why),
@@ -4469,8 +4517,11 @@ local function chat()
             end)
     end
     run_task = function(t)
+        if not tasks_ready then return end
+        t = task_by_id(t.id)
+        if not t then return end
         if running_task then
-            waiting_tasks[#waiting_tasks + 1] = t.id
+            if running_task ~= t.id and not table.find(waiting_tasks, t.id) then waiting_tasks[#waiting_tasks + 1] = t.id end
             return
         end
         if fact.locked == true then missed(t, tr("the screen was locked")); return end
@@ -4482,12 +4533,15 @@ local function chat()
             return
         end
         if fact["chat.signed_in"] == false then missed(t, tr("she is not signed in")); return end
-        running_task = t.id
+        -- Archive first: a failed write must leave the current chat intact.
+        if not keep_talk() then
+            text["tasks.status"] = tr("Could not save this conversation. It is still open.")
+            return
+        end
         t.last = { day = today(), at = os.time(), ok = false, said = "" }
-        keep_tasks()
+        if not keep_tasks() then return end
+        running_task = t.id
         log("tasks · doing «" .. short(t.what, 40) .. "»")
-        --  A conversation of its own: the one there was, kept to look back on.
-        keep_talk()
         rows, history, asks, live = {}, {}, {}, nil
         shown_row, shown = nil, 0
         if worker and ready then send({ type = "reset" }) end
@@ -4495,6 +4549,10 @@ local function chat()
         history[#history + 1] = { role = "user", text = tostring(t.what) }
         stop_idle()
         start_worker()
+        if not worker then
+            turn_over({ok = false, said = tr("Her engine could not start.")})
+            return
+        end
         fact["chat.state"] = "thinking"
         status(tr("Doing one of her tasks…"))
         send({ type = "prompt", text = "[Task] " .. tostring(t.what), now = os.date("%Y-%m-%d %H:%M, %A") })
@@ -4504,7 +4562,10 @@ local function chat()
             --  One that waited for you to finish.
             local id = table.remove(waiting_tasks, 1)
             local t = id and task_by_id(id)
-            if t then after(1500, function() run_task(t) end) end
+            if t then after(1500, function()
+                local current = task_by_id(id)
+                if current and current.on ~= false then run_task(current) end
+            end) end
             return
         end
         local t = task_by_id(running_task)
@@ -4520,7 +4581,10 @@ local function chat()
         end
         local id = table.remove(waiting_tasks, 1)
         local next_t = id and task_by_id(id)
-        if next_t then after(1500, function() run_task(next_t) end) end
+        if next_t then after(1500, function()
+            local current = task_by_id(id)
+            if current and current.on ~= false then run_task(current) end
+        end) end
     end
     --  Every half minute: the ones due now.
     every(30000, function()
@@ -4544,7 +4608,24 @@ local function chat()
             if row then finish_row(row, ok) end
             answer(id, ok, words)
         end
+        if not tasks_ready then return done(false, "The saved schedule could not be read and has been left untouched.") end
         if tool == "task_schedule" then
+            if #tasks >= 120 then return done(false, "There are already 120 tasks. Remove one before adding another.") end
+            local days = string.lower(tostring(args.days or "daily"))
+            local valid_days = days == "daily" or days == "weekdays" or days == "weekends"
+            local year, month, day = days:match("^once:(%d%d%d%d)%-(%d%d)%-(%d%d)$")
+            if year then
+                local y, m, d = tonumber(year), tonumber(month), tonumber(day)
+                local leap = y % 4 == 0 and (y % 100 ~= 0 or y % 400 == 0)
+                local lengths = {31, leap and 29 or 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+                valid_days = m >= 1 and m <= 12 and d >= 1 and d <= lengths[m] and days:sub(6) >= today()
+            elseif not valid_days then
+                local words = 0
+                valid_days = true
+                for word in days:gmatch("[^%s,;/]+") do words += 1; if not day_of(word) then valid_days = false end end
+                valid_days = valid_days and words > 0
+            end
+            if not valid_days then return done(false, "Use daily, weekdays, weekends, named weekdays or once:YYYY-MM-DD on a valid date from today.") end
             local time = tostring(args.time or "")
             local h, m = time:match("^(%d%d?):(%d%d)$")
             if not h or tonumber(h) > 23 or tonumber(m) > 59 then return done(false, "The time must be HH:MM, 24-hour.") end
@@ -4556,7 +4637,7 @@ local function chat()
             local d = os.date("*t")
             if minutes_of(t.time) <= d.hour * 60 + d.min and not t.days:match("^once:") then t.last = { day = today(), at = 0, ok = true, said = "" } end
             tasks[#tasks + 1] = t
-            keep_tasks()
+            if not keep_tasks() then return done(false, "Could not save the task. The previous schedule is still kept.") end
             done(true, string.format("Kept as [%s]: %s at %s.", t.id, task_days(t.days), t.time))
         elseif tool == "task_list" then
             local lines = {}
@@ -4571,24 +4652,30 @@ local function chat()
             local t, k = task_by_id(want)
             if not t then return done(false, "There is no task [" .. want .. "].") end
             table.remove(tasks, k)
-            keep_tasks()
+            if not keep_tasks() then return done(false, "Could not remove the task. It is still scheduled.") end
             if not row then finish_row(add(3, tr("Forgot the task: ") .. short(t.what, 60), "", 0), true) end
             done(true, "Removed.")
         end
     end
     on("task_flip", function(i)
-        local t = task_by_id(task_shelf[(tonumber(i) or -1) + 1] or "")
+        local t = task_by_id(task_shelf[tonumber(i)] or "")
         if not t then return end
         t.on = t.on == false
         keep_tasks()
     end)
     on("task_drop", function(i)
-        local _, k = task_by_id(task_shelf[(tonumber(i) or -1) + 1] or "")
+        local _, k = task_by_id(task_shelf[tonumber(i)] or "")
         if k then table.remove(tasks, k); keep_tasks() end
     end)
     on("task_now", function(i)
-        local t = task_by_id(task_shelf[(tonumber(i) or -1) + 1] or "")
+        local t = task_by_id(task_shelf[tonumber(i)] or "")
         if t then run_task(t) end
+    end)
+    on("task_page", function(delta)
+        if delta ~= -1 and delta ~= 1 then return end
+        task_page += delta
+        show_tasks()
+        emit("task_page_changed")
     end)
     on("fact:section", function(v)
         if v == "tasks" then show_tasks() end

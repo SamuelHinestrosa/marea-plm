@@ -1,14 +1,18 @@
 -- Installed beside the notification rows. A row only disappears permanently
 -- after Windows accepts its dismissal; failed commands restore the same item.
 local notification_pending = {}
-local function dismiss_native(id)
+local function dismiss_native(id, acknowledged)
     if notification_pending[id] then return end
     notification_pending[id] = true
     local original
     for _, row in ipairs(rows) do if row.id == id then original = row end end
+    if not original then
+        for _, item in ipairs(live or {}) do if item.id == id then original = row_of(item); break end end
+    end
     local function complete(error, code)
         notification_pending[id] = nil
         if code == 0 then
+            if acknowledged then acknowledged() end
             finished[id] = true
             for _, row in ipairs(rows) do
                 if row.id == id then row.done = true; row.flying = nil end

@@ -35,6 +35,10 @@ dispatch('desktop_type',{pid='27',text='Hola ñ 🚀'},reply)
 assert(jobs[#jobs].args[3]=='Hola ñ 🚀')
 jobs[#jobs].done('',0)
 assert(replies[#replies].ok==true)
+dispatch('desktop_type_secret',{pid='27',name='Saved name'},reply)
+assert(jobs[#jobs].name=='desktop.type_secret' and #jobs[#jobs].args==3 and jobs[#jobs].args[3]=='Saved name')
+jobs[#jobs].done('credential unavailable',1)
+assert(not replies[#replies].ok)
 dispatch('desktop_look',{pid='27'},reply)
 local old=jobs[#jobs]
 local count=#replies

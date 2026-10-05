@@ -540,8 +540,15 @@ scene Marea {
     event mem_page_changed
     //  Her tasks (Settings › Her tasks): what she does on her own at a time.
     //  `state`: 0 not done yet, 1 done last time, 2 not done, 3 doing it now.
-    model tasks.rows max 12 { when: text; days: text; what: text; last: text; state: number; on: number }
+    model tasks.rows max 12 { token: number; when: text; days: text; what: text; last: text; state: number; on: number }
     text tasks.summary = ""
+    text tasks.status = ""
+    text tasks.page_label = ""
+    fact tasks.page = 1
+    fact tasks.pages = 1
+    fact tasks.readable = true
+    event task_page ->
+    event task_page_changed
     //  The passwords saved for her tasks, by name (the passwords themselves
     //  are in your keyring); the field to save another.
     model keys.rows max 12 { name: text }
@@ -5278,21 +5285,33 @@ scene Marea {
                             line { from: 428, 28; to: 438, 38; width: 1.5; color: mix(#8b8f95, #ef7a66, glow) }
                             line { from: 438, 28; to: 428, 38; width: 1.5; color: mix(#8b8f95, #ef7a66, glow) }
                             zone box drop_zone { from: 422, 19; size: 24, 28; corner: 8; cursor: pointer }
-                            on press flip_zone { emit flip(r.index) }
+                            on press flip_zone { emit flip(r.token) }
                             on enter now_zone { now.glow: 1 }
                             on leave now_zone { now.glow: 0 }
-                            on press now_zone { emit now(r.index) }
+                            on press now_zone { emit now(r.token) }
                             on enter drop_zone { glow: 1 }
                             on leave drop_zone { glow: 0 }
-                            on press drop_zone { emit drop(r.index) }
+                            on press drop_zone { emit drop(r.token) }
                         }
                         column tasks_list ~quick {
                             at: card.x - 228, card.top + 136
-                            view: 456, 300
+                            view: 456, 248
                             gap: 6
                             for r in tasks.rows { TaskRow(r, flip: task_flip, now: task_now, drop: task_drop) }
                         }
-                        text "None yet." { at: card.x - 228, card.top + 152; anchor: left center; size: 11.5; color: st.faint; show: tasks.rows.count < 1 }
+                        on task_page_changed { tasks_list.scroll: 0 ~0ms }
+                        group {
+                            show: tasks.pages > 1
+                            text tasks.page_label { at: card.x, card.top + 400; anchor: center; size: 11; color: st.faint }
+                            text "Previous" { at: card.x - 182, card.top + 400; anchor: center; size: 11; color: mint; show: tasks.page > 1 }
+                            text "Next" { at: card.x + 182, card.top + 400; anchor: center; size: 11; color: mint; show: tasks.page < tasks.pages }
+                            zone box tasks_prev { at: card.x - 182, card.top + 400; size: 92, 24; cursor: pointer; active: tasks.page > 1 }
+                            zone box tasks_next { at: card.x + 182, card.top + 400; size: 92, 24; cursor: pointer; active: tasks.page < tasks.pages }
+                            on press tasks_prev { emit task_page(-1) }
+                            on press tasks_next { emit task_page(1) }
+                        }
+                        text tasks.status { at: card.x - 228, card.top + 422; size: 10.5; color: #ef7a66; width: 456; lines: 2 }
+                        text "None yet." { at: card.x - 228, card.top + 152; anchor: left center; size: 11.5; color: st.faint; show: tasks.rows.count < 1 and tasks.readable }
                         //  The passwords she may type for them, one row away.
                         prop keys.glow = 0 ~140ms
                         box { at: card.x, card.top + 470; size: 456, 40; corner: 14; color: mix(#202021, #262728, keys.glow) }

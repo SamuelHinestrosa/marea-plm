@@ -6,6 +6,7 @@ return function(native_sys)
     local actions = {
         desktop_focus = {"focus"}, desktop_to_monitor = {"send", "monitor"},
         desktop_type = {"type", "text"}, desktop_key = {"key", "key"},
+        desktop_type_secret = {"type_secret", "name"},
         desktop_hotkey = {"hotkey", "keys"},
         desktop_click = {"click", "x", "y", "button", "count"},
         desktop_scroll = {"scroll", "x", "y", "direction", "steps"},
