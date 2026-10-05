@@ -3992,7 +3992,7 @@ local function chat()
                 perform(m.id, tool, args, row)
             --  Free hands: no card, except for a step that is the final one
             --  (it sends, buys, deletes…): that one is always asked.
-            elseif looks_only or (fact["chat.free"] == true and args.final ~= true) then
+            elseif looks_only or (fact["chat.free"] == true and args.final ~= true and tool ~= "task_schedule") then
                 local row = add(3, said(tool, args), looks_only and "" or tostring(args.why or ""), 0)
                 perform(m.id, tool, args, row)
             else
@@ -4216,7 +4216,7 @@ local function chat()
         start_worker()
         fact["chat.state"] = "thinking"
         status(tr("Doing one of her tasks…"))
-        send({ type = "prompt", text = "[Task] " .. tostring(t.what) })
+        send({ type = "prompt", text = "[Task] " .. tostring(t.what), now = os.date("%Y-%m-%d %H:%M, %A") })
     end
     turn_over = function(how)
         if not running_task then
@@ -4327,7 +4327,7 @@ local function chat()
         start_worker()
         fact["chat.state"] = "thinking"
         status(tr("Thinking…"))
-        send({ type = "prompt", text = words })
+        send({ type = "prompt", text = words, now = os.date("%Y-%m-%d %H:%M, %A") })
     end)
     local function decide(i, yes)
         local first = math.max(1, #rows - ROWS + 1)
