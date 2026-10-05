@@ -10,6 +10,16 @@ The new upstream chat is being integrated separately; see its
 native host and locked SDK; full account and desktop interaction validation
 remains pending.
 
+The upstream chat/memory changes through `90e4f4b` are integrated: reading-paced
+answers, the corrected input position, and Settings > What she remembers.
+Memory uses the native files service under `%APPDATA%/pleamar/marea-desktop`.
+The Windows settings grid now scrolls so the ninth tile (startup) remains
+reachable. Shared memory logic and a real isolated storage roundtrip passed;
+the Spanish memory/settings/chat layouts were captured from owned D3D12 windows
+on DISPLAY2. These checks use fixture data and do not establish signed-in model
+or physical mouse/keyboard acceptance. Storage-error handling and larger memory
+libraries still need review before claiming full memory-feature acceptance.
+
 From the repository root, after preparing the native x64/MSVC pleamar build
 with default Luau and its app-local runtime files:
 

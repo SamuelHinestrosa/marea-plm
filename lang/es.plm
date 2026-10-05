@@ -266,5 +266,12 @@ library SpanishUi {
         "Her models appear once she is signed in." = "Sus modelos aparecen cuando inicia sesión."
         "To talk, she needs an account" = "Para hablar, necesita una cuenta"
         "Your ChatGPT account: the browser opens to sign in, and she remembers it." = "Tu cuenta de ChatGPT: se abre el navegador para entrar, y ella la recuerda."
+        // what she remembers
+        "What she remembers" = "Lo que recuerda"
+        "She keeps it herself as you talk. Forget whatever you like." = "Lo guarda ella mientras habláis. Haz que olvide lo que quieras."
+        "Nothing yet: she keeps things as you talk." = "Nada aún: guarda cosas mientras habláis."
+        "Past conversations" = "Conversaciones pasadas"
+        "Delete them" = "Borrarlas"
+        "Press again" = "Pulsa otra vez"
     }
 }

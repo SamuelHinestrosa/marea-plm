@@ -86,6 +86,10 @@ jobs:
         if: runner.os == 'Windows'
         working-directory: marea
         run: python windows/test-deriva-runtime.py --binary ../pleamar/target/debug/pleamar.exe --worker deriva/target/debug/deriva-worker.exe
+      - name: Shared chat memory through real native storage (no account or windows)
+        if: runner.os == 'Windows'
+        working-directory: marea
+        run: python windows/test-chat-memory-native.py --binary ../pleamar/target/debug/pleamar.exe --output .tools/chat-memory-native
       - name: Unicode shortcut metadata and native publisher registration
         if: runner.os == 'Windows'
         working-directory: marea

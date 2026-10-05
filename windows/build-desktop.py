@@ -28,11 +28,21 @@ scene = replace_once(scene, '    fact language:', (root / 'windows/startup.plm')
 settings_start = scene.index('                    page menu "Settings" {')
 settings_end = scene.index('                    // ── where she lives ──', settings_start)
 settings_menu = scene[settings_start:settings_end]
-assert settings_menu.count(', cell.w, h: 90) {') == 7, 'The settings tile list changed'
+assert settings_menu.count(', cell.w, h: 90) {') == 8, 'The settings tile list changed'
 assert 'width: 456; row: 90' in settings_menu
+# The new memory tile makes nine Windows settings. Keep every tile reachable
+# inside the card instead of letting the startup control fall below its edge.
+settings_menu = replace_once(settings_menu, '''                        grid {
+                            at: card.x - 228, card.top + 98; columns: 2; gap: 10; width: 456; row: 90''', '''                        column windows_settings_list {
+                            at: card.x - 228, card.top + 98
+                            view: 456, 390
+                            grid {
+                            at: 0, 0; columns: 2; gap: 10; width: 456; row: 90''')
 settings_menu = replace_once(settings_menu, '''                        }
                     }
 ''', (root / 'windows/startup-row.plm').read_text(encoding='utf-8') + '''                        }
+                        }
+                        text "↓" { at: card.x + 239, card.top + 476; anchor: center; size: 15; color: mint; show: windows_settings_list.content - windows_settings_list.scroll > 391 }
                     }
 ''')
 scene = scene[:settings_start] + settings_menu + scene[settings_end:]

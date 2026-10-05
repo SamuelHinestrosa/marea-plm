@@ -1,4 +1,4 @@
-                            // The eighth settings tile shares the fourth row with chat.
+                            // Windows startup shares the scrollable settings grid.
                             group {
                                 size: cell.w, 90
                                 box { from: 0, 0; size: cell.w, 90; corner: 18; color: #242628 }

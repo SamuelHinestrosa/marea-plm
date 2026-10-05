@@ -28,7 +28,7 @@ scene Marea {
         //  your home lives; the session, to be able to say goodbye. What is NOT
         //  here is `notifications`: the first one to ask for it keeps the spot,
         //  and on this machine that spot is Marea's.
-        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*", "auth", "files", "files.write", "window", "window.*", "network.*", "bluetooth", "bluetooth.*"
+        services: "audio", "audio.*", "clock", "media", "media.*", "network", "brightness", "brightness.*", "apps", "apps.launch", "env", "session.*", "tray", "tray.*", "notifications", "notifications.*", "auth", "files", "files.write", "files.remove", "window", "window.*", "network.*", "bluetooth", "bluetooth.*"
         //  The network and the headphones are pleamar's own services now
         //  (NetworkManager and BlueZ, spoken to directly): listing, joining
         //  with a password, pairing. And `fd` finds the files and the folders.
@@ -488,11 +488,12 @@ scene Marea {
     //  4 a card that asks you, 5 a note (an error, a stop). `state`: 0 going,
     //  1 done, 2 failed, 3 denied.
     model chat.rows max 24 { kind: number; text: text; detail: text; state: number }
-    //  Her answer arriving: which row and how many letters it has; `reveal`
-    //  follows them, and the letters rise out of the water as it passes.
+    //  Her answer arriving: which row and how many of its letters are shown
+    //  (the logic lets them out at a reading pace); `reveal` smooths the
+    //  steps, and the last dozen rise out of the water, fading in.
     fact chat.live = -1
     fact chat.letters = 0
-    prop chat.reveal = 0 ~420ms
+    prop chat.reveal = 0 ~150ms
     follow chat.reveal = chat.letters
     prop chat = 0 ~300ms               // the panel's geometry
     prop chat_content = 0 ~200ms       // and what is read in it
@@ -523,6 +524,16 @@ scene Marea {
     on change chat.looking while chat.looking { magnifier: 1 ~320ms }
     on change chat.looking while not chat.looking and not searching { magnifier: 0 ~280ms }
     follow chat.ask = if(chat.state == awaiting, 1, 0)
+    //  Her memory (Settings › What she remembers): what she knows about you
+    //  (kind 1) and her notes on how to do things (2, with when they apply),
+    //  newest first; and the conversations she can look back on.
+    model mem.items max 24 { kind: number; text: text; detail: text }
+    text mem.talks = ""
+    text mem.summary = ""
+    fact mem.kept = 0                  // how many conversations are kept
+    event mem_forget ->                // `emit mem_forget(3)`: the fourth one goes
+    event mem_clear_talks ->           // the first press asks to be sure (mem.sure)
+    fact mem.sure = false
 
     // ── software: updates, and programs to install ───────────────
     //  What the system has to update —its repositories and the AUR—, looked
@@ -3287,8 +3298,8 @@ scene Marea {
         //  2 · hers: as each letter arrives it fades in and rises the last
         //  few pixels, a ripple running along the newest ones.
         text r.text { at: 2, 2; anchor: left top; width: 520; size: 13.5; line_height: 1.4; color: ink; measure: hers; show: r.kind == 2
-                      letter_opacity: if(arriving, clamp(chat.reveal - letter, 0, 1), 1)
-                      letter_move: 0, if(arriving, (1 - clamp(chat.reveal - letter, 0, 1)) * 7, 0) }
+                      letter_opacity: if(arriving, clamp((chat.reveal - letter) / 12, 0, 1), 1)
+                      letter_move: 0, if(arriving, (1 - clamp((chat.reveal - letter) / 12, 0, 1)) * 7, 0) }
         //  3 · something she used: a drop that fills while it goes, a tick, a
         //  cross or a dash after.
         group {
@@ -3374,11 +3385,12 @@ scene Marea {
         //  yours.
         // Reflow can move the scroll position while row heights settle. Only
         // a user's gesture releases the tail; a settled return reattaches it.
-        on scroll chat_list while wheel > 0 and chat_list.content > 404 { chat.stuck = false }
-        on drag chat_list while drag.dy > 0 and chat_list.content > 404 { chat.stuck = false }
+        on scroll chat_area while wheel > 0 and chat_list.content > 404 { chat.stuck = false }
+        on drag chat_area while drag.dy > 12 and chat_list.content > 404 { chat.stuck = false }
         on still chat_list.scroll for 180ms while chat_list.content - chat_list.scroll < 420 { chat.stuck = true }
         on change chat.length while chat.stuck { chat_list.scroll: max(0, chat.length - 404) ~0ms }
         on change chat.rows.count while chat.rows.count == 0 { chat.stuck = true }
+        on chat_send { chat.stuck = true; chat_list.scroll: max(0, chat.length - 404) ~0ms }
         //  Nothing said yet: a few words of hers and what she can do.
         group {
             show: chat.rows.count < 1 and chat.signed_in
@@ -3417,7 +3429,8 @@ scene Marea {
         //  What you write. Enter sends; while she works, Stop.
         box { from: kx0, ky0 + 496; size: 556, 44; corner: 14; color: #141415 }
         box { from: kx0, ky0 + 496; size: 556, 44; corner: 14; stroke: 1; color: mint; opacity: 18% }
-        input chat.input { at: kx0 + 16, ky0 + 518; width: 470; size: 14; color: ink; placeholder: "Ask Marea…"; selection: #2f5f52 }
+        //  (An input's `at` is the top of its line: 14 px × 1.3, centred on 518.)
+        input chat.input { at: kx0 + 16, ky0 + 509; width: 470; size: 14; color: ink; placeholder: "Ask Marea…"; selection: #2f5f52 }
         prop send.glow = 0 ~140ms
         let busy = chat.state == thinking or chat.state == acting or chat.state == awaiting or chat.state == starting
         ellipse { at: kx0 + 532, ky0 + 518; radius: 15; color: mix(mint, #ef7a66, busy); opacity: 80% + 20% * send.glow }
@@ -4172,7 +4185,7 @@ scene Marea {
             text "Focus" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == concentration }
             text "Her wardrobe" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == wardrobe }
             text "Sound" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == sound }
-            text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock", "Notices", "Talking with her") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
+            text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock", "Notices", "Talking with her", "What she remembers") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
             text "Agents" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == agents }
             text "History" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == history }
             text "Deriva" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == drift }
@@ -4873,6 +4886,8 @@ scene Marea {
             on to_notices { section = notices }
             event to_talk
             on to_talk { section = talk }
+            event to_memory
+            on to_memory { section = memory }
             on to_wardrobe { emit customize; page = wardrobe }
             on flip_follow { toggle following }
             on flip_room { toggle taking_room }
@@ -4937,6 +4952,14 @@ scene Marea {
                                     ellipse { at: 11, 11; radius: 1.8; color: mint }
                                     ellipse { at: 15, 11; radius: 1.8; color: mint }
                                     ellipse { at: 19, 11; radius: 1.8; color: mint }
+                                }
+                            }
+                            Tile("What she remembers", mem.summary, to_memory, cell.w, h: 90) {
+                                group { size: 28, 26
+                                    ellipse { at: 14, 13; radius: 11; stroke: 1.8; color: ink }
+                                    ellipse { at: 10, 11; radius: 2.6; color: mint }
+                                    ellipse { at: 17, 9; radius: 1.8; color: mint; opacity: 70% }
+                                    ellipse { at: 16, 17; radius: 2.2; color: mint; opacity: 85% }
                                 }
                             }
                         }
@@ -5173,6 +5196,57 @@ scene Marea {
                             for m in chat.models { ModelPill(m, choose: chat_pick) }
                         }
                         text "Her models appear once she is signed in." { at: card.x - 228, card.top + 332; anchor: left center; size: 11.5; color: st.faint; show: chat.models.count < 1 }
+                    }
+
+                    // ── what she remembers ──
+                    //  Her memory, all of it in sight: what she knows about you
+                    //  (a drop) and her notes on how to do things (a page, with
+                    //  when they apply), newest first, each forgotten with its
+                    //  cross; and the conversations she can look back on, deleted
+                    //  all at once, pressing twice.
+                    page memory "What she remembers" {
+                        text "She keeps it herself as you talk. Forget whatever you like." { at: card.x - 228, card.top + 116; anchor: left center; size: 12; color: st.faint }
+                        component MemoryRow(r: record, drop: event) {
+                            size: 456, 44
+                            prop glow = 0 ~140ms
+                            box { from: 0, 0; size: 456, 44; corner: 12; color: mix(#202021, #262728, glow) }
+                            ellipse { at: 18, 22; radius: 4; color: mint; show: r.kind == 1 }
+                            group {
+                                show: r.kind == 2
+                                box { at: 18, 22; size: 10, 13; corner: 2; stroke: 1.4; color: lilac }
+                                line { from: 15.5, 20; to: 20.5, 20; width: 1.2; color: lilac }
+                                line { from: 15.5, 24; to: 20.5, 24; width: 1.2; color: lilac }
+                            }
+                            text r.text { at: 36, if(r.kind == 2, 15, 22); anchor: left center; size: 11.5; width: 370; lines: 1; color: ink }
+                            text r.detail { at: 36, 31; anchor: left center; size: 10; width: 370; lines: 1; color: st.faint; show: r.kind == 2 }
+                            line { from: 427, 17; to: 437, 27; width: 1.5; color: mix(#8b8f95, #ef7a66, glow) }
+                            line { from: 437, 17; to: 427, 27; width: 1.5; color: mix(#8b8f95, #ef7a66, glow) }
+                            zone box touch { from: 416, 7; size: 32, 30; corner: 10; cursor: pointer }
+                            on enter touch { glow: 1 }
+                            on leave touch { glow: 0 }
+                            on press touch { emit drop(r.index) }
+                        }
+                        column mem_list ~quick {
+                            at: card.x - 228, card.top + 136
+                            view: 456, 250
+                            gap: 6
+                            for r in mem.items { MemoryRow(r, drop: mem_forget) }
+                        }
+                        text "Nothing yet: she keeps things as you talk." { at: card.x - 228, card.top + 152; anchor: left center; size: 11.5; color: st.faint; show: mem.items.count < 1 }
+                        //  The conversations before this one.
+                        box { at: card.x, card.top + 428; size: 456, 52; corner: 16; color: #202021 }
+                        text "Past conversations" { at: card.x - 206, card.top + 420; anchor: left center; size: 13; weight: 600; color: ink }
+                        text mem.talks { at: card.x - 206, card.top + 438; anchor: left center; size: 11; width: 260; lines: 1; color: st.faint }
+                        prop talks.glow = 0 ~140ms
+                        group {
+                            show: mem.kept > 0
+                            box { at: card.x + 160, card.top + 428; size: 112, 32; corner: 16; color: mix(mix(#2a2d30, #33383b, talks.glow), #5a2a24, mem.sure) }
+                            text pick(mem.sure, "Delete them", "Press again") { at: card.x + 160, card.top + 428; anchor: center; size: 12; weight: 600; color: mix(ink, #ffd9d2, mem.sure) }
+                        }
+                        zone box talks_btn { at: card.x + 160, card.top + 428; size: 112, 32; corner: 16; cursor: pointer; active: mem.kept > 0 }
+                        on enter talks_btn { talks.glow: 1 }
+                        on leave talks_btn { talks.glow: 0 }
+                        on press talks_btn { emit mem_clear_talks }
                     }
                 }
             }
