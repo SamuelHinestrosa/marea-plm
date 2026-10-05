@@ -281,6 +281,8 @@ local OWN = {
       function() if hooks.software then hooks.software("catalogue") end end },
     { "Agents", "agents agentes claude codex quota quotas cupos cupo reservas limits limites usage uso ia ai tokens", 4,
       function() open_page("agents")(); emit("agents_refresh") end },
+    { "What she remembers", "memory memoria recuerdos recuerda remember recordar olvidar forget notas notes aprendido learned historial history conversaciones conversations", 2,
+      open_page("settings", "memory") },
     { "Settings", "settings ajustes preferences preferencias configuracion configuration", 1, open_page("settings", "menu") },
     { "Where she lives", "monitor pantalla screen casa home follow seguir sigueme sígueme donde vive", 1, open_page("settings", "home") },
     { "Language", "language idioma lengua english ingles inglés español spanish", 1, open_page("settings", "language") },
@@ -3564,6 +3566,242 @@ local function chat()
         end, HANDS)
     end
 
+    -- ── her memory ──
+    --  What she keeps between conversations, in her folder: facts about you
+    --  and notes on how to do things (memory.json), and the conversations
+    --  that came before (chat-YYYYMMDD-HHMMSS.json, kept on «new»). She keeps
+    --  them herself, without a card: each one is shown in the thread as it
+    --  is kept, and Settings › What she remembers forgets any of it.
+    local MAX_FACTS, MAX_NOTES, MAX_TALKS = 200, 100, 300
+    local memory = { facts = {}, notes = {}, next = 1 }
+    do
+        local ok, saved = pcall(sys.ask, "files.read", "memory.json", "json")
+        if ok and type(saved) == "table" then
+            memory.facts = type(saved.facts) == "table" and saved.facts or {}
+            memory.notes = type(saved.notes) == "table" and saved.notes or {}
+            memory.next = tonumber(saved.next) or (#memory.facts + #memory.notes + 1)
+        end
+    end
+    local shelf = {}         -- what Settings lists, in its order: { kind, id }
+    local function talks()
+        local ok, names = pcall(sys.ask, "files.list")
+        local out = {}
+        if ok and type(names) == "table" then
+            for _, n in ipairs(names) do
+                if type(n) == "string" and n:match("^chat%-%d+%-%d+%.json$") then out[#out + 1] = n end
+            end
+        end
+        table.sort(out, function(a, b) return a > b end)
+        return out
+    end
+    local function show_memory()
+        local out = {}
+        shelf = {}
+        for k = #memory.facts, 1, -1 do
+            local f = memory.facts[k]
+            out[#out + 1] = { kind = 1, text = tostring(f.text or ""), detail = "" }
+            shelf[#shelf + 1] = { kind = 1, id = f.id }
+        end
+        for k = #memory.notes, 1, -1 do
+            local n = memory.notes[k]
+            out[#out + 1] = { kind = 2, text = tostring(n.title or ""), detail = tostring(n.when or "") }
+            shelf[#shelf + 1] = { kind = 2, id = n.id }
+        end
+        while #out > 24 do table.remove(out); table.remove(shelf) end
+        model["mem.items"] = out
+        local n = #talks()
+        text["mem.talks"] = n == 0 and tr("None kept yet") or string.format(tr("%d kept on this computer"), n)
+        text["mem.summary"] = string.format(tr("%d things, %d notes"), #memory.facts, #memory.notes)
+        fact["mem.kept"] = n
+    end
+    local function keep_memory()
+        pcall(sys.call, "files.write", "memory.json", memory)
+        show_memory()
+    end
+    --  What goes to her in every conversation (her worker trims it to fit).
+    local function for_her()
+        local facts, notes = {}, {}
+        for _, f in ipairs(memory.facts) do facts[#facts + 1] = { id = f.id, text = f.text } end
+        for _, n in ipairs(memory.notes) do notes[#notes + 1] = { title = n.title, when = n.when } end
+        return { facts = facts, notes = notes }
+    end
+    --  The conversation as it is, kept to look back on, when a new one starts.
+    local function keep_talk()
+        local said = {}
+        for _, r in ipairs(rows) do
+            if r.kind == 1 or r.kind == 2 then said[#said + 1] = { kind = r.kind, text = r.text } end
+        end
+        if #said == 0 then return end
+        pcall(sys.call, "files.write", "chat-" .. os.date("%Y%m%d-%H%M%S") .. ".json", { at = os.time(), rows = said })
+        local all = talks()
+        for k = MAX_TALKS + 1, #all do pcall(sys.call, "files.remove", all[k]) end
+    end
+
+    local function trimmed(v, n)
+        return first_letters((tostring(v or ""):match("^%s*(.-)%s*$")), n)
+    end
+    local function words_of(q)
+        local out = {}
+        for w in string.lower(q):gmatch("[%w\128-\255]+") do
+            if #w >= 2 then out[#out + 1] = w end
+        end
+        return out
+    end
+    local function hits(s, words)
+        local low, n = string.lower(s), 0
+        for _, w in ipairs(words) do
+            if low:find(w, 1, true) then n += 1 end
+        end
+        return n
+    end
+    local function note_named(title)
+        local want = string.lower(trimmed(title, 80))
+        for k, n in ipairs(memory.notes) do
+            if string.lower(tostring(n.title)) == want then return k, n end
+        end
+        for k, n in ipairs(memory.notes) do
+            if string.lower(tostring(n.title)):find(want, 1, true) then return k, n end
+        end
+        return nil
+    end
+    --  A turn of a conversation, as a search answers it.
+    local function quoted(r)
+        local who = r.kind == 1 and "User" or "You"
+        return who .. ": " .. first_letters((tostring(r.text or ""):gsub("%s+", " ")), 400)
+    end
+
+    local function remember(id, tool, args)
+        local function row(words) return add(3, words, "", 0) end
+        if tool == "memory_save" then
+            local t = trimmed(args.text, 300)
+            if t == "" then answer(id, false, "Nothing to keep."); return end
+            for _, f in ipairs(memory.facts) do
+                if string.lower(tostring(f.text)) == string.lower(t) then answer(id, true, "Already kept, as [" .. f.id .. "]."); return end
+            end
+            local r = row(tr("Remembered: ") .. t)
+            local fid = "f" .. memory.next
+            memory.next += 1
+            memory.facts[#memory.facts + 1] = { id = fid, text = t, at = os.time() }
+            while #memory.facts > MAX_FACTS do table.remove(memory.facts, 1) end
+            keep_memory()
+            finish_row(r, true)
+            answer(id, true, "Kept, as [" .. fid .. "].")
+        elseif tool == "memory_forget" then
+            local want = trimmed(args.id, 16):gsub("[%[%]]", "")
+            for k, f in ipairs(memory.facts) do
+                if f.id == want then
+                    table.remove(memory.facts, k)
+                    keep_memory()
+                    finish_row(row(tr("Forgot: ") .. tostring(f.text)), true)
+                    answer(id, true, "Forgotten.")
+                    return
+                end
+            end
+            answer(id, false, "There is no fact [" .. want .. "].")
+        elseif tool == "memory_learn" then
+            local title, when, how = trimmed(args.title, 80), trimmed(args.when, 200), trimmed(args.how, 3000)
+            if title == "" or how == "" then answer(id, false, "A note needs a title and the steps."); return end
+            local r = row(tr("Noted how to: ") .. title)
+            local k = note_named(title)
+            local note = { id = "n" .. memory.next, title = title, when = when, how = how, at = os.time() }
+            memory.next += 1
+            if k and string.lower(tostring(memory.notes[k].title)) == string.lower(title) then
+                table.remove(memory.notes, k)
+            end
+            memory.notes[#memory.notes + 1] = note
+            while #memory.notes > MAX_NOTES do table.remove(memory.notes, 1) end
+            keep_memory()
+            finish_row(r, true)
+            answer(id, true, "Written down.")
+        elseif tool == "memory_recall" then
+            local words = words_of(tostring(args.query or ""))
+            local found = {}
+            for k = #memory.facts, 1, -1 do
+                local f = memory.facts[k]
+                local n = hits(tostring(f.text), words)
+                if n > 0 then found[#found + 1] = { n = n, line = "[" .. f.id .. "] " .. tostring(f.text) } end
+            end
+            table.sort(found, function(a, b) return a.n > b.n end)
+            local lines = {}
+            for k = 1, math.min(12, #found) do lines[k] = found[k].line end
+            finish_row(row(tr("Remembering: ") .. trimmed(args.query, 60)), true)
+            answer(id, true, #lines > 0 and table.concat(lines, "\n") or "Nothing kept about that.")
+        elseif tool == "memory_read" then
+            local _, n = note_named(tostring(args.title or ""))
+            finish_row(row(tr("Reading her note: ") .. trimmed(n and n.title or args.title, 60)), n ~= nil)
+            if n then
+                answer(id, true, tostring(n.title) .. "\nWhen: " .. tostring(n.when) .. "\n\n" .. tostring(n.how))
+            else
+                answer(id, false, "There is no note with that title.")
+            end
+        elseif tool == "memory_search" then
+            local q = trimmed(args.query, 200)
+            local words = words_of(q)
+            local r = row(tr("Looking back: ") .. first_letters(q, 60))
+            if #words == 0 then finish_row(r, false); answer(id, false, "Say what to look for."); return end
+            local need = math.max(1, math.ceil(#words / 2))
+            local found = {}
+            --  (Not the question just asked: it is what is being looked for.)
+            local asking = nil
+            for k = #rows, 1, -1 do
+                if rows[k].kind == 1 then asking = rows[k]; break end
+            end
+            local function look(said, when)
+                for k, t in ipairs(said) do
+                    if #found >= 8 then return end
+                    if t ~= asking and (t.kind == 1 or t.kind == 2) and hits(tostring(t.text), words) >= need then
+                        local before = said[k - 1]
+                        local s = "— " .. when .. "\n"
+                        if before and (before.kind == 1 or before.kind == 2) then s = s .. quoted(before) .. "\n" end
+                        found[#found + 1] = s .. quoted(t)
+                    end
+                end
+            end
+            look(rows, "this conversation")
+            for _, name in ipairs(talks()) do
+                if #found >= 8 then break end
+                local ok, talk = pcall(sys.ask, "files.read", name, "json")
+                if ok and type(talk) == "table" and type(talk.rows) == "table" then
+                    local y, mo, d = name:match("^chat%-(%d%d%d%d)(%d%d)(%d%d)")
+                    look(talk.rows, string.format("%s-%s-%s", y or "?", mo or "?", d or "?"))
+                end
+            end
+            finish_row(r, true)
+            answer(id, true, #found > 0 and table.concat(found, "\n\n") or "Nothing said about that, in this conversation or the ones kept.")
+        else
+            answer(id, false, "Marea does not know that tool.")
+        end
+    end
+    on("mem_forget", function(i)
+        local it = shelf[(tonumber(i) or -1) + 1]
+        if not it then return end
+        local list = it.kind == 1 and memory.facts or memory.notes
+        for k, x in ipairs(list) do
+            if x.id == it.id then table.remove(list, k); break end
+        end
+        keep_memory()
+    end)
+    --  Pressed once, it asks to be sure; again within four seconds, it deletes.
+    local sure, sure_timer = false, nil
+    on("mem_clear_talks", function()
+        if not sure then
+            sure = true
+            fact["mem.sure"] = true
+            if sure_timer then cancel(sure_timer) end
+            sure_timer = after(4000, function() sure_timer = nil; sure = false; fact["mem.sure"] = false end)
+            return
+        end
+        if sure_timer then cancel(sure_timer); sure_timer = nil end
+        sure = false
+        fact["mem.sure"] = false
+        for _, name in ipairs(talks()) do pcall(sys.call, "files.remove", name) end
+        show_memory()
+    end)
+    on("fact:section", function(v)
+        if v == "memory" then show_memory() end
+    end)
+    show_memory()
+
     -- ── the worker ──
     local function stop_idle()
         if idle_timer then cancel(idle_timer); idle_timer = nil end
@@ -3632,9 +3870,12 @@ local function chat()
             live = nil
             local tool, args = tostring(m.tool), (type(m.args) == "table" and m.args or {})
             local looks_only = tool == "desktop_windows" or tool == "desktop_look"
+            --  Her memory: kept in sight, never asked.
+            if tool:sub(1, 7) == "memory_" then
+                remember(m.id, tool, args)
             --  Free hands: no card, except for a step that is the final one
             --  (it sends, buys, deletes…): that one is always asked.
-            if looks_only or (fact["chat.free"] == true and args.final ~= true) then
+            elseif looks_only or (fact["chat.free"] == true and args.final ~= true) then
                 local row = add(3, said(tool, args), looks_only and "" or tostring(args.why or ""), 0)
                 perform(m.id, tool, args, row)
             else
@@ -3707,7 +3948,7 @@ local function chat()
         worker = id
         local recent = {}
         for k = math.max(1, #history - 40), #history do recent[#recent + 1] = history[k] end
-        local line = json.encode({ type = "start", model = chosen(), locale = fact.locale, history = recent }) .. "\n"
+        local line = json.encode({ type = "start", model = chosen(), locale = fact.locale, history = recent, memory = for_her() }) .. "\n"
         write(worker, line)
     end
 
@@ -3759,6 +4000,7 @@ local function chat()
     end)
     on("chat_new", function()
         if worker then write(worker, json.encode({ type = "shutdown" }) .. "\n") end
+        keep_talk()
         rows, history, asks, live = {}, {}, {}, nil
         shown_row, shown = nil, 0
         fact["chat.state"] = "idle"

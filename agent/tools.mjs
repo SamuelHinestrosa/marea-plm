@@ -4,6 +4,9 @@
 //
 //  `looks`: it changes nothing (listing, looking). Marea does those without
 //  asking, and they do not count against the actions a turn may take.
+//  `memory`: her own memory, kept by Marea in her folder. Never a card: what
+//  she keeps is shown in the thread as she keeps it, and the user can make
+//  her forget it in Settings.
 //  `why`: every action that changes something says what for, in the user's
 //  language; that is what the user reads on the card before allowing it.
 
@@ -86,6 +89,50 @@ export const TOOLS = [
         name: "open_app",
         description: "Opens a program installed on the user's computer, by its name (Firefox, Dolphin, Calculator…) or what it is (a file manager, a terminal, a browser). If none matches, it answers with the programs there are. Its window opens on the monitor where the user is: desktop_windows to find it.",
         parameters: Type.Object({ name: Type.String({ maxLength: 80 }), why, final }),
+    },
+    // ── her memory ──
+    {
+        name: "memory_save",
+        memory: true,
+        description: "Keeps a short fact about the user for future conversations: something they told you about themselves, a lasting preference, a name, or something they asked you to remember. One fact, in a sentence, in the user's language. Not secrets, passwords, payment details or health, and not the details of the task at hand. If it corrects one you have, forget the old one too.",
+        parameters: Type.Object({ text: Type.String({ maxLength: 300 }) }),
+    },
+    {
+        name: "memory_forget",
+        memory: true,
+        description: "Forgets one of the facts you keep about the user, by its id (as «[f12]» in what you remember): when it is wrong, out of date, or they ask you to.",
+        parameters: Type.Object({ id: Type.String({ maxLength: 16 }) }),
+    },
+    {
+        name: "memory_recall",
+        memory: true,
+        looks: true,
+        description: "Searches the facts you keep about the user. You see the most recent ones in every conversation; if something sounds familiar and is not there, look here before saying you do not know.",
+        parameters: Type.Object({ query: Type.String({ maxLength: 120 }) }),
+    },
+    {
+        name: "memory_learn",
+        memory: true,
+        description: "Writes down HOW to do something on this desktop that took you several tries, or a detail you found that no guide said, so you do not work it out from scratch again. «when» decides whether the note will be found: describe the situation it is for. Writing one with a title you already have replaces it.",
+        parameters: Type.Object({
+            title: Type.String({ maxLength: 80 }),
+            when: Type.String({ maxLength: 200, description: "The situation it is for" }),
+            how: Type.String({ maxLength: 3000, description: "The steps, short and concrete" }),
+        }),
+    },
+    {
+        name: "memory_read",
+        memory: true,
+        looks: true,
+        description: "Reads one of your notes on how to do things, by its title. You see their titles and when they apply in every conversation; read the steps when the situation fits.",
+        parameters: Type.Object({ title: Type.String({ maxLength: 80 }) }),
+    },
+    {
+        name: "memory_search",
+        memory: true,
+        looks: true,
+        description: "Searches everything you and the user have talked about, earlier conversations included. Use it when they take something as known —«what I told you about the workshop», «that thing we set up»— instead of saying you do not remember. It answers with the turns that match, their date and what was said just before.",
+        parameters: Type.Object({ query: Type.String({ maxLength: 200, description: "What to look for, two letters or more" }) }),
     },
 ];
 

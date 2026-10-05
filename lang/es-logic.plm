@@ -184,5 +184,15 @@ library SpanishLogic {
         "Her engine cannot start: " = "Su motor no puede arrancar: "
         "Waking up…" = "Despertando…"
         "Her engine could not start: " = "Su motor no pudo arrancar: "
+        // her memory
+        "Remembered: " = "Recordado: "
+        "Forgot: " = "Olvidado: "
+        "Noted how to: " = "Apuntado cómo: "
+        "Remembering: " = "Recordando: "
+        "Reading her note: " = "Leyendo su nota: "
+        "Looking back: " = "Buscando en lo hablado: "
+        "None kept yet" = "Ninguna guardada aún"
+        "%d kept on this computer" = "%d guardadas en este equipo"
+        "%d things, %d notes" = "%d cosas, %d notas"
     }
 }

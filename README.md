@@ -48,7 +48,13 @@ screenshots, lock screen — written in [pleamar], on any Wayland compositor.
   keep working. Looking at a window she does at once; anything that changes
   something is a card you allow or not (or, if you let her, only what sends,
   buys or deletes). Her cursor is a drop of her, the monitor she works on
-  glows, and its «Stop» ends it at any moment.
+  glows, and its «Stop» ends it at any moment. Her answers are read as they
+  come, at a reading pace.
+- **She remembers**: what you tell her about yourself and what you ask her to
+  keep, notes on how she did something hard on your desktop, and the
+  conversations before this one, to look back on. She keeps it herself, and
+  each thing shows in the chat as she keeps it; Settings › What she remembers
+  lists it all, and forgets whatever you like.
 - **A finder for apps, files and folders**: `Super+Space`, type, Enter. Drag a
   file out of it into any program.
 - **Updates and programs, without a terminal** (Arch and its family): she looks
@@ -134,7 +140,10 @@ yours, and only proposes what to do —she decides and does it—. She fetches i
 packages the first time she starts (`npm ci --ignore-scripts`, if `npm` is
 there); on Nix they come with her. Its sign-in is kept in
 `~/.local/state/marea-plm/agent`; the one of the Marea written in Quickshell
-is copied from there the first time, if there was one.
+is copied from there the first time, if there was one. Her memory is
+in her own folder, `~/.local/share/pleamar/marea/` (`memory.json`, and the
+conversations as `chat-*.json`), never in the sandbox: the worker only proposes
+what to keep, and she keeps it.
 
 On **Nix**: `nix run github:k4ditano/marea-plm -- start`, or `pkgs.marea` through
 this flake's `overlays.default`. On NixOS, [pleamar-wm]'s module brings her
