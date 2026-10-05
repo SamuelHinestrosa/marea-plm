@@ -51,6 +51,11 @@ export const TOOLS = [
         parameters: Type.Object({ pid, text: Type.String({ maxLength: 4000 }), why, final }),
     },
     {
+        name: "desktop_type_secret",
+        description: "Types a password the user saved in Marea, by the name they gave it, into the field that has the caret (click it first). You never see the password: Marea types it. Only when the browser has no saved password to pick for that page; the names there are come with what you remember.",
+        parameters: Type.Object({ pid, name: Type.String({ maxLength: 60, description: "The name it was saved under" }), why, final }),
+    },
+    {
         name: "desktop_key",
         description: "Presses one key in a window: enter, tab, escape, backspace, space, up, down, left, right, delete, home, end, pageup, pagedown, f1…f12.",
         parameters: Type.Object({ pid, key: Type.String({ maxLength: 16 }), why, final }),
@@ -137,6 +142,31 @@ export const TOOLS = [
         looks: true,
         description: "Searches everything you and the user have talked about, earlier conversations included. Use it when they take something as known —«what I told you about the workshop», «that thing we set up»— instead of saying you do not remember. It answers with the turns that match, their date and what was said just before.",
         parameters: Type.Object({ query: Type.String({ maxLength: 200, description: "What to look for, two letters or more" }) }),
+    },
+    // ── her tasks: what she does on her own, at a time ──
+    {
+        name: "task_schedule",
+        tasks: true,
+        description: "Keeps a task to do on her own at a time, every day or on some days: «every day at 8:00 open my bank in Zen and tell me the balance». At that time it runs as a prompt of its own, in a conversation of its own, with the desktop tools and without asking the user each step (they are probably away). Write `what` as you would want to be told it then: the program, the page, the steps, and what to report. The user always confirms it before it is kept.",
+        parameters: Type.Object({
+            what: Type.String({ maxLength: 1500, description: "The task, in the user's language, complete enough to do alone" }),
+            time: Type.String({ pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$", description: "24-hour time, as 08:00" }),
+            days: Type.String({ maxLength: 40, description: "daily, weekdays, weekends, some days as mon,wed,fri, or once:YYYY-MM-DD" }),
+            why,
+        }),
+    },
+    {
+        name: "task_list",
+        tasks: true,
+        looks: true,
+        description: "The tasks she does on her own: each with its id, when, what, and how it went last time.",
+        parameters: Type.Object({}),
+    },
+    {
+        name: "task_cancel",
+        tasks: true,
+        description: "Removes one of her tasks, by its id (as task_list gives it), when the user asks.",
+        parameters: Type.Object({ id: Type.String({ maxLength: 16 }) }),
     },
 ];
 

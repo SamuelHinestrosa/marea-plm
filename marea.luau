@@ -281,6 +281,8 @@ local OWN = {
       function() if hooks.software then hooks.software("catalogue") end end },
     { "Agents", "agents agentes claude codex quota quotas cupos cupo reservas limits limites usage uso ia ai tokens", 4,
       function() open_page("agents")(); emit("agents_refresh") end },
+    { "Her tasks", "tasks tareas programadas scheduled schedule programar cron cada día every day alarma rutina routine automatizar automate", 2,
+      open_page("settings", "tasks") },
     { "What she remembers", "memory memoria recuerdos recuerda remember recordar olvidar forget notas notes aprendido learned historial history conversaciones conversations", 2,
       open_page("settings", "memory") },
     { "Settings", "settings ajustes preferences preferencias configuracion configuration", 1, open_page("settings", "menu") },
@@ -644,15 +646,30 @@ local function shown(f, s)
     return s
 end
 
+--  How long ago a notice came, from the time the service keeps for it; the
+--  made-up ones of the demo, which have none, by their place.
+local function age_of(f, k)
+    if not f.time or f.time <= 0 then return tr(AGES[k]) end
+    local s = os.time() - f.time
+    if s < 60 then return tr("now") end
+    if s < 3600 then return string.format("%d min", s // 60) end
+    if s < 86400 then return string.format("%d h", s // 3600) end
+    return os.date("%d/%m", f.time)
+end
+
 local function render()
     for k = 1, 5 do
         local f = rows[k]
-        fact["alive." .. k] = f ~= nil
+        --  One dealt with stays out of sight until the list is redone (the tray
+        --  closed): drawn again for any reason —another notice arriving— it came
+        --  back, as if dismissing it had failed. A resolved one is still seen
+        --  while its drop flies home.
+        fact["alive." .. k] = f ~= nil and (not f.done or f.flying == true)
         if f ~= nil then
             text["row." .. k .. ".app"] = shown(f, f.app)
             text["row." .. k .. ".title"] = shown(f, f.title)
             text["row." .. k .. ".detail"] = shown(f, f.detail)
-            text["row." .. k .. ".age"] = tr(AGES[k])
+            text["row." .. k .. ".age"] = age_of(f, k)
             fact["row_cat." .. k] = f.cat
             fact["row_urgent." .. k] = f.urgent == true
         end
@@ -713,9 +730,13 @@ end
 
 local function arrive(n)
     n.cat = CATEGORY_OF[n.app] or classify(n.app)
-    table.insert(rows, 1, n)
-    while #rows > 5 do table.remove(rows) end
-    render()
+    --  With the tray open the rows do not move under the pointer (one dealt
+    --  with by its place would be another): it joins them when it closes.
+    if not fact.tray_open then
+        table.insert(rows, 1, n)
+        while #rows > 5 do table.remove(rows) end
+        render()
+    end
     fact.cat = n.cat
     show_front(n)
     fact.hush = quiet_for(n)
@@ -1058,7 +1079,7 @@ for k = 1, 4 do on("fact:n." .. k, cap_counts) end
 local function row_of(n)
     local app = string.upper(n.app ~= "" and n.app or tr("notice"))
     return { id = n.id, app = app, title = n.title, detail = n.body, urgent = (n.urgency or 1) >= 2,
-             actions = n.actions, icon = n.icon, cat = CATEGORY_OF[app] or classify(app) }
+             actions = n.actions, icon = n.icon, cat = CATEGORY_OF[app] or classify(app), time = n.time }
 end
 
 --  What hovering over her shows: the newest one still pending. Not while a
@@ -1100,6 +1121,8 @@ local function refill()
     refresh_preview()
 end
 on("fact:tray_open", refill)
+--  The ages keep up while the tray is open.
+every(30000, function() if fact.tray_open == true then render() end end)
 
 --  In pleamar-wm, the shore shows what is unread on each program's icon: it
 --  is told how many notices each one has, whenever that changes.
@@ -1165,7 +1188,7 @@ local function from_service(list)
             --  rearranged, and they go.
             remove_done()
             arrive({ id = n.id, app = string.upper(n.app ~= "" and n.app or tr("notice")), title = n.title, detail = n.body,
-                     urgent = (n.urgency or 1) >= 2, actions = n.actions, icon = n.icon })
+                     urgent = (n.urgency or 1) >= 2, actions = n.actions, icon = n.icon, time = n.time })
         end
     end
     refill()
@@ -1403,6 +1426,27 @@ on("notice_act", function(i)
     end
 end)
 on("tray", function() log("the tray would open at the newest one") end)
+--  «Clear all», at the foot of the tray: every notice that is waiting —the
+--  ones in the tray and the ones that did not fit— goes to the history and
+--  out of the service. Not the ones sent «later»: those come back at their time.
+on("clear_all", function()
+    for _, f in ipairs(rows) do
+        if not f.done then
+            f.done = true
+            remember(f)
+            if f.id then finished[f.id] = true; sys.call("notifications.dismiss", f.id) end
+        end
+    end
+    for _, n in ipairs(live or {}) do
+        if not finished[n.id] and not snoozed[n.id] then
+            finished[n.id] = true
+            remember(row_of(n))
+            sys.call("notifications.dismiss", n.id)
+        end
+    end
+    render()
+    for k = 1, 4 do fact["n." .. k] = 0 end
+end)
 -- ── the calendar ───────────────────────────────────────────────────
 --  Her own: events kept in `calendar.json`, a month on screen (six weeks,
 --  Monday first) and the day that is chosen. Writing «10:30 Dentist» makes an
@@ -3293,6 +3337,14 @@ local function chat()
     local looks = 0
     local idle_timer = nil
     local stopped_by_pill = false
+    --  How the turn ended, for her tasks (see «her tasks» below), and what
+    --  they do when one ends.
+    local ending = nil
+    local turn_over = nil
+    local running_task = nil  -- the task she is doing on her own now (its id)
+    local task_do             -- her task tools (below)
+    local task_days           -- «every day», «Mon, Wed»… (below)
+    local secrets, secret_named -- the passwords you saved for her (below)
     local usable = false
     local generation = 0
     local worker_serial = 0
@@ -3414,6 +3466,7 @@ local function chat()
         desktop_look = "Looking at %s",
         desktop_click = "Click in %s",
         desktop_type = "Type in %s",
+        desktop_type_secret = "Type a saved password in %s",
         desktop_key = "A key in %s",
         desktop_hotkey = "Keys in %s",
         desktop_scroll = "Scroll in %s",
@@ -3429,12 +3482,12 @@ local function chat()
         if name:match("^%d+$") or name:match("^%d+%.%d+$") then return name end
         return "0"
     end
-    local function program(args)
-        if args.name then return tostring(args.name) end
+    local function program(args, tool)
+        if args.name and tool ~= "desktop_type_secret" then return tostring(args.name) end
         return programs[window_name(args.pid)] or ("the window " .. tostring(args.pid or "?"))
     end
     local function said(tool, args)
-        return string.format(tr(WORDS[tool] or tool), program(args))
+        return string.format(tr(WORDS[tool] or tool), program(args, tool))
     end
     local function agent_args(tool, a)
         local pid = window_name(a.pid)
@@ -3502,6 +3555,10 @@ local function chat()
         send(m)
     end
     local function perform(id, tool, args, row)
+        if tool:sub(1, 5) == "task_" then
+            task_do(id, tool, args, row)
+            return
+        end
         local turn = generation
         local function complete(ok, words, extra)
             if turn ~= generation then return end
@@ -3562,6 +3619,30 @@ local function chat()
             for _, a in ipairs(apps) do names[#names + 1] = a.name end
             finish_row(row, false)
             answer(id, false, "No installed program matches that. These are the ones there are: " .. table.concat(names, ", "))
+            return
+        end
+        if tool == "desktop_type_secret" then
+            --  From your keyring straight to the window: never in her words,
+            --  never on a command line (the agent reads it from its input).
+            local name = tostring(args.name or "")
+            local _, known = secret_named(name)
+            if not known then
+                finish_row(row, false)
+                answer(id, false, "There is no password saved under «" .. name .. "». The names there are: " .. (#secrets > 0 and table.concat(secrets, ", ") or "none"))
+                return
+            end
+            run("secret-tool", { "lookup", "service", "marea-plm", "name", known }, function(out, code)
+                local secret = tostring(out or ""):gsub("\n$", "")
+                if code ~= 0 or secret == "" then
+                    finish_row(row, false)
+                    answer(id, false, "Marea could not read that password from the keyring.")
+                    return
+                end
+                run("pleamar-wm", { "agent", "type", window_name(args.pid), "-" }, function(o2, c2)
+                    finish_row(row, c2 == 0)
+                    answer(id, c2 == 0, c2 == 0 and ("Typed the password saved as «" .. known .. "».") or tostring(o2))
+                end, { errors = true, env = { PLEAMAR_AGENT_NAME = "Marea" }, input = secret })
+            end)
             return
         end
         if tool == "desktop_look" then
@@ -3757,12 +3838,64 @@ local function chat()
         show_memory()
         return true
     end
+    --  The passwords you saved for her tasks (Settings › Her tasks ›
+    --  Passwords): their names here (secrets.json), the passwords in your
+    --  system keyring (secret-tool, «service marea-plm»). She is told the
+    --  names; Marea types a password for her without her ever seeing it.
+    secrets = {}
+    do
+        local ok, saved = pcall(sys.ask, "files.read", "secrets.json", "json")
+        if ok and type(saved) == "table" and type(saved.names) == "table" then secrets = saved.names end
+    end
+    local function show_secrets()
+        local out = {}
+        for k, n in ipairs(secrets) do
+            out[k] = { name = tostring(n) }
+            if k >= 12 then break end
+        end
+        model["keys.rows"] = out
+    end
+    local function keep_secrets()
+        pcall(sys.call, "files.write", "secrets.json", { names = secrets })
+        show_secrets()
+    end
+    secret_named = function(name)
+        for k, n in ipairs(secrets) do
+            if string.lower(tostring(n)) == string.lower(tostring(name or "")) then return k, n end
+        end
+        return nil
+    end
+    on("keys_keep", function()
+        local name = tostring(text["keys.name"] or ""):match("^%s*(.-)%s*$")
+        local value = tostring(text["keys.value"] or "")
+        if name == "" or value == "" then text["keys.status"] = tr("A name and a password, both"); return end
+        if #name > 60 then name = name:sub(1, 60) end
+        run("secret-tool", { "store", "--label=Marea: " .. name, "service", "marea-plm", "name", name }, function(_, code)
+            if code ~= 0 then text["keys.status"] = tr("The keyring did not take it"); return end
+            if not secret_named(name) then secrets[#secrets + 1] = name end
+            keep_secrets()
+            text["keys.name"] = ""
+            text["keys.value"] = ""
+            text["keys.status"] = string.format(tr("Kept as «%s»"), name)
+        end, { input = value, errors = true })
+    end)
+    on("keys_drop", function(i)
+        local name = secrets[(tonumber(i) or -1) + 1]
+        if not name then return end
+        run("secret-tool", { "clear", "service", "marea-plm", "name", name }, function() end)
+        local k = secret_named(name)
+        if k then table.remove(secrets, k) end
+        keep_secrets()
+        text["keys.status"] = ""
+    end)
+    show_secrets()
+
     --  What goes to her in every conversation (her worker trims it to fit).
     local function for_her()
         local facts, notes = {}, {}
         for _, f in ipairs(memory.facts) do facts[#facts + 1] = { id = f.id, text = f.text } end
         for _, n in ipairs(memory.notes) do notes[#notes + 1] = { title = n.title, when = n.when } end
-        return { facts = facts, notes = notes }
+        return { facts = facts, notes = notes, secrets = secrets }
     end
     --  The conversation as it is, kept to look back on, when a new one starts.
     local function keep_talk()
@@ -4017,6 +4150,9 @@ local function chat()
         else run("pleamar-wm", { "agent", "done" }, function() end, HANDS) end
         save()
         rest_later()
+        local how = ending or { ok = false, said = "" }
+        ending = nil
+        if turn_over then turn_over(how) end
     end
     local function on_event(m)
         local kind = m.type
@@ -4080,14 +4216,25 @@ local function chat()
             --  Her memory: kept in sight, never asked.
             if tool:sub(1, 7) == "memory_" then
                 remember(m.id, tool, args)
+            --  Her tasks: a new one is always asked (it will act alone later).
+            elseif tool:sub(1, 5) == "task_" and tool ~= "task_schedule" then
+                task_do(m.id, tool, args, nil)
+            --  Doing one of her tasks on her own: you said she may do all of it.
+            elseif running_task and tool ~= "task_schedule" then
+                local row = add(3, said(tool, args), looks_only and "" or tostring(args.why or ""), 0)
+                perform(m.id, tool, args, row)
             --  Free hands: no card, except for a step that is the final one
             --  (it sends, buys, deletes…): that one is always asked.
-            elseif looks_only or (fact["chat.free"] == true and args.final ~= true) then
+            elseif looks_only or (fact["chat.free"] == true and args.final ~= true and tool ~= "task_schedule") then
                 local row = add(3, said(tool, args), looks_only and "" or tostring(args.why or ""), 0)
                 perform(m.id, tool, args, row)
             else
                 local detail = said(tool, args)
                 local body = tostring(args.why or "")
+                if tool == "task_schedule" then
+                    detail = tr("A task of her own")
+                    body = tostring(args.what or "") .. "\n" .. string.format(tr("%s, at %s"), task_days(args.days), tostring(args.time or "?"))
+                end
                 if tool == "desktop_type" then body = body .. "\n«" .. tostring(args.text or "") .. "»" end
                 if tool == "desktop_hotkey" then body = body .. "  (" .. tostring(args.keys or "") .. ")" end
                 if tool == "desktop_key" then body = body .. "  (" .. tostring(args.key or "") .. ")" end
@@ -4100,15 +4247,19 @@ local function chat()
             end
         elseif kind == "done" then
             if live then history[#history + 1] = { role = "assistant", text = rows[live].text } end
+            ending = { ok = true, said = live and rows[live].text or "" }
             settle("idle")
         elseif kind == "cancelled" then
+            ending = { ok = false, said = stopped_by_pill and tr("You stopped her from the monitor.") or tr("Stopped.") }
             add(5, stopped_by_pill and tr("You stopped her from the monitor.") or tr("Stopped."))
             stopped_by_pill = false
             settle("idle")
         elseif kind == "failed" then
             if m.reason == "no_model" or m.reason == "not_started" then
+                ending = { ok = false, said = tr("She is not signed in.") }
                 add(5, tr("She could not hear it: she is not signed in (Settings › Talking with her)."))
             else
+                ending = { ok = false, said = tr("Something went wrong: ") .. tostring(m.reason or "?") }
                 add(5, tr("Something went wrong: ") .. tostring(m.reason or "?"))
             end
             settle(usable and "idle" or "offline")
@@ -4160,6 +4311,7 @@ local function chat()
                 return
             end
             if fact["chat.state"] ~= "idle" and fact["chat.state"] ~= "offline" then
+                ending = { ok = false, said = tr("Her engine stopped.") }
                 add(5, tr("Her engine stopped."))
                 settle("idle")
             end
@@ -4200,6 +4352,249 @@ local function chat()
         end)
     end
 
+    -- ── her tasks: what she does on her own, at a time ──
+    --  «Every day at 8:00, open my bank in Zen and tell me the balance.» She
+    --  keeps them in her folder (tasks.json), you allow each one as it is
+    --  made, and Settings › Her tasks lists them. At its time a task runs as
+    --  a prompt of its own, in a conversation of its own (the one there was
+    --  is kept to look back on), with her hands free: you said she may do all
+    --  of it. When it ends a notice says how it went. If it could not run at
+    --  its time —the screen locked, the computer off, her account out—, a
+    --  notice says why and asks whether to do it now.
+    local tasks, task_next = {}, 1
+    do
+        local ok, saved = pcall(sys.ask, "files.read", "tasks.json", "json")
+        if ok and type(saved) == "table" then
+            tasks = type(saved.tasks) == "table" and saved.tasks or {}
+            task_next = tonumber(saved.next) or (#tasks + 1)
+        end
+    end
+    local task_shelf = {}     -- Settings' rows, in order: the task's id
+    local waiting_tasks = {}  -- due while she was busy with you: after
+    local today = function() return os.date("%Y-%m-%d") end
+    --  When Marea started today: what was due before then, she was not there for.
+    local born_day, born_at = today(), (function() local d = os.date("*t"); return d.hour * 60 + d.min end)()
+    --  Days by their first three letters, in English or Spanish, with or
+    --  without accents (her model may write «lunes, miércoles»).
+    local WEEK = { sun = 1, mon = 2, tue = 3, wed = 4, thu = 5, fri = 6, sat = 7,
+                   dom = 1, lun = 2, mar = 3, mie = 4, jue = 5, vie = 6, sab = 7 }
+    local function day_of(word)
+        local w = string.lower(word):gsub("á", "a"):gsub("é", "e"):gsub("í", "i"):gsub("ó", "o"):gsub("ú", "u")
+        return WEEK[w:sub(1, 3)]
+    end
+    local WEEK_NAMES = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" }
+    local function minutes_of(hhmm)
+        local h, m = tostring(hhmm or ""):match("^(%d%d?):(%d%d)$")
+        return h and (tonumber(h) * 60 + tonumber(m)) or nil
+    end
+    local function due_today(t)
+        local d = os.date("*t")
+        local days = string.lower(tostring(t.days or "daily"))
+        if days == "daily" or days == "" then return true end
+        if days == "weekdays" then return d.wday >= 2 and d.wday <= 6 end
+        if days == "weekends" then return d.wday == 1 or d.wday == 7 end
+        local once = days:match("^once:(%d%d%d%d%-%d%d%-%d%d)$")
+        if once then return once == today() end
+        for w in days:gmatch("[^%s,;/]+") do
+            if day_of(w) == d.wday then return true end
+        end
+        return false
+    end
+    task_days = function(days)
+        days = string.lower(tostring(days or "daily"))
+        if days == "daily" or days == "" then return tr("Every day") end
+        if days == "weekdays" then return tr("Weekdays") end
+        if days == "weekends" then return tr("Weekends") end
+        local once = days:match("^once:(%d%d%d%d%-%d%d%-%d%d)$")
+        if once then return once end
+        local out = {}
+        for w in days:gmatch("[^%s,;/]+") do
+            local k = day_of(w)
+            if k then out[#out + 1] = tr(WEEK_NAMES[k]) end
+        end
+        return #out > 0 and table.concat(out, ", ") or days
+    end
+    local function short(s, n) return first_letters((tostring(s or ""):gsub("%s+", " ")), n or 60) end
+    local function show_tasks()
+        local out = {}
+        task_shelf = {}
+        for _, t in ipairs(tasks) do
+            local last, state = tr("Not done yet"), 0
+            if t.last then
+                last = (t.last.ok and tr("Done ") or tr("Not done ")) .. os.date("%d/%m %H:%M", t.last.at or 0) .. (t.last.said ~= "" and (" · " .. short(t.last.said, 80)) or "")
+                state = t.last.ok and 1 or 2
+            end
+            if running_task == t.id then last, state = tr("Doing it now…"), 3 end
+            out[#out + 1] = { when = tostring(t.time), days = task_days(t.days), what = short(t.what, 120), last = last, state = state, on = t.on == false and 0 or 1 }
+            task_shelf[#task_shelf + 1] = t.id
+            if #out >= 12 then break end
+        end
+        model["tasks.rows"] = out
+        local n = 0
+        for _, t in ipairs(tasks) do if t.on ~= false then n += 1 end end
+        text["tasks.summary"] = n == 0 and tr("None yet") or string.format(tr("%d on"), n)
+    end
+    local function keep_tasks()
+        pcall(sys.call, "files.write", "tasks.json", { tasks = tasks, next = task_next })
+        show_tasks()
+    end
+    local function task_by_id(id)
+        for k, t in ipairs(tasks) do
+            if t.id == id then return t, k end
+        end
+        return nil
+    end
+    local function notice(title, body, actions, then_)
+        local argv = { "-a", "Marea", "-i", "dialog-information" }
+        for _, a in ipairs(actions or {}) do argv[#argv + 1] = "--action=" .. a[1] .. "=" .. a[2] end
+        argv[#argv + 1] = title
+        argv[#argv + 1] = body
+        run("notify-send", argv, function(out) if then_ then then_(tostring(out or ""):match("%S+") or "") end end)
+    end
+
+    local run_task
+    --  It could not be done at its time: you are told why, once that day,
+    --  and asked whether she should do it now.
+    local function missed(t, why)
+        if t.missed == today() then return end
+        t.missed = today()
+        keep_tasks()
+        log("tasks · «" .. short(t.what, 40) .. "» not done at " .. tostring(t.time) .. ": " .. why)
+        notice(tr("Marea could not do a task"),
+            string.format(tr("«%s», at %s: %s. Shall she do it now?"), short(t.what, 90), tostring(t.time), why),
+            { { "now", tr("Do it now") }, { "skip", tr("Leave it") } },
+            function(chosen)
+                local again = task_by_id(t.id)
+                if chosen == "now" and again then run_task(again) end
+            end)
+    end
+    run_task = function(t)
+        if running_task then
+            waiting_tasks[#waiting_tasks + 1] = t.id
+            return
+        end
+        if fact.locked == true then missed(t, tr("the screen was locked")); return end
+        local state = fact["chat.state"]
+        if state == "thinking" or state == "acting" or state == "awaiting" or state == "starting" then
+            --  Busy with you: when you are done.
+            for _, w in ipairs(waiting_tasks) do if w == t.id then return end end
+            waiting_tasks[#waiting_tasks + 1] = t.id
+            return
+        end
+        if fact["chat.signed_in"] == false then missed(t, tr("she is not signed in")); return end
+        running_task = t.id
+        t.last = { day = today(), at = os.time(), ok = false, said = "" }
+        keep_tasks()
+        log("tasks · doing «" .. short(t.what, 40) .. "»")
+        --  A conversation of its own: the one there was, kept to look back on.
+        keep_talk()
+        rows, history, asks, live = {}, {}, {}, nil
+        shown_row, shown = nil, 0
+        if worker and ready then send({ type = "reset" }) end
+        add(1, tr("Task") .. " · " .. tostring(t.time) .. "\n" .. tostring(t.what))
+        history[#history + 1] = { role = "user", text = tostring(t.what) }
+        stop_idle()
+        start_worker()
+        fact["chat.state"] = "thinking"
+        status(tr("Doing one of her tasks…"))
+        send({ type = "prompt", text = "[Task] " .. tostring(t.what), now = os.date("%Y-%m-%d %H:%M, %A") })
+    end
+    turn_over = function(how)
+        if not running_task then
+            --  One that waited for you to finish.
+            local id = table.remove(waiting_tasks, 1)
+            local t = id and task_by_id(id)
+            if t then after(1500, function() run_task(t) end) end
+            return
+        end
+        local t = task_by_id(running_task)
+        running_task = nil
+        if t then
+            t.last = { day = today(), at = os.time(), ok = how.ok == true, said = short(how.said, 300) }
+            if tostring(t.days):match("^once:") then t.on = false end
+            keep_tasks()
+            notice(how.ok and tr("Marea did a task") or tr("Marea could not finish a task"),
+                (how.said ~= "" and short(how.said, 220) or short(t.what, 120)),
+                { { "open", tr("See it") } },
+                function(chosen) if chosen == "open" or chosen == "default" then fact.chatting = true end end)
+        end
+        local id = table.remove(waiting_tasks, 1)
+        local next_t = id and task_by_id(id)
+        if next_t then after(1500, function() run_task(next_t) end) end
+    end
+    --  Every half minute: the ones due now.
+    every(30000, function()
+        local d = os.date("*t")
+        local now = d.hour * 60 + d.min
+        for _, t in ipairs(tasks) do
+            local at = minutes_of(t.time)
+            local done_today = t.last and t.last.day == today()
+            if t.on ~= false and at and now >= at and not done_today and t.missed ~= today() and due_today(t) then
+                if born_day == today() and at < born_at then
+                    missed(t, tr("the computer was off, or Marea was not running"))
+                else
+                    run_task(t)
+                end
+            end
+        end
+    end)
+
+    task_do = function(id, tool, args, row)
+        local function done(ok, words)
+            if row then finish_row(row, ok) end
+            answer(id, ok, words)
+        end
+        if tool == "task_schedule" then
+            local time = tostring(args.time or "")
+            local h, m = time:match("^(%d%d?):(%d%d)$")
+            if not h or tonumber(h) > 23 or tonumber(m) > 59 then return done(false, "The time must be HH:MM, 24-hour.") end
+            local what = first_letters((tostring(args.what or ""):match("^%s*(.-)%s*$")), 1500)
+            if what == "" then return done(false, "Say what to do.") end
+            local t = { id = "t" .. task_next, what = what, time = string.format("%02d:%02d", tonumber(h), tonumber(m)), days = string.lower(tostring(args.days or "daily")), on = true, made = os.time() }
+            task_next += 1
+            --  Made for a time already past today: from tomorrow, not now.
+            local d = os.date("*t")
+            if minutes_of(t.time) <= d.hour * 60 + d.min and not t.days:match("^once:") then t.last = { day = today(), at = 0, ok = true, said = "" } end
+            tasks[#tasks + 1] = t
+            keep_tasks()
+            done(true, string.format("Kept as [%s]: %s at %s.", t.id, task_days(t.days), t.time))
+        elseif tool == "task_list" then
+            local lines = {}
+            for _, t in ipairs(tasks) do
+                local last = t.last and (os.date("%Y-%m-%d %H:%M", t.last.at or 0) .. (t.last.ok and " done: " or " not done: ") .. short(t.last.said, 120)) or "never run"
+                lines[#lines + 1] = string.format("[%s] %s at %s%s: %s (last: %s)", t.id, tostring(t.days), tostring(t.time), t.on == false and " (paused)" or "", short(t.what, 200), last)
+            end
+            if row then finish_row(row, true) end
+            answer(id, true, #lines > 0 and table.concat(lines, "\n") or "No tasks.")
+        elseif tool == "task_cancel" then
+            local want = tostring(args.id or ""):gsub("[%[%]%s]", "")
+            local t, k = task_by_id(want)
+            if not t then return done(false, "There is no task [" .. want .. "].") end
+            table.remove(tasks, k)
+            keep_tasks()
+            if not row then finish_row(add(3, tr("Forgot the task: ") .. short(t.what, 60), "", 0), true) end
+            done(true, "Removed.")
+        end
+    end
+    on("task_flip", function(i)
+        local t = task_by_id(task_shelf[(tonumber(i) or -1) + 1] or "")
+        if not t then return end
+        t.on = t.on == false
+        keep_tasks()
+    end)
+    on("task_drop", function(i)
+        local _, k = task_by_id(task_shelf[(tonumber(i) or -1) + 1] or "")
+        if k then table.remove(tasks, k); keep_tasks() end
+    end)
+    on("task_now", function(i)
+        local t = task_by_id(task_shelf[(tonumber(i) or -1) + 1] or "")
+        if t then run_task(t) end
+    end)
+    on("fact:section", function(v)
+        if v == "tasks" then show_tasks() end
+    end)
+    show_tasks()
+
     -- ── what the panel asks ──
     on("chat_send", function()
         local words = tostring(text["chat.input"] or "")
@@ -4213,7 +4608,7 @@ local function chat()
         start_worker()
         fact["chat.state"] = "thinking"
         status(tr("Thinking…"))
-        send({ type = "prompt", text = words })
+        send({ type = "prompt", text = words, now = os.date("%Y-%m-%d %H:%M, %A") })
     end)
     local function decide(i, yes)
         local first = math.max(1, #rows - ROWS + 1)

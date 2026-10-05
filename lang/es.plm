@@ -273,5 +273,15 @@ library SpanishUi {
         "Past conversations" = "Conversaciones pasadas"
         "Delete them" = "Borrarlas"
         "Press again" = "Pulsa otra vez"
+        // her tasks
+        "Her tasks" = "Sus tareas"
+        "She does these on her own at their time. Ask her in the chat: «every day at 8:00, …»." = "Las hace sola a su hora. Pídeselas en el chat: «todos los días a las 8:00, …»."
+        "None yet." = "Ninguna aún."
+        "Passwords for her tasks" = "Contraseñas para sus tareas"
+        "When the browser has none saved, she asks for one by its name and Marea types it: she never sees it. Kept in your system keyring." = "Si el navegador no tiene una guardada, la pide por su nombre y Marea la escribe: ella nunca la ve. Se guardan en el llavero del sistema."
+        "Its name: bank" = "Su nombre: banco"
+        "Keep" = "Guardar"
+        "Clear all" = "Quitar todos"
+        "Nothing waiting" = "Nada pendiente"
     }
 }
