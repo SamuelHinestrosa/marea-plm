@@ -3372,8 +3372,11 @@ scene Marea {
         //  it there. Scrolling up yourself lets go; back at the bottom, it
         //  follows again. Its own jumps are instant, so they never look like
         //  yours.
-        on change chat_list.scroll while chat_list.content - chat_list.scroll > 440 { chat.stuck = false }
-        on change chat_list.scroll while chat_list.content - chat_list.scroll < 420 { chat.stuck = true }
+        // Reflow can move the scroll position while row heights settle. Only
+        // a user's gesture releases the tail; a settled return reattaches it.
+        on scroll chat_list while wheel > 0 and chat_list.content > 404 { chat.stuck = false }
+        on drag chat_list while drag.dy > 0 and chat_list.content > 404 { chat.stuck = false }
+        on still chat_list.scroll for 180ms while chat_list.content - chat_list.scroll < 420 { chat.stuck = true }
         on change chat.length while chat.stuck { chat_list.scroll: max(0, chat.length - 404) ~0ms }
         on change chat.rows.count while chat.rows.count == 0 { chat.stuck = true }
         //  Nothing said yet: a few words of hers and what she can do.

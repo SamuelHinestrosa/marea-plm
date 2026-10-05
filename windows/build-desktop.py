@@ -37,6 +37,8 @@ settings_menu = replace_once(settings_menu, '''                        }
 ''')
 scene = scene[:settings_start] + settings_menu + scene[settings_end:]
 scene = replace_once(scene, 'text "Reading your windows…" {', 'text windows_agents_status {')
+scene = replace_once(scene, 'She talks with you, and can use your desktop with hands of her own.',
+    'She talks with you. Desktop actions share your mouse and keyboard.')
 logic = replace_once(logic, 'if g.observed then\n                local ago = now - g.observed', '''if #g.limits == 0 then table.insert(parts, "Sin datos de cuota") end
             if g.observed and g.observed <= now then
                 local ago = now - g.observed''')
