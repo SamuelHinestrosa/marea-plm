@@ -55,6 +55,17 @@ screenshots, lock screen — written in [pleamar], on any Wayland compositor.
   conversations before this one, to look back on. She keeps it herself, and
   each thing shows in the chat as she keeps it; Settings › What she remembers
   lists it all, and forgets whatever you like.
+- **She does things on her own, at a time**: «every day at 8:00, open my
+  bank in Zen and tell me the balance». You allow each task as she keeps
+  it; at its time it runs by itself, in a conversation of its own, with
+  her hands free, and a notice says how it went. If it could not run (the
+  screen locked, the computer off, her account out) a notice says why and
+  offers to do it now. Settings › Her tasks lists them, with a switch, «do
+  it now» and a cross.
+- **Passwords for her tasks**: she signs in with the browser's saved ones;
+  for a page without one, you keep a password in Marea by a name (Settings ›
+  Her tasks › Passwords). It goes to your system keyring (`secret-tool`),
+  and Marea types it for her without her ever seeing it.
 - **A finder for apps, files and folders**: `Super+Space`, type, Enter. Drag a
   file out of it into any program.
 - **Updates and programs, without a terminal** (Arch and its family): she looks

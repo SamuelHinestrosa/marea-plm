@@ -35,7 +35,7 @@ scene Marea {
         //  Software: `checkupdates` and the AUR's helper look, `pacman` and
         //  `sudo` update and install (the password goes on sudo's input),
         //  `kitty` takes what wants an answer by hand.
-        run: "curl", "timedatectl", "node", "notify-send", "fd", "deriva-worker", "kill", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm", "checkupdates", "pacman", "yay", "paru", "sudo", "pkill", "kitty", "uname", "grep", "agent/sandbox"
+        run: "curl", "timedatectl", "node", "notify-send", "fd", "deriva-worker", "kill", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm", "checkupdates", "pacman", "yay", "paru", "sudo", "pkill", "kitty", "uname", "grep", "agent/sandbox", "secret-tool"
     }
     service clock as now { time: text = "--:--"; date: text; hour: number; minute: number }
     service audio as sound { volume: number; muted: bool; input: number; input_muted: bool }
@@ -529,6 +529,21 @@ scene Marea {
     model mem.items max 24 { kind: number; text: text; detail: text }
     text mem.talks = ""
     text mem.summary = ""
+    //  Her tasks (Settings › Her tasks): what she does on her own at a time.
+    //  `state`: 0 not done yet, 1 done last time, 2 not done, 3 doing it now.
+    model tasks.rows max 12 { when: text; days: text; what: text; last: text; state: number; on: number }
+    text tasks.summary = ""
+    //  The passwords saved for her tasks, by name (the passwords themselves
+    //  are in your keyring); the field to save another.
+    model keys.rows max 12 { name: text }
+    text keys.name = ""
+    text keys.value = ""
+    text keys.status = ""
+    event keys_keep ->
+    event keys_drop ->
+    event task_flip ->                 // `emit task_flip(0)`: the first one on or off
+    event task_drop ->
+    event task_now ->
     fact mem.kept = 0                  // how many conversations are kept
     event mem_forget ->                // `emit mem_forget(3)`: the fourth one goes
     event mem_clear_talks ->           // the first press asks to be sure (mem.sure)
@@ -4182,7 +4197,7 @@ scene Marea {
             text "Focus" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == concentration }
             text "Her wardrobe" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == wardrobe }
             text "Sound" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == sound }
-            text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock", "Notices", "Talking with her", "What she remembers") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
+            text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock", "Notices", "Talking with her", "Her tasks", "Passwords for her tasks", "What she remembers") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
             text "Agents" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == agents }
             text "History" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == history }
             text "Deriva" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == drift }
@@ -4885,6 +4900,10 @@ scene Marea {
             on to_talk { section = talk }
             event to_memory
             on to_memory { section = memory }
+            event to_tasks
+            on to_tasks { section = tasks }
+            event to_keys
+            on to_keys { section = keys }
             on to_wardrobe { emit customize; page = wardrobe }
             on flip_follow { toggle following }
             on flip_room { toggle taking_room }
@@ -5193,6 +5212,117 @@ scene Marea {
                             for m in chat.models { ModelPill(m, choose: chat_pick) }
                         }
                         text "Her models appear once she is signed in." { at: card.x - 228, card.top + 332; anchor: left center; size: 11.5; color: st.faint; show: chat.models.count < 1 }
+                        //  Her tasks, one row away.
+                        prop tasks.glow = 0 ~140ms
+                        box { at: card.x, card.top + 470; size: 456, 40; corner: 14; color: mix(#202021, #262728, tasks.glow) }
+                        text "Her tasks" { at: card.x - 206, card.top + 470; anchor: left center; size: 13; weight: 600; color: ink }
+                        text tasks.summary { at: card.x + 190, card.top + 470; anchor: right center; size: 11; color: st.faint; width: 200; lines: 1; align: right }
+                        line { from: card.x + 200, card.top + 465; to: card.x + 205, card.top + 470; width: 1.6; color: st.faint }
+                        line { from: card.x + 205, card.top + 470; to: card.x + 200, card.top + 475; width: 1.6; color: st.faint }
+                        zone box tasks_row { at: card.x, card.top + 470; size: 456, 40; corner: 14; cursor: pointer }
+                        on enter tasks_row { tasks.glow: 1 }
+                        on leave tasks_row { tasks.glow: 0 }
+                        on press tasks_row { emit to_tasks }
+                    }
+
+                    // ── her tasks ──
+                    //  What she does on her own at a time, each with when, what,
+                    //  how it went last time, a switch, «now» and a cross. They
+                    //  are made talking to her: «every day at 8:00, …».
+                    page tasks "Her tasks" {
+                        text "She does these on her own at their time. Ask her in the chat: «every day at 8:00, …»." { at: card.x - 228, card.top + 116; anchor: left center; size: 12; color: st.faint; width: 456; lines: 1 }
+                        component TaskRow(r: record, flip: event, now: event, drop: event) {
+                            size: 456, 66
+                            prop glow = 0 ~140ms
+                            prop now.glow = 0 ~140ms
+                            box { from: 0, 0; size: 456, 66; corner: 14; color: mix(#202021, #262728, glow) }
+                            group {
+                                opacity: if(r.on > 0.5, 100%, 45%)
+                                text r.when { at: 16, 22; anchor: left center; size: 15; weight: 700; color: ink }
+                                text r.days { at: 16, 44; anchor: left center; size: 10; width: 70; lines: 1; color: st.faint }
+                                text r.what { at: 96, 22; anchor: left center; size: 11.5; width: 250; lines: 1; color: ink }
+                                ellipse { at: 100, 44; radius: 3; color: pick(r.state, #8b8f95, mint, #ef7a66, amber) }
+                                text r.last { at: 110, 44; anchor: left center; size: 10; width: 236; lines: 1; color: st.faint }
+                            }
+                            //  On or off.
+                            box { from: 358, 23; size: 32, 20; corner: 10; color: mix(#2a2d30, #3d6b5c, r.on) }
+                            ellipse { at: 368 + 12 * r.on, 33; radius: 7; color: ink }
+                            zone box flip_zone { from: 354, 19; size: 40, 28; corner: 10; cursor: pointer }
+                            //  Now.
+                            path { at: 404, 26; color: mix(#8b8f95, mint, now.glow); move 0, 0; line 9, 7; line 0, 14; close }
+                            zone box now_zone { from: 398, 19; size: 22, 28; corner: 8; cursor: pointer }
+                            line { from: 428, 28; to: 438, 38; width: 1.5; color: mix(#8b8f95, #ef7a66, glow) }
+                            line { from: 438, 28; to: 428, 38; width: 1.5; color: mix(#8b8f95, #ef7a66, glow) }
+                            zone box drop_zone { from: 422, 19; size: 24, 28; corner: 8; cursor: pointer }
+                            on press flip_zone { emit flip(r.index) }
+                            on enter now_zone { now.glow: 1 }
+                            on leave now_zone { now.glow: 0 }
+                            on press now_zone { emit now(r.index) }
+                            on enter drop_zone { glow: 1 }
+                            on leave drop_zone { glow: 0 }
+                            on press drop_zone { emit drop(r.index) }
+                        }
+                        column tasks_list ~quick {
+                            at: card.x - 228, card.top + 136
+                            view: 456, 300
+                            gap: 6
+                            for r in tasks.rows { TaskRow(r, flip: task_flip, now: task_now, drop: task_drop) }
+                        }
+                        text "None yet." { at: card.x - 228, card.top + 152; anchor: left center; size: 11.5; color: st.faint; show: tasks.rows.count < 1 }
+                        //  The passwords she may type for them, one row away.
+                        prop keys.glow = 0 ~140ms
+                        box { at: card.x, card.top + 470; size: 456, 40; corner: 14; color: mix(#202021, #262728, keys.glow) }
+                        text "Passwords for her tasks" { at: card.x - 206, card.top + 470; anchor: left center; size: 13; weight: 600; color: ink }
+                        text "{keys.rows.count}" { at: card.x + 190, card.top + 470; anchor: right center; size: 11; color: st.faint }
+                        line { from: card.x + 200, card.top + 465; to: card.x + 205, card.top + 470; width: 1.6; color: st.faint }
+                        line { from: card.x + 205, card.top + 470; to: card.x + 200, card.top + 475; width: 1.6; color: st.faint }
+                        zone box keys_row { at: card.x, card.top + 470; size: 456, 40; corner: 14; cursor: pointer }
+                        on enter keys_row { keys.glow: 1 }
+                        on leave keys_row { keys.glow: 0 }
+                        on press keys_row { emit to_keys }
+                    }
+
+                    // ── the passwords for her tasks ──
+                    //  For a page the browser has no saved password for. Each
+                    //  by a name she knows; the password itself goes to your
+                    //  keyring and she never sees it: Marea types it for her.
+                    page keys "Passwords for her tasks" {
+                        text "When the browser has none saved, she asks for one by its name and Marea types it: she never sees it. Kept in your system keyring." { at: card.x - 228, card.top + 120; anchor: left center; size: 12; color: st.faint; width: 456; lines: 2 }
+                        component KeyRow(r: record, drop: event) {
+                            size: 456, 40
+                            prop glow = 0 ~140ms
+                            box { from: 0, 0; size: 456, 40; corner: 12; color: mix(#202021, #262728, glow) }
+                            ellipse { at: 18, 20; radius: 3.5; color: amber }
+                            text r.name { at: 32, 20; anchor: left center; size: 12; width: 330; lines: 1; color: ink }
+                            text "••••••••" { at: 400, 20; anchor: right center; size: 11; color: st.faint }
+                            line { from: 427, 15; to: 437, 25; width: 1.5; color: mix(#8b8f95, #ef7a66, glow) }
+                            line { from: 437, 15; to: 427, 25; width: 1.5; color: mix(#8b8f95, #ef7a66, glow) }
+                            zone box drop_zone { from: 416, 5; size: 32, 30; corner: 10; cursor: pointer }
+                            on enter drop_zone { glow: 1 }
+                            on leave drop_zone { glow: 0 }
+                            on press drop_zone { emit drop(r.index) }
+                        }
+                        column keys_list ~quick {
+                            at: card.x - 228, card.top + 152
+                            view: 456, 220
+                            gap: 6
+                            for r in keys.rows { KeyRow(r, drop: keys_drop) }
+                        }
+                        text "None yet." { at: card.x - 228, card.top + 168; anchor: left center; size: 11.5; color: st.faint; show: keys.rows.count < 1 }
+                        //  A new one: its name, the password, Keep.
+                        box { at: card.x - 118, card.top + 410; size: 220, 38; corner: 12; color: #141415 }
+                        input keys.name { at: card.x - 218, card.top + 401; width: 196; size: 13; color: ink; placeholder: "Its name: bank"; selection: #2f5f52 }
+                        box { at: card.x + 82, card.top + 410; size: 152, 38; corner: 12; color: #141415 }
+                        input keys.value { at: card.x + 14, card.top + 401; width: 134; size: 13; color: ink; placeholder: "Password"; secret: true; selection: #2f5f52 }
+                        prop keep.glow = 0 ~140ms
+                        box { at: card.x + 196, card.top + 410; size: 64, 38; corner: 12; color: mix(#3d6b5c, #4a8270, keep.glow) }
+                        text "Keep" { at: card.x + 196, card.top + 410; anchor: center; size: 11.5; weight: 600; color: ink }
+                        zone box keep_btn { at: card.x + 196, card.top + 410; size: 64, 38; corner: 12; cursor: pointer }
+                        on enter keep_btn { keep.glow: 1 }
+                        on leave keep_btn { keep.glow: 0 }
+                        on press keep_btn { emit keys_keep }
+                        on submit keys.value { emit keys_keep }
+                        text keys.status { at: card.x - 228, card.top + 446; anchor: left center; size: 11; color: st.faint; width: 456; lines: 1 }
                     }
 
                     // ── what she remembers ──
