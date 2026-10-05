@@ -127,9 +127,8 @@ pub fn base64(entrada: &str) -> Option<Vec<u8>> {
     Some(fuera)
 }
 
-//  Codificar solo hace falta en las pruebas —el worker recibe base64, no lo
-//  produce—, pero la ida sin la vuelta no se puede comprobar.
-#[allow(dead_code)]
+//  Encoding: for `call … --preview-file`, which reads a cover from disk and
+//  hands it to `enrich` the way the socket would.
 pub fn a_base64(bytes: &[u8]) -> String {
     const A: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut s = String::with_capacity((bytes.len() + 2) / 3 * 4);

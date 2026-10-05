@@ -50,6 +50,9 @@ pub struct Fila {
     pub snoozed_until: Option<i64>,
     pub favorite: bool,
     pub tags: Vec<String>,
+    //  The folders it is in, by id: a card shows the colour of its folder and
+    //  the page offers to move it to another one.
+    pub spaces: Vec<String>,
     //  El trozo donde encaja lo buscado, con la parte que encaja marcada. Solo
     //  en las búsquedas: en una lista no hay nada que resaltar.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -315,6 +318,7 @@ pub fn una(db: &Connection, id: &str) -> rusqlite::Result<Option<Fila>> {
                     snoozed_until: r.get(18)?,
                     favorite: r.get::<_, i64>(19)? != 0,
                     tags: Vec::new(),
+                    spaces: Vec::new(),
                     snippet: None,
                 })
             },
@@ -336,6 +340,13 @@ pub fn una(db: &Connection, id: &str) -> rusqlite::Result<Option<Fila>> {
           WHERE ct.capture_id = ?1 ORDER BY t.name",
     )?;
     f.tags = s
+        .query_map([id], |r| r.get::<_, String>(0))?
+        .filter_map(|x| x.ok())
+        .collect();
+    let mut s = db.prepare(
+        "SELECT space_id FROM capture_spaces WHERE capture_id = ?1 ORDER BY space_id",
+    )?;
+    f.spaces = s
         .query_map([id], |r| r.get::<_, String>(0))?
         .filter_map(|x| x.ok())
         .collect();
