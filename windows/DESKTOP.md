@@ -51,14 +51,15 @@ bundle the C++ runtime; Setup includes it app-locally. The Media Feature Pack is
 not bundled. A development PC with Visual Studio is not
 evidence that an arbitrary PC has all runtime dependencies.
 
-Both source installation and Setup bundle Node.js 22.23.3, the native AI host
-and the locked Pi SDK, including dependency licenses. No global PATH change is
+Both source installation and Setup bundle Node.js 22.23.3, the native AI host,
+the locked Pi SDK and native pleamar-wm, including dependency licenses. No global PATH change is
 needed. Source builds require preparing these inputs first:
 
 ```powershell
 # Build the bundled native Deriva worker (MSVC and bundled SQLite):
 cargo build --release --locked --manifest-path deriva/Cargo.toml
 cargo build --release --locked --manifest-path windows/agent-host/Cargo.toml
+cargo build --release --locked --manifest-path ../pleamar-wm/Cargo.toml --features windows-host
 .\windows\prepare-installer-tools.ps1
 $node = (Resolve-Path .tools/installer-tools/node-v22.23.3-win-x64/node.exe).Path
 $npm = (Resolve-Path .tools/installer-tools/node-v22.23.3-win-x64/node_modules/npm/bin/npm-cli.js).Path
@@ -73,7 +74,8 @@ try { & $node $npm ci --ignore-scripts --no-audit --no-fund } finally { Pop-Loca
 .\update-desktop.ps1 -PleamarBinary ..\pleamar\target\release\pleamar.exe -NoStart
 ```
 
-`-AgentHostBinary` and `-NodeDirectory` select nondefault prepared inputs. Before
+`-AgentHostBinary`, `-NodeDirectory`, `-WindowManagerBinary`,
+`-WindowManagerHost` and `-WindowManagerLicense` select nondefault prepared inputs. Before
 creating or replacing a source installation, its real SDK must start signed out
 and stop successfully inside an isolated temporary bundle. This check does not
 use your account. See [chat validation status](AGENT.md) before relying on its
@@ -628,3 +630,23 @@ scan replies late. WinGet exceptions and cancellation retain completed package
 IDs and reboot requirements; the user can rescan to discover the final state
 of an installer that was already applying changes. Native owned-provider tests
 exercise these paths without changing installed third-party programs.
+
+## Native window layouts
+
+The package starts `pleamar-wm-host.exe` with Marea, initially in free mode.
+The context menu and finder expose **Tiled or free windows** only after the
+native session reports support. The action targets Marea's monitor. Closing
+Marea, including an unexpected exit, restores the saved free positions and
+ends its WM session. The journal under pleamar's configuration directory is
+separate from a manually started WM session. A rejected resize returns that
+monitor to free mode and reports an error rather than pretending to succeed.
+At most 64 windows can be managed across monitors.
+
+`windows/desktop.ps1 start -Screen '\\.\DISPLAY2'` limits both Marea and
+its window manager to that display. The default makes all connected displays
+available, but does not rearrange them automatically on startup. Native window
+creation/closure, minimized-state recovery and owner-exit cleanup have been
+tested with owned windows on a secondary display. Broad application testing,
+mixed-DPI hotplug and maximized-window acceptance remain pending. Rain, snow,
+ride, dock effects, live PLM window layouts and remote desktop are not yet
+available from the Windows WM; they stay hidden in Marea.

@@ -74,6 +74,8 @@ try:
     prepared_cache = agent_cache.read_bytes()
     assert prepared_cache and (target / 'bin/marea-agent.exe').is_file()
     assert manifest['agent_sdk_version']
+    assert len(manifest['wm_source']) == 40
+    assert (target / 'bin/pleamar-wm.exe').is_file() and (target / 'bin/pleamar-wm-host.exe').is_file()
     programs = ctypes.create_unicode_buffer(32768)
     assert ctypes.windll.shell32.SHGetFolderPathW(None, 2, None, 0, programs) == 0
     menu = Path(programs.value) / group
@@ -131,6 +133,7 @@ try:
         else: raise AssertionError('Uninstall left Marea startup registered')
     assert not (target / 'bin/pleamar.exe').exists() and not (target / 'bin/deriva-worker.exe').exists()
     assert not (target / 'bin/marea-agent.exe').exists() and not agent_cache.exists()
+    assert not (target / 'bin/pleamar-wm.exe').exists() and not (target / 'bin/pleamar-wm-host.exe').exists()
     assert agent_marker.read_text(encoding='utf-8') == 'preserve existing agent state'
     assert (target / 'logs/keep.txt').read_text(encoding='utf-8') == 'user log'
     assert (target / 'keep-user-file.txt').read_text(encoding='utf-8') == 'user file'

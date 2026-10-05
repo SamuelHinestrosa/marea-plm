@@ -11,6 +11,15 @@ on:
         description: Exact native engine commit
         required: true
         type: string
+      wm_repository:
+        description: Repository containing the native window manager
+        default: k4ditano/pleamar-wm
+        required: true
+        type: string
+      wm_ref:
+        description: Exact Windows-capable pleamar-wm commit
+        required: true
+        type: string
       version:
         description: Preview package version
         default: 0.2.16-preview.14
@@ -28,6 +37,7 @@ jobs:
     runs-on: windows-2022
     env:
       ENGINE_REF: ${{ inputs.pleamar_ref }}
+      WM_REF: ${{ inputs.wm_ref }}
       PACKAGE_VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +49,11 @@ jobs:
           ref: ${{ inputs.pleamar_ref }}
           path: pleamar
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.wm_repository }}
+          ref: ${{ inputs.wm_ref }}
+          path: pleamar-wm
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
@@ -58,6 +73,15 @@ jobs:
       - name: Build bundled Deriva
         working-directory: marea
         run: cargo build --release --locked --manifest-path deriva/Cargo.toml
+      - name: Build and test the native window manager
+        working-directory: pleamar-wm
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/pleamar/target
+        run: |
+          cargo test --release --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Window manager tests failed.' }
+          cargo build --release --locked --features windows-host
+          if ($LASTEXITCODE -ne 0) { throw 'Window manager build failed.' }
       - name: Build and test the native AI host
         working-directory: marea
         run: |
@@ -65,6 +89,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Agent host tests failed.' }
           cargo build --release --locked --manifest-path windows/agent-host/Cargo.toml
           if ($LASTEXITCODE -ne 0) { throw 'Agent host build failed.' }
+      - name: Window manager package lifetime (no visible surfaces)
+        working-directory: marea
+        run: python windows/test-wm-package.py --engine ../pleamar/target/release/pleamar.exe --wm ../pleamar/target/release/pleamar-wm.exe --wm-host ../pleamar/target/release/pleamar-wm-host.exe --output .tools/wm-package-smoke
       - name: Prepare app-local shader compiler
         working-directory: pleamar
         run: ./scripts/prepare-windows-runtime.ps1
@@ -96,7 +123,7 @@ jobs:
           $vs = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -property installationPath
           $crt = Get-ChildItem -Path "$vs/VC/Redist/MSVC/*/x64/Microsoft.VC143.CRT" -Directory | Sort-Object FullName -Descending | Select-Object -First 1
           if (-not $crt) { throw 'Visual Studio x64 C++ redistributable directory is missing.' }
-          python windows/build-installer.py --pleamar-binary ../pleamar/target/release/pleamar.exe --worker deriva/target/release/deriva-worker.exe --agent-host windows/agent-host/target/release/marea-agent.exe --node-directory .tools/installer-tools/node-v22.23.3-win-x64 --crt-directory $crt.FullName --iscc .tools/installer-tools/inno-6.7.3/ISCC.exe --version $env:PACKAGE_VERSION --engine-source $env:ENGINE_REF --output dist/windows
+          python windows/build-installer.py --pleamar-binary ../pleamar/target/release/pleamar.exe --wm-binary ../pleamar/target/release/pleamar-wm.exe --wm-host ../pleamar/target/release/pleamar-wm-host.exe --wm-license ../pleamar-wm/LICENSE --wm-source $env:WM_REF --worker deriva/target/release/deriva-worker.exe --agent-host windows/agent-host/target/release/marea-agent.exe --node-directory .tools/installer-tools/node-v22.23.3-win-x64 --crt-directory $crt.FullName --iscc .tools/installer-tools/inno-6.7.3/ISCC.exe --version $env:PACKAGE_VERSION --engine-source $env:ENGINE_REF --output dist/windows
           if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
       - name: Real silent installation, update and uninstall
         working-directory: marea
@@ -116,6 +143,8 @@ jobs:
           path: |
             marea/.tools/installer-smoke/*.log
             marea/.tools/installer-smoke/report.json
+            marea/.tools/wm-package-smoke/*.log
+            marea/.tools/wm-package-smoke/report.json
           if-no-files-found: ignore
   release:
     name: Prepare draft download
@@ -148,6 +177,8 @@ jobs:
           MAREA_COMMIT: ${{ github.sha }}
           ENGINE_REPOSITORY: ${{ inputs.pleamar_repository }}
           ENGINE_COMMIT: ${{ inputs.pleamar_ref }}
+          WM_REPOSITORY: ${{ inputs.wm_repository }}
+          WM_COMMIT: ${{ inputs.wm_ref }}
           PACKAGE_VERSION: ${{ inputs.version }}
           BUILD_RUN_ID: ${{ github.run_id }}
         run: >-
@@ -155,4 +186,5 @@ jobs:
           --directory dist/windows --report dist/validation/report.json
           --repository "$RELEASE_REPOSITORY" --marea-commit "$MAREA_COMMIT"
           --engine-repository "$ENGINE_REPOSITORY" --engine-commit "$ENGINE_COMMIT"
+          --wm-repository "$WM_REPOSITORY" --wm-commit "$WM_COMMIT"
           --version "$PACKAGE_VERSION" --run-id "$BUILD_RUN_ID"

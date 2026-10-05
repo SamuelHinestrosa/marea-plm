@@ -2,6 +2,9 @@ param(
     [string]$PleamarBinary,
     [string]$DerivaWorkerBinary,
     [string]$AgentHostBinary,
+    [string]$WindowManagerBinary,
+    [string]$WindowManagerHost,
+    [string]$WindowManagerLicense,
     [string]$NodeDirectory,
     [string]$Prefix
 )

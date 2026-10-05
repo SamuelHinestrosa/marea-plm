@@ -21,6 +21,7 @@ class ReleaseTests(unittest.TestCase):
         self.args = argparse.Namespace(directory=self.root, report=self.root / 'report.json',
             repository='owner/marea', marea_commit='a' * 40,
             engine_repository='owner/pleamar', engine_commit='b' * 40,
+            wm_repository='owner/pleamar-wm', wm_commit='d' * 40,
             version='0.2.8-preview.1', run_id='123')
         self.setup = self.root / 'Marea-0.2.8-preview.1-windows-x64-setup.exe'
         self.setup.write_bytes(b'installer fixture')
@@ -31,6 +32,7 @@ class ReleaseTests(unittest.TestCase):
             signed=False, interactive_validation=False,
             source=dict(version=self.args.version, architecture='x86_64',
                 marea_base=self.args.marea_commit, engine_source=self.args.engine_commit,
+                wm_source=self.args.wm_commit,
                 marea_worktree_dirty=False,
                 app_id='A8D741A8-45D5-4DE8-A38E-27DA65D253F8'))
         self.report = dict(passed=True, setup_sha256=digest)
@@ -76,6 +78,16 @@ class ReleaseTests(unittest.TestCase):
 
     def test_uncommitted_package_sources(self):
         self.build['source']['marea_worktree_dirty'] = True
+        self.save()
+        self.rejected()
+
+    def test_window_manager_from_another_commit(self):
+        self.build['source']['wm_source'] = 'c' * 40
+        self.save()
+        self.rejected()
+
+    def test_missing_window_manager_source(self):
+        del self.build['source']['wm_source']
         self.save()
         self.rejected()
 

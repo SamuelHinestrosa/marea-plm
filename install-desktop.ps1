@@ -2,11 +2,17 @@ param(
     [string]$PleamarBinary = (Join-Path $PSScriptRoot '../pleamar/target/release/pleamar.exe'),
     [string]$DerivaWorkerBinary = (Join-Path $PSScriptRoot 'deriva/target/release/deriva-worker.exe'),
     [string]$AgentHostBinary = (Join-Path $PSScriptRoot 'windows/agent-host/target/release/marea-agent.exe'),
+    [string]$WindowManagerBinary = (Join-Path $PSScriptRoot '../pleamar-wm/target/release/pleamar-wm.exe'),
+    [string]$WindowManagerHost = (Join-Path $PSScriptRoot '../pleamar-wm/target/release/pleamar-wm-host.exe'),
+    [string]$WindowManagerLicense = (Join-Path $PSScriptRoot '../pleamar-wm/LICENSE'),
     [string]$NodeDirectory = (Join-Path $PSScriptRoot '.tools/installer-tools/node-v22.23.3-win-x64'),
     [string]$Prefix = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Marea Windows')
 )
 $ErrorActionPreference = 'Stop'
 $PleamarBinary = (Resolve-Path -LiteralPath $PleamarBinary).Path
+$WindowManagerBinary = (Resolve-Path -LiteralPath $WindowManagerBinary).Path
+$WindowManagerHost = (Resolve-Path -LiteralPath $WindowManagerHost).Path
+$WindowManagerLicense = (Resolve-Path -LiteralPath $WindowManagerLicense).Path
 . (Join-Path $PSScriptRoot 'windows/runtime-files.ps1')
 . (Join-Path $PSScriptRoot 'windows/agent-package.ps1')
 $runtimeFiles = Get-PleamarRuntimeFiles $PleamarBinary
@@ -37,6 +43,10 @@ foreach ($folder in @('app', 'app/tools', 'bin', 'windows', 'logs')) {
 }
 Copy-Item -LiteralPath $PleamarBinary -Destination (Join-Path $Prefix 'bin/pleamar.exe')
 Copy-Item -LiteralPath $DerivaWorkerBinary -Destination (Join-Path $Prefix 'bin/deriva-worker.exe')
+Copy-Item -LiteralPath $WindowManagerBinary -Destination (Join-Path $Prefix 'bin/pleamar-wm.exe')
+Copy-Item -LiteralPath $WindowManagerHost -Destination (Join-Path $Prefix 'bin/pleamar-wm-host.exe')
+New-Item -ItemType Directory -Force (Join-Path $Prefix 'bin/licenses/pleamar-wm') | Out-Null
+Copy-Item -LiteralPath $WindowManagerLicense -Destination (Join-Path $Prefix 'bin/licenses/pleamar-wm/LICENSE')
 foreach ($relative in $runtimeFiles.Keys) {
     $destination = Join-Path $Prefix $relative
     New-Item -ItemType Directory -Force (Split-Path $destination -Parent) | Out-Null

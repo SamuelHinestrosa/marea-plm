@@ -1,4 +1,4 @@
-param([string]$Action = 'start', [int]$Seconds = 30, [string]$Out)
+param([string]$Action = 'start', [int]$Seconds = 30, [string]$Out, [string]$Screen)
 $ErrorActionPreference = 'Stop'
 $package = Split-Path $PSScriptRoot -Parent
 $binary = Join-Path $package 'bin/pleamar.exe'
@@ -38,7 +38,12 @@ switch ($Action) {
         New-Item -ItemType Directory -Force $stateFolder | Out-Null
         $hostBinary = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
         $runner = Join-Path $PSScriptRoot 'run-desktop.ps1'
-        $process = Start-Process -FilePath $hostBinary -ArgumentList @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $runner + '"')) -WorkingDirectory $package -WindowStyle Hidden -PassThru
+        $runnerArgs = @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $runner + '"'))
+        if ($Screen) {
+            if ($Screen -notmatch '^\\\\\.\\DISPLAY[0-9]+$') { throw 'Use a Windows display name, such as \\.\DISPLAY2.' }
+            $runnerArgs += @('-Screen', ('"' + $Screen + '"'))
+        }
+        $process = Start-Process -FilePath $hostBinary -ArgumentList $runnerArgs -WorkingDirectory $package -WindowStyle Hidden -PassThru
         $deadline = [DateTime]::UtcNow.AddSeconds(20)
         while (-not (Test-MareaInitialized)) {
             if ($process.HasExited) { throw "Marea exited with code $($process.ExitCode). Read $stateFolder" }
@@ -65,6 +70,13 @@ switch ($Action) {
                 $belongs = $false
                 try { $belongs = $owner.MainModule.FileName -eq $binary } catch {}
                 if ($belongs -and -not $owner.WaitForExit(15000)) { throw "Marea's process $($owner.Id) has not finished closing." }
+            } finally { $owner.Dispose() }
+        }
+        foreach ($owner in [Diagnostics.Process]::GetProcessesByName('pleamar-wm-host')) {
+            try {
+                $belongs = $false
+                try { $belongs = $owner.MainModule.FileName -eq (Join-Path $package 'bin/pleamar-wm-host.exe') } catch {}
+                if ($belongs -and -not $owner.WaitForExit(30000)) { throw 'The window manager is still restoring windows.' }
             } finally { $owner.Dispose() }
         }
         Write-Host 'Marea stopped.'

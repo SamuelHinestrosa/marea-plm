@@ -2,12 +2,18 @@ param(
     [string]$PleamarBinary = (Join-Path $PSScriptRoot '../pleamar/target/release/pleamar.exe'),
     [string]$DerivaWorkerBinary = (Join-Path $PSScriptRoot 'deriva/target/release/deriva-worker.exe'),
     [string]$AgentHostBinary = (Join-Path $PSScriptRoot 'windows/agent-host/target/release/marea-agent.exe'),
+    [string]$WindowManagerBinary = (Join-Path $PSScriptRoot '../pleamar-wm/target/release/pleamar-wm.exe'),
+    [string]$WindowManagerHost = (Join-Path $PSScriptRoot '../pleamar-wm/target/release/pleamar-wm-host.exe'),
+    [string]$WindowManagerLicense = (Join-Path $PSScriptRoot '../pleamar-wm/LICENSE'),
     [string]$NodeDirectory = (Join-Path $PSScriptRoot '.tools/installer-tools/node-v22.23.3-win-x64'),
     [string]$Prefix = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Marea Windows'),
     [switch]$NoStart
 )
 $ErrorActionPreference = 'Stop'
 $PleamarBinary = (Resolve-Path -LiteralPath $PleamarBinary).Path
+$WindowManagerBinary = (Resolve-Path -LiteralPath $WindowManagerBinary).Path
+$WindowManagerHost = (Resolve-Path -LiteralPath $WindowManagerHost).Path
+$WindowManagerLicense = (Resolve-Path -LiteralPath $WindowManagerLicense).Path
 . (Join-Path $PSScriptRoot 'windows/runtime-files.ps1')
 . (Join-Path $PSScriptRoot 'windows/update-files.ps1')
 . (Join-Path $PSScriptRoot 'windows/agent-package.ps1')
@@ -40,6 +46,9 @@ Test-MareaAgentFiles $agentFiles
 $files = [ordered]@{
     'bin/pleamar.exe' = $PleamarBinary
     'bin/deriva-worker.exe' = $DerivaWorkerBinary
+    'bin/pleamar-wm.exe' = $WindowManagerBinary
+    'bin/pleamar-wm-host.exe' = $WindowManagerHost
+    'bin/licenses/pleamar-wm/LICENSE' = $WindowManagerLicense
     'app/marea-desktop.plm' = (Join-Path $PSScriptRoot 'marea-desktop.plm')
     'app/marea-desktop.luau' = (Join-Path $PSScriptRoot 'marea-desktop.luau')
     'app/tools/reservas' = (Join-Path $PSScriptRoot 'tools/reservas')
@@ -76,6 +85,9 @@ try { $executableHash = [BitConverter]::ToString($hasher.ComputeHash($hashStream
 finally { $hashStream.Dispose(); $hasher.Dispose() }
 $runtimeHashes = [ordered]@{}
 $runtimeHashes['bin/deriva-worker.exe'] = (Get-FileHash -LiteralPath $DerivaWorkerBinary -Algorithm SHA256).Hash.ToLowerInvariant()
+foreach ($relative in @('bin/pleamar-wm.exe','bin/pleamar-wm-host.exe','bin/licenses/pleamar-wm/LICENSE')) {
+    $runtimeHashes[$relative] = (Get-FileHash -LiteralPath $files[$relative] -Algorithm SHA256).Hash.ToLowerInvariant()
+}
 foreach ($relative in $runtimeFiles.Keys) {
     $runtimeHashes[$relative] = (Get-FileHash -LiteralPath $runtimeFiles[$relative] -Algorithm SHA256).Hash.ToLowerInvariant()
 }
@@ -97,6 +109,13 @@ foreach ($owner in [Diagnostics.Process]::GetProcessesByName('pleamar')) {
         $belongs = $false
         try { $belongs = $owner.MainModule.FileName -eq $installedBinary } catch {}
         if ($belongs -and -not $owner.WaitForExit(15000)) { throw "The installed executable is still in use by process $($owner.Id)." }
+    } finally { $owner.Dispose() }
+}
+foreach ($owner in [Diagnostics.Process]::GetProcessesByName('pleamar-wm-host')) {
+    try {
+        $belongs = $false
+        try { $belongs = $owner.MainModule.FileName -eq (Join-Path $Prefix 'bin/pleamar-wm-host.exe') } catch {}
+        if ($belongs -and -not $owner.WaitForExit(30000)) { throw 'The window manager is still restoring windows.' }
     } finally { $owner.Dispose() }
 }
 $newFiles = @()

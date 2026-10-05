@@ -45,14 +45,24 @@ function Stop-OwnedMarea([string]$Directory) {
         try { $belongs = $process.MainModule.FileName -eq $binary } catch {}
         if ($belongs) { $owners += $process } else { $process.Dispose() }
     }
-    if ($owners.Count -eq 0) { return }
     try {
-        $env:PLEAMAR_SOCKET_DIR = 'marea-desktop'
-        $null = Invoke-PackageProcess $binary '--say marea-desktop quit' 10000
+        if ($owners.Count -gt 0) {
+            $env:PLEAMAR_SOCKET_DIR = 'marea-desktop'
+            $null = Invoke-PackageProcess $binary '--say marea-desktop quit' 10000
+        }
         foreach ($process in $owners) {
             if (-not $process.WaitForExit(15000)) { throw 'Marea is still closing. Close it and retry.' }
         }
     } finally { foreach ($process in $owners) { $process.Dispose() } }
+    # Owner-exit recovery may outlive the engine. Never replace its executable
+    # until the exact host from this installation has restored its windows.
+    foreach ($process in [Diagnostics.Process]::GetProcessesByName('pleamar-wm-host')) {
+        try {
+            $belongs = $false
+            try { $belongs = $process.MainModule.FileName -eq (Join-Path $Directory 'bin/pleamar-wm-host.exe') } catch {}
+            if ($belongs -and -not $process.WaitForExit(30000)) { throw 'The window manager is still restoring windows. Close it and retry.' }
+        } finally { $process.Dispose() }
+    }
 }
 
 function Test-Package {
@@ -67,11 +77,12 @@ function Test-Package {
             throw "Incomplete or changed package file: $($file.Name)"
         }
     }
-    foreach ($required in @('bin/pleamar.exe','bin/deriva-worker.exe','bin/node.exe','bin/marea-agent.exe','bin/dxcompiler.dll','bin/dxil.dll',
+    foreach ($required in @('bin/pleamar.exe','bin/pleamar-wm.exe','bin/pleamar-wm-host.exe','bin/licenses/pleamar-wm/LICENSE','bin/deriva-worker.exe','bin/node.exe','bin/marea-agent.exe','bin/dxcompiler.dll','bin/dxil.dll',
         'app/agent/worker.mjs','app/agent/package-lock.json','app/agent/node_modules/@earendil-works/pi-coding-agent/package.json','windows/agent-package.ps1',
         'bin/vcruntime140.dll','bin/vcruntime140_1.dll','bin/msvcp140.dll','app/marea-desktop.plm','app/marea-desktop.luau','app/assets/marea.ico','app/tools/deriva-preview.mjs','app/tools/startup.ps1','app/tools/software.ps1','app/tools/winget/Microsoft.WinGet.Client.psd1')) {
         if (-not $manifest.files.PSObject.Properties[$required]) { throw "Missing package manifest entry: $required" }
     }
+    if ($manifest.wm_source -notmatch '^[0-9a-f]{40}$') { throw 'Missing window manager source revision.' }
     # Real execution checks both the loader dependencies and default Luau. It
     # uses an absent output and an isolated library, never the user's desktop.
     $temporary = Join-Path ([IO.Path]::GetTempPath()) ('marea-setup-' + [guid]::NewGuid().ToString('N'))
@@ -79,7 +90,7 @@ function Test-Package {
     $tempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
     if (-not $temporary.StartsWith($tempPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid temporary root.' }
     New-Item -ItemType Directory -Path $temporary | Out-Null
-    $names = @('APPDATA','LOCALAPPDATA','MAREA_DERIVA_DIR','PLEAMAR_CONFIG','PLEAMAR_SOCKET_DIR','PLEAMAR_NO_RELAUNCH')
+    $names = @('APPDATA','LOCALAPPDATA','MAREA_DERIVA_DIR','PLEAMAR_CONFIG','PLEAMAR_SOCKET_DIR','PLEAMAR_WM_NAMESPACE','PLEAMAR_NO_RELAUNCH')
     $previous = @{}
     foreach ($name in $names) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
     try {
@@ -88,6 +99,7 @@ function Test-Package {
         $env:MAREA_DERIVA_DIR = Join-Path $temporary 'library'
         $env:PLEAMAR_CONFIG = Join-Path $temporary 'config'
         $env:PLEAMAR_SOCKET_DIR = 'marea-setup-' + [guid]::NewGuid().ToString('N')
+        $env:PLEAMAR_WM_NAMESPACE = $env:PLEAMAR_SOCKET_DIR
         $env:PLEAMAR_NO_RELAUNCH = '1'
         $scene = Join-Path $temporary 'probe.plm'
         $marker = 'MAREA_SETUP_LUAU_' + [guid]::NewGuid().ToString('N')
@@ -97,6 +109,11 @@ function Test-Package {
         if (-not $trace.Contains($marker) -or $trace.Contains('first frame')) { throw 'Native Luau preflight failed.' }
         $null = Invoke-PackageProcess (Join-Path $Package 'bin/pleamar.exe') ('--check "' + (Join-Path $Package 'app/marea-desktop.plm') + '"')
         $null = Invoke-PackageProcess (Join-Path $Package 'bin/deriva-worker.exe') 'stats'
+        $caps = Invoke-PackageProcess (Join-Path $Package 'bin/pleamar-wm.exe') 'capabilities' | ConvertFrom-Json
+        if ($caps.platform -ne 'windows' -or !$caps.explicit_layouts) { throw 'Native window manager capability query failed.' }
+        # A fresh, isolated session starts free and never changes window geometry.
+        $wm = Invoke-PackageProcess (Join-Path $Package 'bin/pleamar-wm-host.exe') '--monitor all --seconds 1' | ConvertFrom-Json
+        if (!$wm.stopped -or $wm.pending_recovery -ne 0) { throw 'Native window manager preflight failed.' }
         $node = Invoke-PackageProcess (Join-Path $Package 'bin/node.exe') '--version'
         if ($node.Trim() -ne $manifest.node_version) { throw 'Unexpected packaged Node.js version.' }
         Test-MareaAgentPackage $Package

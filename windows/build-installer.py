@@ -35,14 +35,16 @@ def main():
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
     p = argparse.ArgumentParser(description=__doc__)
-    for name in ['pleamar-binary', 'worker', 'agent-host', 'node-directory', 'crt-directory', 'iscc', 'output']:
+    for name in ['pleamar-binary', 'wm-binary', 'wm-host', 'wm-license', 'worker', 'agent-host', 'node-directory', 'crt-directory', 'iscc', 'output']:
         p.add_argument('--' + name, type=Path, required=True)
     p.add_argument('--version', required=True, help='For example 0.2.8-preview.1')
     p.add_argument('--engine-source', required=True, help='Engine source commit/ref recorded in release metadata')
+    p.add_argument('--wm-source', required=True, help='Exact pleamar-wm source commit')
     args = p.parse_args()
     if os.name != 'nt': p.error('Build the Windows installer on Windows.')
     if not re.fullmatch(r'\d+\.\d+\.\d+(?:-preview\.\d+)?', args.version): p.error('Invalid version.')
     if not re.fullmatch(r'[A-Za-z0-9._/+\-]{1,100}', args.engine_source): p.error('Invalid engine source ref.')
+    if not re.fullmatch(r'[0-9a-f]{40}', args.wm_source): p.error('Use a full window manager commit hash.')
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
     stage = out / 'payload'
@@ -58,9 +60,12 @@ def main():
     agent = collect_agent(args.agent_host, args.node_directory)
     run(sys.executable, ROOT / 'windows/build-desktop.py')
     run(sys.executable, ROOT / 'windows/prepare-winget.py')
-    for source, name in [(engine, 'pleamar.exe'), (worker, 'deriva-worker.exe')]:
+    for source, name in [(engine, 'pleamar.exe'), (worker, 'deriva-worker.exe'),
+                         (args.wm_binary.resolve(strict=True), 'pleamar-wm.exe'),
+                         (args.wm_host.resolve(strict=True), 'pleamar-wm-host.exe')]:
         x64(source)
         copy(source, 'bin/' + name)
+    copy(args.wm_license.resolve(strict=True), 'bin/licenses/pleamar-wm/LICENSE')
     for relative, source in agent['files'].items():
         copy(Path(source), relative)
     node_version = agent['node_version']
@@ -106,7 +111,7 @@ def main():
         'https://visualstudio.microsoft.com/license-terms/\n'
         'https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution\n', encoding='utf-8', newline='\n')
     manifest = {'app_id': APP_ID, 'version': args.version, 'architecture': 'x86_64',
-        'node_version': node_version, 'engine_source': args.engine_source,
+        'node_version': node_version, 'engine_source': args.engine_source, 'wm_source': args.wm_source,
         'agent_sdk_version': agent['sdk_version'],
         'marea_base': subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT).decode().strip(),
         'marea_worktree_dirty': bool(subprocess.check_output(['git','status','--porcelain'], cwd=ROOT).strip()),

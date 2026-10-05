@@ -2,7 +2,9 @@
 
 `Marea-VERSION-windows-x64-setup.exe` is an offline, per-user package. It
 contains pleamar with default Luau, the real Deriva worker, Node.js, the native
-AI host and locked Pi SDK, app-local Microsoft C++ runtime DLLs and DXC.
+AI host and locked Pi SDK, the native pleamar-wm CLI/background host, app-local
+Microsoft C++ runtime DLLs and DXC. The window manager starts in free mode and
+restores managed windows when Marea exits; compositor effects remain pending.
 SDK dependency runtime files and their license/notice texts are included.
 It also includes the checksum-pinned Microsoft.WinGet.Client 1.29.380 module and
 notices. The Programs page requires Windows App Installer/WinGet; Setup does not
@@ -56,9 +58,12 @@ tokens or test data are included in the distribution.
 A maintainer can do this entirely in the GitHub website. Once this workflow
 is on the default branch, open **Actions → Windows preview installer → Run
 workflow** and select the Marea branch to release. Enter the pleamar repository
-and its full 40-character Windows-capable commit hash, and choose a new version
+and its full 40-character Windows-capable commit hash, then the pleamar-wm
+repository and its exact Windows-capable commit. Choose a new version
 such as `0.2.8-preview.1`. Until the engine port is merged, use the port's fork
-and exact commit instead of the upstream engine.
+and exact commit instead of the upstream engine. The WM port similarly needs
+its Windows branch until merged. All three source revisions are recorded in
+the download metadata and checked before preparing a draft release.
 
 Enable **Prepare a draft GitHub prerelease after the installer tests pass**.
 GitHub's Windows runner compiles the native default-Luau engine, Deriva and the
@@ -92,11 +97,12 @@ directory, subject to its license and Distributable Code list.
 ```powershell
 .\windows\prepare-installer-tools.ps1
 cargo build --release --locked --manifest-path windows/agent-host/Cargo.toml
+cargo build --release --locked --manifest-path ../pleamar-wm/Cargo.toml --features windows-host
 $node = (Resolve-Path .tools/installer-tools/node-v22.23.3-win-x64/node.exe).Path
 $npm = (Resolve-Path .tools/installer-tools/node-v22.23.3-win-x64/node_modules/npm/bin/npm-cli.js).Path
 Push-Location agent
 try { & $node $npm ci --ignore-scripts --no-audit --no-fund } finally { Pop-Location }
-python windows/build-installer.py --pleamar-binary ../pleamar/target/release/pleamar.exe --worker deriva/target/release/deriva-worker.exe --agent-host windows/agent-host/target/release/marea-agent.exe --node-directory .tools/installer-tools/node-v22.23.3-win-x64 --crt-directory "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC/14.44.35112/x64/Microsoft.VC143.CRT" --iscc .tools/installer-tools/inno-6.7.3/ISCC.exe --version 0.2.16-preview.14 --engine-source ENGINE_COMMIT --output dist/windows
+python windows/build-installer.py --pleamar-binary ../pleamar/target/release/pleamar.exe --wm-binary ../pleamar-wm/target/release/pleamar-wm.exe --wm-host ../pleamar-wm/target/release/pleamar-wm-host.exe --wm-license ../pleamar-wm/LICENSE --wm-source WM_COMMIT --worker deriva/target/release/deriva-worker.exe --agent-host windows/agent-host/target/release/marea-agent.exe --node-directory .tools/installer-tools/node-v22.23.3-win-x64 --crt-directory "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC/14.44.35112/x64/Microsoft.VC143.CRT" --iscc .tools/installer-tools/inno-6.7.3/ISCC.exe --version 0.2.16-preview.14 --engine-source ENGINE_COMMIT --output dist/windows
 python windows/test-installer.py --setup dist/windows/Marea-0.2.16-preview.14-windows-x64-setup.exe --payload dist/windows/payload --output .tools/installer-smoke
 ```
 

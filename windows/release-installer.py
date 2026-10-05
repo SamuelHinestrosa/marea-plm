@@ -11,10 +11,10 @@ import tempfile
 def validate(args):
     if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+-preview\.[0-9]+', args.version):
         raise ValueError('Release preparation requires a preview version, such as 0.2.8-preview.1.')
-    for repository in (args.repository, args.engine_repository):
+    for repository in (args.repository, args.engine_repository, args.wm_repository):
         if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository):
             raise ValueError('Expected a GitHub owner/repository.')
-    for commit in (args.marea_commit, args.engine_commit):
+    for commit in (args.marea_commit, args.engine_commit, args.wm_commit):
         if not re.fullmatch(r'[0-9a-f]{40}', commit):
             raise ValueError('Use full commit hashes, not branches or tags.')
     if not re.fullmatch(r'[0-9]+', args.run_id):
@@ -27,6 +27,7 @@ def validate(args):
             or source['marea_base'] != args.marea_commit
             or source.get('marea_worktree_dirty') is not False
             or source['engine_source'] != args.engine_commit
+            or source.get('wm_source') != args.wm_commit
             or source['architecture'] != 'x86_64'
             or source['app_id'] != 'A8D741A8-45D5-4DE8-A38E-27DA65D253F8'):
         raise ValueError('The package does not match the requested sources, version or identity.')
@@ -43,10 +44,12 @@ def validate(args):
     notes = f"""Windows x64 preview. Download `{setup.name}` below and run it.
 
 Includes pleamar with default Luau, the native Deriva worker, private Node.js,
-the native AI host, locked Pi SDK, C++ runtime and DXC. No developer tools or
+the native AI host, locked Pi SDK, native window manager, C++ runtime and DXC. No developer tools or
 separate Node install are needed. AI package checks use an empty account; an
 authenticated model conversation and full desktop-agent validation remain separate.
 Requires Windows 10 build 17763 or newer and a DX12 driver.
+The window manager starts in free mode. Marea can opt into native tiling per
+monitor; compositor effects and remote desktop parity remain unfinished.
 
 Automated Windows installation, update, locked-file rejection and uninstall
 tests passed for this exact installer. This does not establish graphical,
@@ -56,6 +59,7 @@ detects changed bytes and is not a publisher signature. This is not a stable rel
 - [Build and test run](https://github.com/{args.repository}/actions/runs/{args.run_id})
 - [Marea source](https://github.com/{args.repository}/commit/{args.marea_commit})
 - [pleamar source](https://github.com/{args.engine_repository}/commit/{args.engine_commit})
+- [pleamar-wm source](https://github.com/{args.wm_repository}/commit/{args.wm_commit})
 - [Installation and limitations](https://github.com/{args.repository}/blob/{args.marea_commit}/windows/INSTALLER.md)
 
 SHA-256: `{digest}`
@@ -95,6 +99,8 @@ def main():
     parser.add_argument('--marea-commit', required=True)
     parser.add_argument('--engine-repository', required=True)
     parser.add_argument('--engine-commit', required=True)
+    parser.add_argument('--wm-repository', required=True)
+    parser.add_argument('--wm-commit', required=True)
     parser.add_argument('--version', required=True)
     parser.add_argument('--run-id', required=True)
     create_draft(parser.parse_args())
