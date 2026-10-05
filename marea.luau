@@ -3492,9 +3492,25 @@ local function chat()
         if tool == "open_app" then
             local found = find_app(tostring(args.name or ""))
             if found then
-                pcall(sys.call, "apps.launch", found.exec)
-                finish_row(row, true)
-                answer(id, true, "Opened " .. found.name .. ". Its window may take a moment to show, on the monitor where the user is: desktop_windows to find it.")
+                --  Opened by her hands (`pleamar-wm agent open`): the monitor
+                --  she works on lights first, and the window opens there
+                --  without taking your keyboard. A session without that:
+                --  as any program is opened.
+                local exec = tostring(found.exec):gsub("%%%a", ""):gsub("%s+$", "")
+                local argv = { "agent", "open" }
+                local m = tonumber(args.monitor)
+                if m then
+                    argv[#argv + 1] = "--monitor"
+                    argv[#argv + 1] = tostring(math.floor(m))
+                end
+                argv[#argv + 1] = "--"
+                argv[#argv + 1] = exec
+                run("pleamar-wm", argv, function(out, code)
+                    local where = code == 0 and tostring(out):match("on monitor (%d+)")
+                    if not where then pcall(sys.call, "apps.launch", found.exec) end
+                    finish_row(row, true)
+                    answer(id, true, "Opened " .. found.name .. (where and (" on monitor " .. where .. ", where you work, without the user's keyboard") or ", on the monitor where the user is") .. ". Its window may take a moment to show: desktop_windows to find it.")
+                end, HANDS)
                 return
             end
             local names = {}
