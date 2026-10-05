@@ -1,6 +1,8 @@
 param(
     [string]$PleamarBinary,
     [string]$DerivaWorkerBinary,
+    [string]$AgentHostBinary,
+    [string]$NodeDirectory,
     [string]$Prefix
 )
 $ErrorActionPreference = 'Stop'

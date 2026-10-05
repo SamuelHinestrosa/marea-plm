@@ -51,13 +51,19 @@ bundle the C++ runtime; Setup includes it app-locally. The Media Feature Pack is
 not bundled. A development PC with Visual Studio is not
 evidence that an arbitrary PC has all runtime dependencies.
 
-With a source installation, the optional Agents page also needs Node.js 22.7 or newer on PATH. Check it with
-`node --version` before starting Marea. The installer copies `tools/reservas`;
-it does not install Node or change PATH. Setup includes a private Node runtime.
+Both source installation and Setup bundle Node.js 22.23.3, the native AI host
+and the locked Pi SDK, including dependency licenses. No global PATH change is
+needed. Source builds require preparing these inputs first:
 
 ```powershell
 # Build the bundled native Deriva worker (MSVC and bundled SQLite):
 cargo build --release --locked --manifest-path deriva/Cargo.toml
+cargo build --release --locked --manifest-path windows/agent-host/Cargo.toml
+.\windows\prepare-installer-tools.ps1
+$node = (Resolve-Path .tools/installer-tools/node-v22.23.3-win-x64/node.exe).Path
+$npm = (Resolve-Path .tools/installer-tools/node-v22.23.3-win-x64/node_modules/npm/bin/npm-cli.js).Path
+Push-Location agent
+try { & $node $npm ci --ignore-scripts --no-audit --no-fund } finally { Pop-Location }
 # Before installing, prepare the built pleamar runtime (downloads pinned Microsoft DXC):
 ..\pleamar\scripts\prepare-windows-runtime.ps1
 .\install-windows.ps1 -PleamarBinary ..\pleamar\target\release\pleamar.exe
@@ -66,6 +72,12 @@ cargo build --release --locked --manifest-path deriva/Cargo.toml
 # Replace the package without opening the desktop (launch validation is deferred):
 .\update-desktop.ps1 -PleamarBinary ..\pleamar\target\release\pleamar.exe -NoStart
 ```
+
+`-AgentHostBinary` and `-NodeDirectory` select nondefault prepared inputs. Before
+creating or replacing a source installation, its real SDK must start signed out
+and stop successfully inside an isolated temporary bundle. This check does not
+use your account. See [chat validation status](AGENT.md) before relying on its
+desktop-agent features.
 
 Preparing DXC is recommended for faster startup. It stays beside `pleamar.exe`;
 Windows and PATH are not changed. The Marea installers copy the compiler DLLs,

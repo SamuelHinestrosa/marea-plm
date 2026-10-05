@@ -9,10 +9,10 @@ import shutil
 import struct
 import subprocess
 import sys
+from agent_files import collect as collect_agent
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_ID = 'A8D741A8-45D5-4DE8-A38E-27DA65D253F8'
-NODE_VERSION = 'v22.23.3'
 
 def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -35,7 +35,7 @@ def main():
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
     p = argparse.ArgumentParser(description=__doc__)
-    for name in ['pleamar-binary', 'worker', 'node-directory', 'crt-directory', 'iscc', 'output']:
+    for name in ['pleamar-binary', 'worker', 'agent-host', 'node-directory', 'crt-directory', 'iscc', 'output']:
         p.add_argument('--' + name, type=Path, required=True)
     p.add_argument('--version', required=True, help='For example 0.2.8-preview.1')
     p.add_argument('--engine-source', required=True, help='Engine source commit/ref recorded in release metadata')
@@ -55,14 +55,15 @@ def main():
         else: shutil.copy2(source, target)
 
     engine, worker = args.pleamar_binary.resolve(strict=True), args.worker.resolve(strict=True)
+    agent = collect_agent(args.agent_host, args.node_directory)
     run(sys.executable, ROOT / 'windows/build-desktop.py')
     run(sys.executable, ROOT / 'windows/prepare-winget.py')
-    for source, name in [(engine, 'pleamar.exe'), (worker, 'deriva-worker.exe'), (args.node_directory / 'node.exe', 'node.exe')]:
+    for source, name in [(engine, 'pleamar.exe'), (worker, 'deriva-worker.exe')]:
         x64(source)
         copy(source, 'bin/' + name)
-    node_version = subprocess.check_output([str(stage / 'bin/node.exe'), '--version'], creationflags=subprocess.CREATE_NO_WINDOW).decode().strip()
-    if node_version != NODE_VERSION: raise ValueError(f'Expected Node {NODE_VERSION}, found {node_version}')
-    copy(args.node_directory / 'LICENSE', 'bin/licenses/node/LICENSE')
+    for relative, source in agent['files'].items():
+        copy(Path(source), relative)
+    node_version = agent['node_version']
     compiler = json.loads((engine.parent / 'dxc-runtime.json').read_text(encoding='utf-8-sig'))
     expected = {'dxcompiler.dll','dxil.dll','licenses/dxc/LICENCE-MIT.txt','licenses/dxc/LICENSE-LLVM.txt','licenses/dxc/LICENSE-MS.txt'}
     if set(compiler['files']) != expected: raise ValueError('Incomplete shader compiler manifest.')
@@ -91,10 +92,12 @@ def main():
         if digest(source) != sha: raise ValueError('Changed WinGet client file: ' + relative)
         copy(source, 'app/tools/winget/' + relative)
     copy(ROOT / 'tools/winget/bundle.json', 'app/tools/winget/bundle.json')
-    for name in ['desktop.ps1','run-desktop.ps1','installer-hooks.ps1']:
+    for name in ['desktop.ps1','run-desktop.ps1','installer-hooks.ps1','agent-package.ps1']:
         copy(ROOT / 'windows' / name, 'windows/' + name)
     copy(ROOT / 'windows/DESKTOP.md', 'README.md')
     copy(ROOT / 'windows/INSTALLER.md', 'INSTALLER.md')
+    copy(ROOT / 'windows/AGENT.md', 'windows/AGENT.md')
+    copy(ROOT / 'windows/agent-host/README.md', 'windows/agent-host/README.md')
     notice = stage / 'bin/licenses/msvc/NOTICE.txt'
     notice.parent.mkdir(parents=True)
     notice.write_text('Microsoft Visual C++ runtime, copyright Microsoft Corporation.\n'
@@ -104,7 +107,9 @@ def main():
         'https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution\n', encoding='utf-8', newline='\n')
     manifest = {'app_id': APP_ID, 'version': args.version, 'architecture': 'x86_64',
         'node_version': node_version, 'engine_source': args.engine_source,
+        'agent_sdk_version': agent['sdk_version'],
         'marea_base': subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT).decode().strip(),
+        'marea_worktree_dirty': bool(subprocess.check_output(['git','status','--porcelain'], cwd=ROOT).strip()),
         'files': {f.relative_to(stage).as_posix(): digest(f) for f in sorted(stage.rglob('*')) if f.is_file()}}
     (stage / 'package.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8', newline='\n')
     host = Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'

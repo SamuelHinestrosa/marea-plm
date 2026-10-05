@@ -40,6 +40,15 @@ screenshots, lock screen — written in [pleamar], on any Wayland compositor.
 - **A control center that grows out of its cards**: Wi-Fi, Bluetooth, sound,
   session, tray, calendar, focus, your AI agents' remaining quota (Claude,
   Codex), settings — each page opens out of its own card.
+- **She talks, and can use your desktop for you** (`Super+Shift+A`, her menu,
+  the finder): a chat that grows out of her, with her AI —your ChatGPT
+  account, signed in from her settings— in a sandbox of its own. With
+  [pleamar-wm] she also has hands: a pointer and a keyboard of her own, apart
+  from yours, to open the browser, look something up or fill a form while you
+  keep working. Looking at a window she does at once; anything that changes
+  something is a card you allow or not (or, if you let her, only what sends,
+  buys or deletes). Her cursor is a drop of her, the monitor she works on
+  glows, and its «Stop» ends it at any moment.
 - **A finder for apps, files and folders**: `Super+Space`, type, Enter. Drag a
   file out of it into any program.
 - **Updates and programs, without a terminal** (Arch and its family): she looks
@@ -109,6 +118,7 @@ her keys:
 ```ini
 exec-once = marea start
 bind = SUPER, Space, exec, marea search
+bind = SUPER SHIFT, A, exec, marea chat
 bind = SUPER, L, exec, marea lock
 bind = , Print, exec, marea shot_region
 bind = SHIFT, Print, exec, marea shot_screen
@@ -123,6 +133,15 @@ Deriva, the page where she keeps what you drop on her, has its library in
 time she starts, and again after an update, if Rust (`cargo`) is installed; it
 takes a minute, in the background. On Nix it comes built.
 
+Her chat runs in `agent/` (the [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) SDK)
+with Node, inside [bubblewrap](https://github.com/containers/bubblewrap): it
+sees its own state folder and the network to its model, nothing else of
+yours, and only proposes what to do —she decides and does it—. She fetches its
+packages the first time she starts (`npm ci --ignore-scripts`, if `npm` is
+there); on Nix they come with her. Its sign-in is kept in
+`~/.local/state/marea-plm/agent`; the one of the Marea written in Quickshell
+is copied from there the first time, if there was one.
+
 On **Nix**: `nix run github:k4ditano/marea-plm -- start`, or `pkgs.marea` through
 this flake's `overlays.default`. On NixOS, [pleamar-wm]'s module brings her
 with the whole desktop.
@@ -134,8 +153,9 @@ marea start          # starts her; her log goes to ~/.local/state/marea-plm/mare
 marea status         # whether she is running
 marea stop
 marea report         # if she stutters: measures 30 s while you use her, writes a report to send us
+marea chat           # her chat, open or closed (Super+Shift+A in pleamar-wm)
 marea search         # any other word is an event she is told:
-marea lock           #   search, lock, shot_region, shot_screen, shot_window,
+marea lock           #   search, chat, lock, shot_region, shot_screen, shot_window,
 marea shot_region    #   record_toggle, celebrate, rage, adventure…
 ```
 

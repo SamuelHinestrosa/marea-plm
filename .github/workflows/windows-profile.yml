@@ -39,6 +39,25 @@ jobs:
       - name: Portable agent quota reader (isolated files, no credentials/network)
         working-directory: marea
         run: node tools/test-reservas.mjs
+      - name: Pinned agent dependencies without install scripts
+        working-directory: marea/agent
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Agent images, desktop policy and OAuth selection (no account/network)
+        working-directory: marea
+        run: node --test agent/state-image.test.mjs agent/auth-interaction.test.mjs agent/desktop-policy.test.mjs
+      - name: Native agent host unit tests
+        if: runner.os == 'Windows'
+        working-directory: marea
+        run: cargo test --locked --manifest-path windows/agent-host/Cargo.toml
+      - name: Build the agent host and native denial fixture
+        if: runner.os == 'Windows'
+        working-directory: marea
+        run: cargo build --locked --manifest-path windows/agent-host/Cargo.toml --features test-fixtures
+      - name: Real Windows agent isolation, process lifetime and path boundaries
+        if: runner.os == 'Windows'
+        working-directory: marea
+        shell: pwsh
+        run: python windows/test-agent-sandbox.py --host windows/agent-host/target/debug/marea-agent.exe --node (Get-Command node).Source --child-probe windows/agent-host/target/debug/marea-agent-child-probe.exe
       - name: YouTube preview fetching, cache and failure handling (offline fixtures)
         working-directory: marea
         run: node --test tools/test-deriva-preview.mjs

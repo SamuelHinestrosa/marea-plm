@@ -1,8 +1,9 @@
 # Windows preview installer
 
 `Marea-VERSION-windows-x64-setup.exe` is an offline, per-user package. It
-contains pleamar with default Luau, the real Deriva worker, Node.js for the
-Agents page, app-local Microsoft C++ runtime DLLs and the DXC shader compiler.
+contains pleamar with default Luau, the real Deriva worker, Node.js, the native
+AI host and locked Pi SDK, app-local Microsoft C++ runtime DLLs and DXC.
+SDK dependency runtime files and their license/notice texts are included.
 It also includes the checksum-pinned Microsoft.WinGet.Client 1.29.380 module and
 notices. The Programs page requires Windows App Installer/WinGet; Setup does not
 install or repair that operating-system component. Package discovery/downloads
@@ -32,14 +33,19 @@ Sharp installed, run `node windows/build-icon.cjs` (optionally set
 
 Run a newer setup to update the same installation. It verifies all payload
 hashes, executes Luau without a display, checks the generated scene, and runs
-the real worker before replacing files. It closes only Marea processes from
+the real Deriva worker and signed-out AI SDK before replacing files. The AI
+check uses a separate AppContainer and temporary state, never existing account
+credentials. Setup prepares the installed agent's permissions before the first
+chat, without starting Node or contacting a model. It closes only Marea processes from
 that installation; a locked file prevents the update. Unrelated folders and
 older source-script installations are not overwritten or migrated. Close the
 older Marea before starting this one; only one desktop instance can run.
 
 Uninstall from Windows Installed apps or Start. Packaged files and shortcuts
 are removed. Deriva in `%LOCALAPPDATA%\proyecto-marea\deriva`, pleamar settings,
-screenshots and user-created files/logs are preserved. Setup never recursively
+screenshots, chat state in `%LOCALAPPDATA%\Marea\Agent`, and user-created
+files/logs are preserved. Uninstall removes the package's AppContainer profile
+after its worker exits. Setup never recursively
 deletes the installation directory. No private libraries, preferences, access
 tokens or test data are included in the distribution.
 
@@ -85,8 +91,13 @@ directory, subject to its license and Distributable Code list.
 
 ```powershell
 .\windows\prepare-installer-tools.ps1
-python windows/build-installer.py --pleamar-binary ../pleamar/target/release/pleamar.exe --worker deriva/target/release/deriva-worker.exe --node-directory .tools/installer-tools/node-v22.23.3-win-x64 --crt-directory "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC/14.44.35112/x64/Microsoft.VC143.CRT" --iscc .tools/installer-tools/inno-6.7.3/ISCC.exe --version 0.2.8-preview.1 --engine-source ENGINE_COMMIT --output dist/windows
-python windows/test-installer.py --setup dist/windows/Marea-0.2.8-preview.1-windows-x64-setup.exe --payload dist/windows/payload --output .tools/installer-smoke
+cargo build --release --locked --manifest-path windows/agent-host/Cargo.toml
+$node = (Resolve-Path .tools/installer-tools/node-v22.23.3-win-x64/node.exe).Path
+$npm = (Resolve-Path .tools/installer-tools/node-v22.23.3-win-x64/node_modules/npm/bin/npm-cli.js).Path
+Push-Location agent
+try { & $node $npm ci --ignore-scripts --no-audit --no-fund } finally { Pop-Location }
+python windows/build-installer.py --pleamar-binary ../pleamar/target/release/pleamar.exe --worker deriva/target/release/deriva-worker.exe --agent-host windows/agent-host/target/release/marea-agent.exe --node-directory .tools/installer-tools/node-v22.23.3-win-x64 --crt-directory "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC/14.44.35112/x64/Microsoft.VC143.CRT" --iscc .tools/installer-tools/inno-6.7.3/ISCC.exe --version 0.2.16-preview.14 --engine-source ENGINE_COMMIT --output dist/windows
+python windows/test-installer.py --setup dist/windows/Marea-0.2.16-preview.14-windows-x64-setup.exe --payload dist/windows/payload --output .tools/installer-smoke
 ```
 
 The smoke test uses a fresh Unicode directory and its own Start-menu group,

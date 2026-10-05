@@ -25,6 +25,7 @@ SetupIconFile={#Payload}\app\assets\marea.ico
 UninstallDisplayIcon={app}\app\assets\marea.ico
 OutputBaseFilename=Marea-{#AppVersion}-windows-x64-setup
 Compression=lzma2
+CompressionThreads=2
 SolidCompression=yes
 WizardStyle=modern
 CloseApplications=no
@@ -109,6 +110,6 @@ begin
   if CurUninstallStep = usUninstall then begin
     ResultPath := ExpandConstant('{tmp}\marea-startup-remove.txt');
     if not RunHook(ExpandConstant('{app}'), 'unregister', '', ResultPath) then
-      RaiseException('Could not remove the Marea startup entry. Close Marea and retry.');
+      RaiseException(FailureMessage(ResultPath));
   end;
 end;

@@ -27,10 +27,15 @@ def registration():
             return winreg.QueryValueEx(k, 'InstallLocation')[0]
     except FileNotFoundError: return None
 assert registration() is None, 'An actual Setup installation exists. Run this smoke test on a clean account/runner.'
+test_environment = dict(os.environ, LOCALAPPDATA=str(output / 'Local data ñ'))
+agent_state = output / 'Local data ñ/Marea/Agent'
+agent_state.mkdir(parents=True)
+agent_marker = agent_state / 'installer-preserve.txt'
+agent_marker.write_text('preserve existing agent state', encoding='utf-8')
 
 def run(command, expect=0, log=None, environment=None):
     result = subprocess.run([str(c) for c in command], capture_output=True, encoding='utf-8', errors='replace',
-        timeout=180, creationflags=subprocess.CREATE_NO_WINDOW, env=environment)
+        timeout=600, creationflags=subprocess.CREATE_NO_WINDOW, env=environment or test_environment)
     if expect == 'failure': assert result.returncode != 0, 'A rejected installation returned success.'
     else: assert result.returncode == expect, (result.returncode, result.stdout, result.stderr, log)
     return result
@@ -65,6 +70,10 @@ try:
     for relative, digest in manifest['files'].items():
         assert hashlib.sha256((target / relative).read_bytes()).hexdigest() == digest, relative
     assert (target / 'logs/setup-registration.txt').read_text(encoding='utf-8-sig') == 'OK'
+    agent_cache = target / 'bin/marea-agent-access.txt'
+    prepared_cache = agent_cache.read_bytes()
+    assert prepared_cache and (target / 'bin/marea-agent.exe').is_file()
+    assert manifest['agent_sdk_version']
     programs = ctypes.create_unicode_buffer(32768)
     assert ctypes.windll.shell32.SHGetFolderPathW(None, 2, None, 0, programs) == 0
     menu = Path(programs.value) / group
@@ -78,6 +87,10 @@ try:
         '-Setup', setup, '-Uninstaller', target / 'unins000.exe', '-Shortcut', menu / 'Marea.lnk'])
     report['stages'].append('native icon sizes, setup/uninstaller pixels, Start-menu icon and Installed apps registration')
     hook()
+    assert agent_cache.read_bytes() == prepared_cache, 'Validation disturbed the installed agent profile cache'
+    assert not (target / 'bin/marea-agent-validation-access.txt').exists()
+    assert agent_marker.read_text(encoding='utf-8') == 'preserve existing agent state'
+    report['stages'].append('native AI SDK starts signed out in a separate profile; installed permissions and state preserved')
     report['stages'].append('silent Unicode install, native Luau/worker/Node and shortcut registration')
     assert startup()['available'] and not startup()['registered']
     assert startup('enable')['enabled']
@@ -117,6 +130,8 @@ try:
         except FileNotFoundError: pass
         else: raise AssertionError('Uninstall left Marea startup registered')
     assert not (target / 'bin/pleamar.exe').exists() and not (target / 'bin/deriva-worker.exe').exists()
+    assert not (target / 'bin/marea-agent.exe').exists() and not agent_cache.exists()
+    assert agent_marker.read_text(encoding='utf-8') == 'preserve existing agent state'
     assert (target / 'logs/keep.txt').read_text(encoding='utf-8') == 'user log'
     assert (target / 'keep-user-file.txt').read_text(encoding='utf-8') == 'user file'
     assert not menu.exists()

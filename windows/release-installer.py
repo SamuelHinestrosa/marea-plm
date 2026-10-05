@@ -25,6 +25,7 @@ def validate(args):
     source = build['source']
     if (build['version'] != args.version or source['version'] != args.version
             or source['marea_base'] != args.marea_commit
+            or source.get('marea_worktree_dirty') is not False
             or source['engine_source'] != args.engine_commit
             or source['architecture'] != 'x86_64'
             or source['app_id'] != 'A8D741A8-45D5-4DE8-A38E-27DA65D253F8'):
@@ -42,7 +43,9 @@ def validate(args):
     notes = f"""Windows x64 preview. Download `{setup.name}` below and run it.
 
 Includes pleamar with default Luau, the native Deriva worker, private Node.js,
-the C++ runtime and DXC. No developer tools or separate Node install are needed.
+the native AI host, locked Pi SDK, C++ runtime and DXC. No developer tools or
+separate Node install are needed. AI package checks use an empty account; an
+authenticated model conversation and full desktop-agent validation remain separate.
 Requires Windows 10 build 17763 or newer and a DX12 driver.
 
 Automated Windows installation, update, locked-file rejection and uninstall

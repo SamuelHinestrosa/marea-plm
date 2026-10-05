@@ -31,6 +31,7 @@ class ReleaseTests(unittest.TestCase):
             signed=False, interactive_validation=False,
             source=dict(version=self.args.version, architecture='x86_64',
                 marea_base=self.args.marea_commit, engine_source=self.args.engine_commit,
+                marea_worktree_dirty=False,
                 app_id='A8D741A8-45D5-4DE8-A38E-27DA65D253F8'))
         self.report = dict(passed=True, setup_sha256=digest)
         self.save()
@@ -70,6 +71,16 @@ class ReleaseTests(unittest.TestCase):
 
     def test_engine_from_another_commit(self):
         self.build['source']['engine_source'] = 'c' * 40
+        self.save()
+        self.rejected()
+
+    def test_uncommitted_package_sources(self):
+        self.build['source']['marea_worktree_dirty'] = True
+        self.save()
+        self.rejected()
+
+    def test_missing_source_cleanliness(self):
+        del self.build['source']['marea_worktree_dirty']
         self.save()
         self.rejected()
 

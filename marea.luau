@@ -273,6 +273,8 @@ local hooks = {}
 local OWN = {
     { "Calendar", "calendar calendario agenda events eventos evento cita citas reminder recordatorio meeting reunion", 1,
       function() if hooks.calendar then hooks.calendar() end; open_page("calendar")() end },
+    { "Talk with Marea", "chat hablar habla conversar conversacion conversación pregunta preguntar ia ai agente agent asistente assistant marea pi", 2,
+      function() if hooks.chat then hooks.chat() end end },
     { "Updates", "updates update upgrade actualizaciones actualizar actualizacion actualización sistema system pacman yay paru aur paquetes packages", 1,
       function() if hooks.software then hooks.software("updates") end end },
     { "Install programs", "install instalar programas programs apps aplicaciones paquetes packages software catalogue catalogo catálogo tienda store aur pacman", 1,
@@ -2015,6 +2017,7 @@ local function save_settings()
     settings.dnd = fact.dnd == true
     settings.quiet_rec = fact.quiet_rec ~= false
     settings.snooze = math.floor(fact.snooze_k or 1)
+    settings.chat_free = fact["chat.free"] == true
     --  What she has on: it stays on through a restart.
     settings.wears = {}
     for _, piece in ipairs(PIECES) do settings.wears[piece] = fact["wears." .. piece] == true end
@@ -3240,3 +3243,612 @@ local function software()
     end)
 end
 software()
+
+-- ── the chat: talking to her, and her hands on the desktop ─────────
+--  Her AI is the Pi SDK in a sandbox (`agent/`), spoken to in JSON lines.
+--  It PROPOSES; this decides. Looking (the windows, a picture of one) is done
+--  at once; anything that changes something becomes a card in the thread
+--  that you allow or not, and only then is it done, with pleamar-wm's agent
+--  hands (`pleamar-wm agent …`): her own pointer and keyboard, never yours.
+--  What happened is what this says happened, never what the model says.
+-- A platform may supply native desktop tools; the compositor path stays here.
+local chat_desktop = nil
+local function chat()
+    local base = sys.ask("env", "XDG_STATE_HOME")
+    if base == nil or base == "" then base = home_dir .. "/.local/state" end
+    local STATE = base .. "/marea-plm/agent"
+    --  How her hands are run: what they say went wrong comes back too, and
+    --  the cursor on the desktop is labelled hers.
+    local HANDS = { errors = true, env = { PLEAMAR_AGENT_NAME = "Marea" } }
+    local DEFAULT_MODEL = "openai-codex/gpt-5.6-luna"
+    local function chosen() return type(settings.chat_model) == "string" and settings.chat_model or DEFAULT_MODEL end
+    local PROVIDERS = { ["openai-codex"] = "ChatGPT" }
+    local models = {}
+    fact["chat.free"] = settings.chat_free == true
+    on("fact:chat.free", function() save_settings() end)
+    local function show_models()
+        local out = {}
+        for k, name in ipairs(models) do
+            out[k] = { name = name:gsub("^[^/]+/", ""), on = name == chosen() and 1 or 0 }
+        end
+        model["chat.models"] = out
+    end
+    local ROWS = 24
+    local rows = {}          -- the whole thread: { kind, text, detail, state, id }
+    local history = {}       -- what is handed back to a fresh worker: { role, text }
+    local worker = nil
+    local ready = false
+    local queue = {}         -- lines for the worker until it is ready
+    local live = nil         -- the row of her answer arriving
+    local asks = {}          -- proposal id -> { row, tool, args }
+    local programs = {}      -- pid -> program, from the last list of windows
+    local looks = 0
+    local idle_timer = nil
+    local stopped_by_pill = false
+    local usable = false
+    local generation = 0
+    local worker_serial = 0
+    local closing = false
+    local close_timer = nil
+    local close_worker
+
+    local function letters(s)
+        local ok, n = pcall(utf8.len, s)
+        return ok and n or #s
+    end
+
+    local painting = false
+    local function paint()
+        if painting then return end
+        painting = true
+        after(16, function()
+            painting = false
+            local first = math.max(1, #rows - ROWS + 1)
+            local out = {}
+            for k = first, #rows do
+                local r = rows[k]
+                out[#out + 1] = { kind = r.kind, text = r.text, detail = r.detail or "", state = r.state or 0 }
+            end
+            model["chat.rows"] = out
+            if live and live >= first then
+                fact["chat.live"] = live - first
+                fact["chat.letters"] = letters(rows[live].text)
+            else
+                fact["chat.live"] = -1
+            end
+        end)
+    end
+    local function add(kind, text, detail, state)
+        rows[#rows + 1] = { kind = kind, text = text or "", detail = detail or "", state = state or 0 }
+        paint()
+        --  It falls into the thread (after it is painted).
+        after(20, function() emit("chat_landed") end)
+        return #rows
+    end
+    local function status(words)
+        text["chat.status"] = words or ""
+    end
+
+    local function save()
+        local keep = {}
+        for k = math.max(1, #rows - 60), #rows do
+            local r = rows[k]
+            if r.kind ~= 4 or r.state ~= 0 then keep[#keep + 1] = { kind = r.kind, text = r.text, detail = r.detail, state = r.state } end
+        end
+        pcall(sys.call, "files.write", "chat.json", { rows = keep, history = history })
+    end
+    do
+        local ok, saved = pcall(sys.ask, "files.read", "chat.json", "json")
+        if ok and type(saved) == "table" then
+            rows = type(saved.rows) == "table" and saved.rows or {}
+            history = type(saved.history) == "table" and saved.history or {}
+        end
+    end
+
+    local function send(m)
+        local line = json.encode(m) .. "\n"
+        if worker and ready then
+            if not write(worker, line) then log("chat · the worker did not hear") end
+        else
+            queue[#queue + 1] = line
+        end
+    end
+    local function forget_login()
+        local pending = {}
+        for _, line in ipairs(queue) do
+            local ok, message = pcall(json.decode, line)
+            if not ok or message.type ~= "login" then pending[#pending + 1] = line end
+        end
+        queue = pending
+    end
+
+    -- ── doing what she proposes ──
+    local WORDS = {
+        desktop_windows = "Looking at your windows",
+        desktop_look = "Looking at %s",
+        desktop_click = "Click in %s",
+        desktop_type = "Type in %s",
+        desktop_key = "A key in %s",
+        desktop_hotkey = "Keys in %s",
+        desktop_scroll = "Scroll in %s",
+        desktop_drag = "Drag in %s",
+        desktop_focus = "Bring %s forward",
+        desktop_to_monitor = "Move %s to another monitor",
+        open_app = "Open %s",
+    }
+    --  A window as desktop_windows names it: «4521», or «4521.3» for one of
+    --  a program's several. Anything else is no window.
+    local function window_name(v)
+        local name = tostring(v or "")
+        if name:match("^%d+$") or name:match("^%d+%.%d+$") then return name end
+        return "0"
+    end
+    local function program(args)
+        if args.name then return tostring(args.name) end
+        return programs[window_name(args.pid)] or ("the window " .. tostring(args.pid or "?"))
+    end
+    local function said(tool, args)
+        return string.format(tr(WORDS[tool] or tool), program(args))
+    end
+    local function agent_args(tool, a)
+        local pid = window_name(a.pid)
+        local n = function(v) return tostring(tonumber(v) or 0) end
+        if tool == "desktop_windows" then return { "agent", "windows" } end
+        if tool == "desktop_click" then return { "agent", "click", pid, n(a.x), n(a.y), tostring(a.button or "left"), tostring(math.floor(tonumber(a.count) or 1)) } end
+        if tool == "desktop_type" then return { "agent", "type", pid, tostring(a.text or "") } end
+        if tool == "desktop_key" then return { "agent", "key", pid, tostring(a.key or "") } end
+        if tool == "desktop_hotkey" then return { "agent", "hotkey", pid, tostring(a.keys or "") } end
+        if tool == "desktop_scroll" then return { "agent", "scroll", pid, n(a.x), n(a.y), tostring(a.direction or "down"), tostring(math.floor(tonumber(a.steps) or 3)) } end
+        if tool == "desktop_drag" then return { "agent", "drag", pid, n(a.x1), n(a.y1), n(a.x2), n(a.y2) } end
+        if tool == "desktop_focus" then return { "agent", "focus", pid } end
+        if tool == "desktop_to_monitor" then return { "agent", "send", pid, tostring(math.floor(tonumber(a.monitor) or 0)) } end
+        return nil
+    end
+    --  A program by what the model calls it: its name, its .desktop id, its
+    --  command or its class; or what it is («a file manager», «archivos»),
+    --  by the usual ones of that kind that are installed.
+    local KINDS = {
+        { words = { "file", "files", "archivos", "explorador", "explorer", "file manager", "gestor de archivos", "carpetas", "folders" }, apps = { "dolphin", "nautilus", "thunar", "nemo", "pcmanfm", "caja" } },
+        { words = { "terminal", "consola", "console", "shell" }, apps = { "kitty", "alacritty", "foot", "konsole", "gnome-terminal", "wezterm", "ghostty" } },
+        { words = { "browser", "navegador", "web", "internet" }, apps = { "zen", "firefox", "chromium", "brave", "chrome", "vivaldi", "librewolf" } },
+        { words = { "text editor", "editor", "editor de texto", "notepad", "bloc de notas" }, apps = { "gnome-text-editor", "kate", "gedit", "mousepad", "code", "zed" } },
+        { words = { "calculator", "calculadora" }, apps = { "calculator", "calculadora", "kcalc", "qalculate" } },
+        { words = { "settings", "ajustes", "configuración", "configuracion" }, apps = { "settings", "systemsettings", "ajustes" } },
+    }
+    local function app_matches(a, want)
+        for _, field in ipairs({ a.name, a.id, a.exec, a.wmclass }) do
+            if type(field) == "string" and field:lower():find(want, 1, true) then return true end
+        end
+        return false
+    end
+    local function find_app(name)
+        local want = name:lower():gsub("^%s+", ""):gsub("%s+$", "")
+        if want == "" then return nil end
+        for _, a in ipairs(apps) do
+            if a.name:lower() == want then return a end
+        end
+        for _, a in ipairs(apps) do
+            if app_matches(a, want) then return a end
+        end
+        for _, kind in ipairs(KINDS) do
+            for _, w in ipairs(kind.words) do
+                if want == w or want:find(w, 1, true) then
+                    for _, candidate in ipairs(kind.apps) do
+                        for _, a in ipairs(apps) do
+                            if app_matches(a, candidate) then return a end
+                        end
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    local function finish_row(row, ok, denied)
+        if row and rows[row] then
+            rows[row].state = denied and 3 or (ok and 1 or 2)
+            paint()
+        end
+    end
+    local function answer(id, ok, words, extra)
+        local m = { type = "result", id = id, ok = ok, text = words or "" }
+        if extra then for k, v in pairs(extra) do m[k] = v end end
+        send(m)
+    end
+    local function perform(id, tool, args, row)
+        local turn = generation
+        local function complete(ok, words, extra)
+            if turn ~= generation then return end
+            if extra and type(extra.programs) == "table" then programs = extra.programs end
+            finish_row(row, ok)
+            answer(id, ok, words, extra)
+        end
+        fact["chat.state"] = "acting"
+        status(said(tool, args))
+        if chat_desktop and chat_desktop(tool, args, complete) then return end
+        if tool == "open_app" then
+            local found = find_app(tostring(args.name or ""))
+            if found then
+                local function launched(error, code)
+                    complete(code == 0, code == 0 and ("Launch requested for " .. found.name .. ". Use desktop_windows to check whether its window appeared.") or tostring(error))
+                end
+                if type(sys.call_async) == "function" then
+                    local ok, error = pcall(sys.call_async, "apps.launch", { found.exec }, launched)
+                    if not ok then complete(false, tostring(error)) end
+                else
+                    -- The original Linux runtime has the synchronous service
+                    -- call; keep it usable before the native runtime PR lands.
+                    local ok, error = pcall(sys.call, "apps.launch", found.exec)
+                    launched(error, ok and 0 or -1)
+                end
+                return
+            end
+            local names = {}
+            for _, a in ipairs(apps) do names[#names + 1] = a.name end
+            finish_row(row, false)
+            answer(id, false, "No installed program matches that. These are the ones there are: " .. table.concat(names, ", "))
+            return
+        end
+        if tool == "desktop_look" then
+            looks += 1
+            fact["chat.looking"] = true
+            local name = "look-" .. (looks % 3) .. ".png"
+            run("pleamar-wm", { "agent", "look", window_name(args.pid), STATE .. "/" .. name }, function(out, code)
+                if turn ~= generation then return end
+                --  The glass stays on her face a moment: the look is seen.
+                after(600, function() fact["chat.looking"] = false end)
+                if code == 0 then
+                    local w, h = tostring(out):match("(%d+)x(%d+)")
+                    finish_row(row, true)
+                    answer(id, true, string.format("A picture of %s, %sx%s pixels.", program(args), w or "?", h or "?"), { image = { path = "/state/" .. name } })
+                else
+                    finish_row(row, false)
+                    answer(id, false, tostring(out))
+                end
+            end, HANDS)
+            return
+        end
+        local argv = agent_args(tool, args)
+        if not argv then
+            finish_row(row, false)
+            answer(id, false, "Marea does not know that tool.")
+            return
+        end
+        if tool == "desktop_windows" then
+            run("pleamar-wm", argv, function(out, code)
+                if turn ~= generation then return end
+                if code ~= 0 then
+                    finish_row(row, false)
+                    answer(id, false, tostring(out))
+                    return
+                end
+                programs = {}
+                for line in tostring(out):gmatch("[^\n]+") do
+                    local pid, app = line:match("^%s*([%d%.]+)%s+(%S+)%s+«")
+                    if pid then
+                        --  A dialog is called by what it is, not by the
+                        --  program that draws it (a portal's).
+                        if line:find("dialog of", 1, true) then app = tr("a dialog") end
+                        programs[pid] = app
+                    end
+                end
+                run("pleamar-wm", { "agent", "monitors" }, function(screens)
+                    if turn ~= generation then return end
+                    finish_row(row, true)
+                    answer(id, true, tostring(out) .. "\n\nMonitors:\n" .. tostring(screens))
+                end, HANDS)
+            end, HANDS)
+            return
+        end
+        run("pleamar-wm", argv, function(out, code)
+            if turn ~= generation then return end
+            --  Stopped from the monitor's pill: the whole turn ends, not
+            --  only this step.
+            if code ~= 0 and tostring(out):find("stopped the agent", 1, true) then
+                finish_row(row, false)
+                answer(id, false, "The user stopped you from the monitor. Stop now.")
+                stopped_by_pill = true
+                send({ type = "cancel" })
+                return
+            end
+            finish_row(row, code == 0)
+            answer(id, code == 0, code == 0 and (out ~= "" and tostring(out) or "Done.") or tostring(out))
+        end, HANDS)
+    end
+
+    -- ── the worker ──
+    local function stop_idle()
+        if idle_timer then cancel(idle_timer); idle_timer = nil end
+    end
+    local function rest_later()
+        stop_idle()
+        --  Three minutes without a word, and the worker goes (a hundred MB
+        --  of Node): the next message starts it again with the thread.
+        idle_timer = after(3 * 60 * 1000, function()
+            idle_timer = nil
+            if worker and (fact["chat.state"] == "idle" or fact["chat.state"] == "offline") and fact["chat.signing"] ~= true then
+                close_worker()
+            end
+        end)
+    end
+    local function settle(state)
+        fact["chat.state"] = state or "idle"
+        status("")
+        live = nil
+        paint()
+        if chat_desktop then chat_desktop("done", {}, function() end)
+        else run("pleamar-wm", { "agent", "done" }, function() end, HANDS) end
+        save()
+        rest_later()
+    end
+    local function on_event(m)
+        local kind = m.type
+        if kind == "ready" then
+            ready = true
+            usable = m.usable == true
+            text["chat.model"] = m.model or ""
+            models = type(m.models) == "table" and m.models or {}
+            show_models()
+            fact["chat.signed_in"] = m.reason ~= "signed_out"
+            local provider = tostring(m.model or chosen()):match("^([^/]+)/") or ""
+            text["chat.account"] = string.format(tr("Signed in with %s"), PROVIDERS[provider] or provider)
+            if m.usable then
+                if fact["chat.state"] == "offline" or fact["chat.state"] == "starting" then
+                    fact["chat.state"] = "idle"
+                    status("")
+                end
+            else
+                fact["chat.state"] = "offline"
+                --  Signed out, the panel itself says so and offers the way in.
+                status(m.reason == "signed_out" and "" or tr("That model cannot be used with her account: choose another in Settings"))
+            end
+            for _, line in ipairs(queue) do write(worker, line) end
+            queue = {}
+        elseif kind == "login_url" then
+            if fact["chat.signing"] ~= true then return end
+            local url = type(m.url) == "string" and m.url or ""
+            local code = type(m.code) == "string" and m.code or ""
+            if not url:match("^https://auth%.openai%.com/") or (#code > 0 and (#code > 32 or not code:match("^[%w%-]+$"))) then
+                send({ type = "login_cancel" })
+                fact["chat.signing"] = false
+                status(tr("The sign-in address was not recognized."))
+                return
+            end
+            text["chat.login_hint"] = code ~= "" and (tr("Enter this code in your browser: ") .. code) or tr("Finish signing in, in your browser")
+            run("xdg-open", { url }, function() end)
+        elseif kind == "login_done" then
+            fact["chat.signing"] = false
+            text["chat.login_hint"] = ""
+            if not m.ok and m.reason ~= "cancelled" then
+                status(tr("The sign-in did not finish: ") .. tostring(m.reason or "?"))
+            else
+                status("")
+            end
+        elseif kind == "delta" then
+            if live == nil then
+                live = add(2, "")
+                fact["chat.state"] = "thinking"
+                status(tr("Thinking…"))
+            end
+            rows[live].text = rows[live].text .. (m.text or "")
+            paint()
+        elseif kind == "propose" then
+            live = nil
+            local tool, args = tostring(m.tool), (type(m.args) == "table" and m.args or {})
+            local looks_only = tool == "desktop_windows" or tool == "desktop_look"
+            --  Free hands: no card, except for a step that is the final one
+            --  (it sends, buys, deletes…): that one is always asked.
+            if looks_only or (fact["chat.free"] == true and args.final ~= true) then
+                local row = add(3, said(tool, args), looks_only and "" or tostring(args.why or ""), 0)
+                perform(m.id, tool, args, row)
+            else
+                local detail = said(tool, args)
+                local body = tostring(args.why or "")
+                if tool == "desktop_type" then body = body .. "\n«" .. tostring(args.text or "") .. "»" end
+                if tool == "desktop_hotkey" then body = body .. "  (" .. tostring(args.keys or "") .. ")" end
+                if tool == "desktop_key" then body = body .. "  (" .. tostring(args.key or "") .. ")" end
+                local row = add(4, body, detail, 0)
+                asks[m.id] = { row = row, tool = tool, args = args }
+                fact["chat.state"] = "awaiting"
+                status(tr("Waiting for you"))
+                --  Asked while closed: open, so it is seen.
+                if fact.chatting ~= true then fact.chatting = true end
+            end
+        elseif kind == "done" then
+            if live then history[#history + 1] = { role = "assistant", text = rows[live].text } end
+            settle("idle")
+        elseif kind == "cancelled" then
+            add(5, stopped_by_pill and tr("You stopped her from the monitor.") or tr("Stopped."))
+            stopped_by_pill = false
+            settle("idle")
+        elseif kind == "failed" then
+            if m.reason == "no_model" or m.reason == "not_started" then
+                add(5, tr("She could not hear it: she is not signed in (Settings › Talking with her)."))
+            else
+                add(5, tr("Something went wrong: ") .. tostring(m.reason or "?"))
+            end
+            settle(usable and "idle" or "offline")
+        end
+    end
+    local function start_worker()
+        if worker then return end
+        worker_serial += 1
+        local serial = worker_serial
+        ready = false
+        fact["chat.state"] = "starting"
+        status(tr("Waking up…"))
+        local partial = ""
+        local said_why = nil
+        local ok, id = pcall(spawn, "agent/sandbox", {}, function(line)
+            if serial ~= worker_serial or closing then return end
+            if line:sub(1, 1) ~= "{" then
+                log("chat · " .. line)
+                --  The sandbox's own words when something it needs is not
+                --  there (bubblewrap, node, her packages): those are shown.
+                if line:sub(1, 7) == "marea: " then said_why = line:sub(8) end
+                return
+            end
+            local good, m = pcall(json.decode, line)
+            if good and type(m) == "table" then on_event(m) end
+        end, function(_, code)
+            if serial ~= worker_serial then return end
+            worker_serial += 1
+            generation += 1
+            if chat_desktop then chat_desktop("cancel", {}, function() end) end
+            log("chat · the worker ended", code)
+            worker = nil
+            ready = false
+            fact["chat.signing"] = false
+            text["chat.login_hint"] = ""
+            forget_login()
+            if closing then
+                closing = false
+                if close_timer then cancel(close_timer); close_timer = nil end
+                fact["chat.state"] = "idle"
+                status("")
+                return
+            end
+            if said_why then
+                fact["chat.state"] = "offline"
+                status(tr("Her engine cannot start: ") .. said_why)
+                if #rows > 0 and rows[#rows].kind == 1 then add(5, tr("Her engine cannot start: ") .. said_why) end
+                queue = {}
+                return
+            end
+            if fact["chat.state"] ~= "idle" and fact["chat.state"] ~= "offline" then
+                add(5, tr("Her engine stopped."))
+                settle("idle")
+            end
+        end, { stdin = "open", errors = true })
+        if not ok then
+            fact["chat.state"] = "offline"
+            status(tr("Her engine could not start: ") .. tostring(id))
+            return
+        end
+        worker = id
+        local recent = {}
+        for k = math.max(1, #history - 40), #history do recent[#recent + 1] = history[k] end
+        local line = json.encode({ type = "start", model = chosen(), locale = fact.locale, history = recent }) .. "\n"
+        write(worker, line)
+    end
+    close_worker = function()
+        if not worker or closing then return end
+        stop_idle()
+        closing = true
+        ready = false
+        queue = {}
+        generation += 1
+        fact["chat.signing"] = false
+        text["chat.login_hint"] = ""
+        fact["chat.state"] = "starting"
+        status(tr("Closing the previous conversation…"))
+        local id, serial = worker, worker_serial
+        write(id, json.encode({ type = "shutdown" }) .. "\n")
+        close_timer = after(2000, function()
+            if serial ~= worker_serial or not closing then return end
+            -- kill forgets this owned helper, so its exit callback is not
+            -- required to make the next conversation usable again.
+            pcall(kill, id)
+            worker_serial += 1
+            worker, ready, closing, close_timer = nil, false, false, nil
+            fact["chat.state"] = "idle"
+            status("")
+        end)
+    end
+
+    -- ── what the panel asks ──
+    on("chat_send", function()
+        local words = tostring(text["chat.input"] or "")
+        if words:match("^%s*$") then return end
+        local state = fact["chat.state"]
+        if state == "thinking" or state == "acting" or state == "awaiting" or state == "starting" then return end
+        text["chat.input"] = ""
+        add(1, words)
+        history[#history + 1] = { role = "user", text = words }
+        stop_idle()
+        start_worker()
+        fact["chat.state"] = "thinking"
+        status(tr("Thinking…"))
+        send({ type = "prompt", text = words })
+    end)
+    local function decide(i, yes)
+        local first = math.max(1, #rows - ROWS + 1)
+        local row = first + (i or 0)
+        for id, a in pairs(asks) do
+            if a.row == row then
+                asks[id] = nil
+                if yes then
+                    rows[row].state = 3
+                    local tool_row = add(3, said(a.tool, a.args), tostring(a.args.why or ""), 0)
+                    perform(id, a.tool, a.args, tool_row)
+                else
+                    rows[row].state = 2
+                    paint()
+                    answer(id, false, "", { denied = true })
+                    fact["chat.state"] = "thinking"
+                end
+                return
+            end
+        end
+    end
+    on("chat_allow", function(i) decide(i, true) end)
+    on("chat_deny", function(i) decide(i, false) end)
+    on("chat_stop", function()
+        if closing then return end
+        generation += 1
+        if chat_desktop then chat_desktop("cancel", {}, function() end) end
+        for id, a in pairs(asks) do
+            asks[id] = nil
+            if rows[a.row] then rows[a.row].state = 2 end
+        end
+        send({ type = "cancel" })
+        status(tr("Stopping…"))
+        if not chat_desktop then run("pleamar-wm", { "agent", "done" }, function() end, HANDS) end
+    end)
+    on("chat_new", function()
+        generation += 1
+        if chat_desktop then chat_desktop("cancel", {}, function() end) end
+        close_worker()
+        rows, history, asks, live = {}, {}, {}, nil
+        if not closing then fact["chat.state"] = "idle"; status("") end
+        paint()
+        save()
+    end)
+    on("chat", function() paint() end)
+    --  Opening the chat wakes her engine: whether she is signed in is known
+    --  before the first word, and the first answer comes sooner.
+    on("fact:chatting", function(v)
+        if v == true and not worker then start_worker(); rest_later() end
+    end)
+    --  Settings › Talking with her: her engine wakes to say how she is.
+    on("fact:section", function(v)
+        if v == "talk" and not worker then start_worker(); rest_later() end
+    end)
+    on("chat_login", function()
+        if closing or fact["chat.signing"] == true then return end
+        start_worker()
+        if not worker then return end
+        fact["chat.signing"] = true
+        text["chat.login_hint"] = tr("Preparing sign-in…")
+        send({ type = "login", provider = (chosen():match("^([^/]+)/") or "openai-codex") })
+    end)
+    on("chat_login_cancel", function()
+        forget_login()
+        if worker then write(worker, json.encode({ type = "login_cancel" }) .. "\n") end
+        fact["chat.signing"] = false
+        text["chat.login_hint"] = ""
+    end)
+    on("chat_pick", function(i)
+        local name = models[(tonumber(i) or -1) + 1]
+        if not name or name == chosen() then return end
+        settings.chat_model = name
+        save_settings()
+        text["chat.model"] = name
+        show_models()
+        --  The next word starts her with it (the thread goes along).
+        if worker and fact["chat.state"] == "idle" then close_worker() end
+    end)
+    paint()
+    hooks.chat = function() fact.chatting = true; paint() end
+end
+chat()

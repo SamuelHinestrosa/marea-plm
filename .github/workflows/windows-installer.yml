@@ -13,7 +13,7 @@ on:
         type: string
       version:
         description: Preview package version
-        default: 0.2.8-preview.1
+        default: 0.2.16-preview.14
         required: true
         type: string
       create_draft_release:
@@ -58,12 +58,31 @@ jobs:
       - name: Build bundled Deriva
         working-directory: marea
         run: cargo build --release --locked --manifest-path deriva/Cargo.toml
+      - name: Build and test the native AI host
+        working-directory: marea
+        run: |
+          cargo test --release --locked --manifest-path windows/agent-host/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'Agent host tests failed.' }
+          cargo build --release --locked --manifest-path windows/agent-host/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'Agent host build failed.' }
       - name: Prepare app-local shader compiler
         working-directory: pleamar
         run: ./scripts/prepare-windows-runtime.ps1
       - name: Prepare pinned installer and Node tools
         working-directory: marea
         run: ./windows/prepare-installer-tools.ps1
+      - name: Install the locked AI SDK and test portable worker logic
+        working-directory: marea
+        run: |
+          $node = (Resolve-Path .tools/installer-tools/node-v22.23.3-win-x64/node.exe).Path
+          $npm = (Resolve-Path .tools/installer-tools/node-v22.23.3-win-x64/node_modules/npm/bin/npm-cli.js).Path
+          Push-Location agent
+          try {
+            & $node $npm ci --ignore-scripts --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw 'Agent SDK installation failed.' }
+          } finally { Pop-Location }
+          & $node --test agent/state-image.test.mjs agent/auth-interaction.test.mjs agent/desktop-policy.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Agent tests failed.' }
       - name: Preview fetching and native enrichment storage
         working-directory: marea
         run: |
@@ -77,7 +96,7 @@ jobs:
           $vs = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -property installationPath
           $crt = Get-ChildItem -Path "$vs/VC/Redist/MSVC/*/x64/Microsoft.VC143.CRT" -Directory | Sort-Object FullName -Descending | Select-Object -First 1
           if (-not $crt) { throw 'Visual Studio x64 C++ redistributable directory is missing.' }
-          python windows/build-installer.py --pleamar-binary ../pleamar/target/release/pleamar.exe --worker deriva/target/release/deriva-worker.exe --node-directory .tools/installer-tools/node-v22.23.3-win-x64 --crt-directory $crt.FullName --iscc .tools/installer-tools/inno-6.7.3/ISCC.exe --version $env:PACKAGE_VERSION --engine-source $env:ENGINE_REF --output dist/windows
+          python windows/build-installer.py --pleamar-binary ../pleamar/target/release/pleamar.exe --worker deriva/target/release/deriva-worker.exe --agent-host windows/agent-host/target/release/marea-agent.exe --node-directory .tools/installer-tools/node-v22.23.3-win-x64 --crt-directory $crt.FullName --iscc .tools/installer-tools/inno-6.7.3/ISCC.exe --version $env:PACKAGE_VERSION --engine-source $env:ENGINE_REF --output dist/windows
           if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
       - name: Real silent installation, update and uninstall
         working-directory: marea

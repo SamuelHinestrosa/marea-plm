@@ -35,7 +35,7 @@ scene Marea {
         //  Software: `checkupdates` and the AUR's helper look, `pacman` and
         //  `sudo` update and install (the password goes on sudo's input),
         //  `kitty` takes what wants an answer by hand.
-        run: "curl", "timedatectl", "node", "notify-send", "fd", "deriva-worker", "kill", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm", "checkupdates", "pacman", "yay", "paru", "sudo", "pkill", "kitty", "uname", "grep"
+        run: "curl", "timedatectl", "node", "notify-send", "fd", "deriva-worker", "kill", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm", "checkupdates", "pacman", "yay", "paru", "sudo", "pkill", "kitty", "uname", "grep", "agent/sandbox"
     }
     service clock as now { time: text = "--:--"; date: text; hour: number; minute: number }
     service audio as sound { volume: number; muted: bool; input: number; input_muted: bool }
@@ -191,7 +191,7 @@ scene Marea {
         //  the catcher. Exclusive was tried —so Esc worked without moving the
         //  mouse— and on closing the window below did not get the keyboard
         //  back.
-        keyboard: on_demand while searching or menu_open or open or tray_open or reel_open
+        keyboard: on_demand while searching or chatting or menu_open or open or tray_open or reel_open
         //  Above everything while something of hers is open —so the catcher
         //  below can take the click outside—, and in its layer the rest of the
         //  time, so a video in full screen still covers her.
@@ -451,6 +451,78 @@ scene Marea {
     prop magnifier = 0 ~320ms          // the face, turning into a magnifying glass
     prop finder = 0 ~290ms             // the panel's geometry
     prop finder_content = 0 ~200ms     // and what is read inside
+
+    // ── the chat: talking to her, and her hands on the desktop ───
+    //  Her AI (the Pi SDK, in its sandbox: `agent/`) talks here, and can use
+    //  the desktop with pleamar-wm's agent hands —a pointer and a keyboard of
+    //  her own—. It proposes; the logic asks you when it has to, and does.
+    //  The panel comes out of her like the finder: one more drop of her water.
+    fact chatting = false
+    //  Let her use the computer: no cards (Settings). Off unless chosen.
+    fact chat.free = false
+    //  Her account and her model (Settings › Talking with her).
+    event chat_login                   // sign in: the browser opens
+    event chat_login_cancel
+    event chat_pick ->                 // `emit chat_pick(2)`: the third model
+    event flip_chat_free
+    on flip_chat_free { toggle chat.free }
+    fact chat.signed_in = true         // until her engine says otherwise
+    fact chat.signing = false          // the browser is open to sign in
+    text chat.account = ""
+    text chat.login_hint = ""
+    model chat.models max 8 { name: text; on: number }
+    event chat ->                      // `marea chat`, Super+Shift+A, her menu, the finder
+    text chat.input = ""
+    event chat_send ->
+    event chat_stop ->
+    event chat_new ->
+    event chat_allow ->                // (i): that card's action, yes
+    event chat_deny ->                 // (i): no
+    event chat_scroll ->
+    //  idle · starting · thinking (the model) · acting (something being done) ·
+    //  awaiting (a card waits for you) · offline (no engine: why in chat.status)
+    fact chat.state: idle | starting | thinking | acting | awaiting | offline = idle
+    text chat.model = ""
+    text chat.status = ""
+    //  The thread, as the logic paints it: 1 you, 2 her, 3 a tool she used,
+    //  4 a card that asks you, 5 a note (an error, a stop). `state`: 0 going,
+    //  1 done, 2 failed, 3 denied.
+    model chat.rows max 24 { kind: number; text: text; detail: text; state: number }
+    //  Her answer arriving: which row and how many letters it has; `reveal`
+    //  follows them, and the letters rise out of the water as it passes.
+    fact chat.live = -1
+    fact chat.letters = 0
+    prop chat.reveal = 0 ~420ms
+    follow chat.reveal = chat.letters
+    prop chat = 0 ~300ms               // the panel's geometry
+    prop chat_content = 0 ~200ms       // and what is read in it
+    prop chat.t = 0                    // what turns and ripples while she works
+    spin chat.t by if(chat.state == thinking or chat.state == acting or chat.state == starting, 1, 0.15)
+    prop chat.length = 0 ~0ms
+    prop chat.from_end = 0 ~0ms
+    fact chat.stuck = true             // following the end of the thread
+    prop chat.ask = 0 ~lively          // a card that waits beats
+    //  What arrives in the thread falls into it like a drop: the newest row
+    //  drops from a little above, squashes and settles, and a ring runs from
+    //  where it lands. (The logic says something arrived.)
+    event chat_landed
+    prop chat.drop = 1 ~spring(240, 13)
+    on chat_landed { chat.drop: 0 ~0ms; chat.drop: 1 after 16ms }
+    //  How much water moves in the panel: while she thinks or does, the
+    //  caustics brighten; still, they rest.
+    prop chat.stir = 0 ~900ms
+    follow chat.stir = if(chat.state == thinking or chat.state == acting or chat.state == starting, 1, if(chat.state == awaiting, 0.45, 0))
+    shader chat_tide = file "shaders/chat_tide.wgsl"
+    //  Her face while she talks: little waves for eyes while she thinks, the
+    //  finder's magnifying glass while she looks at a window, a start when she
+    //  needs you, and a hop when she is done.
+    fact chat.looking = false
+    on change chat.state while chat.state == thinking and chatting { face = reading }
+    on change chat.state while chat.state == awaiting { face = alert; impulse bounce -60 }
+    on change chat.state while chat.state == idle and face == reading { face = eye; play happy }
+    on change chat.looking while chat.looking { magnifier: 1 ~320ms }
+    on change chat.looking while not chat.looking and not searching { magnifier: 0 ~280ms }
+    follow chat.ask = if(chat.state == awaiting, 1, 0)
 
     // ── software: updates, and programs to install ───────────────
     //  What the system has to update —its repositories and the AUR—, looked
@@ -945,7 +1017,7 @@ scene Marea {
     //  It comes out on the same side as the time and from the same box, because
     //  it is the same thing: what she has to say when you ask her there.
     fact menu_open = false
-    fact menu_selected = -1            // the keyboard's row: 0 and 1 the house, 2+ the rest
+    fact menu_selected = -1            // the keyboard's row: 0 to 4 the house, 5+ the rest
     fact groups = 0                    // how many add-ons bring something
     event customize ->
     event menu_entry ->                // an add-on's entry, by its number
@@ -1474,9 +1546,15 @@ scene Marea {
     let finder.h = finder_h * finder
     let finder.x = cx + 6 + finder.w / 2
     let finder.y = cy_actual + finder.h / 2 - 8
+    //  The chat, from the same side and the same way, a little narrower and
+    //  much taller: a conversation is read downwards.
+    let chat.w = 600 * chat
+    let chat.h = 560 * chat
+    let chat.x = cx + 6 + chat.w / 2
+    let chat.y = cy_actual + chat.h / 2 - 8
     //  How much panel there is out: the card, the tray or the finder. It is what
     //  takes her halo from light to shadow.
-    let panel = clamp(max(max(card, tray), finder) * 2, 0, 1)
+    let panel = clamp(max(max(max(card, tray), finder), chat) * 2, 0, 1)
     //  The capsule, 12 px lower than her: it measures 92 tall and, centred on
     //  her centre, it stuck out through the top edge.
     let capsule.y = cy_actual + 12
@@ -1489,7 +1567,7 @@ scene Marea {
     //  away, like the time: its half width goes in the sum.
     let menu.x = cx + (23 + 9 + 82) * menu
     let menu.w = 163
-    let menu.h = 8 + 92 + 6 + entries.count * 23 + groups * 16
+    let menu.h = 8 + 115 + 6 + entries.count * 23 + groups * 16
     //  Its first row at the height of her face, and the rest hanging.
     let menu.y0 = cy_actual - 15
     let menu.cy = menu.y0 + menu.h / 2
@@ -1666,6 +1744,14 @@ scene Marea {
             size: finder.w, finder.h
             corner: max(22 * finder, min(finder.w, finder.h) / 2 * (1 - finder))
             blend: 30 * 4 * finder * (1 - finder) + 24 * finder
+        }
+        //  The chat, one more box in her body too: while it unfolds the neck
+        //  between her and it is water, not a seam.
+        box chat_box {
+            at: chat.x, chat.y
+            size: chat.w, chat.h
+            corner: max(24 * chat, min(chat.w, chat.h) / 2 * (1 - chat))
+            blend: 30 * 4 * chat * (1 - chat) + 24 * chat
         }
         //  And her menu, on the same side and from the same box as the time: «in
         //  the same place where the clock note comes out and in the same box».
@@ -3165,6 +3251,191 @@ scene Marea {
         on carry touch { searching = false }
     }
 
+    // ── what is seen of the chat ─────────────────────────────────
+    //  A row of the thread. Yours, a bubble on the right, as wide as it says;
+    //  hers, loose on the water, the letters of the one arriving rising out of
+    //  it as they come; what she used, a small line with its mark; and a card
+    //  that asks you, in amber, beating, with its two answers.
+    component ChatRow(r: record) {
+        measure said
+        measure hers
+        measure asked
+        size: 556, if(r.kind == 1, said.height + 18, if(r.kind == 2, hers.height + 6, if(r.kind == 4, asked.height + 74, 26)))
+        prop allow.glow = 0 ~140ms
+        prop deny.glow = 0 ~140ms
+        let arriving = r.index == chat.live
+        //  The newest falls in (see `chat.drop`).
+        let fresh = if(r.index == chat.rows.count - 1, clamp(chat.drop, 0, 1.2), 1)
+        group {
+        opacity: clamp(fresh * 1.6, 0, 1)
+        move: 0, (1 - min(fresh, 1)) * -18
+        pivot: 278, 12
+        scale: 1 + (fresh - 1) * 0.35, 1 - (fresh - 1) * 0.5
+        //  The ring where it lands: something she used, or a card.
+        ellipse { at: if(r.kind == 4, 16, 10), 13; radius: 5 + 22 * min(fresh, 1); stroke: 1.4; color: if(r.kind == 4, amber, mint)
+                  opacity: 60% * (1 - min(fresh, 1)); show: r.kind == 3 or r.kind == 4 }
+        //  1 · yours
+        group {
+            show: r.kind == 1
+            body {
+                color: #1d2b27
+                rim: 10%
+                box { from: 556 - said.width - 26, 0; size: said.width + 26, said.height + 14; corner: 14 }
+            }
+            text r.text { at: 556 - 13, 7; anchor: right top; width: 420; size: 13; color: ink; align: right; measure: said }
+        }
+        //  2 · hers: as each letter arrives it fades in and rises the last
+        //  few pixels, a ripple running along the newest ones.
+        text r.text { at: 2, 2; anchor: left top; width: 520; size: 13.5; line_height: 1.4; color: ink; measure: hers; show: r.kind == 2
+                      letter_opacity: if(arriving, clamp(chat.reveal - letter, 0, 1), 1)
+                      letter_move: 0, if(arriving, (1 - clamp(chat.reveal - letter, 0, 1)) * 7, 0) }
+        //  3 · something she used: a drop that fills while it goes, a tick, a
+        //  cross or a dash after.
+        group {
+            show: r.kind == 3
+            ellipse { at: 10, 13; radius: 5.5; stroke: 1.4; color: mix(mix(mint, #ef7a66, r.state == 2), #8b8f95, r.state == 3) }
+            arc { at: 10, 13; radius: 5.5; span: 110deg; width: 1.6; rotate: chat.t * 360deg; color: mint; show: r.state == 0 }
+            ellipse { at: 10, 13; radius: 3; color: mint; show: r.state == 1 }
+            text r.text { at: 24, 13; anchor: left center; size: 11.5; color: #b9bcc0; width: 440; lines: 1 }
+            text r.detail { at: 552, 13; anchor: right center; size: 10.5; color: #8b8f95; width: 120; lines: 1; align: right }
+        }
+        //  4 · it asks you
+        group {
+            show: r.kind == 4
+            body {
+                color: #24211a
+                rim: 8%
+                box { from: 0, 0; size: 556, asked.height + 66; corner: 14 }
+            }
+            box { from: 0, 0; size: 556, asked.height + 66; corner: 14; stroke: 1 + 1.2 * chat.ask * (r.state == 0); color: amber
+                  opacity: if(r.state == 0, 45% + 35% * (0.5 + 0.5 * sin(chat.t * 220)), 25%) }
+            text r.detail { at: 16, 16; anchor: left center; size: 9.5; weight: 700; color: amber; width: 400; lines: 1 }
+            text r.text { at: 16, 30; anchor: left top; width: 520; size: 12.5; color: ink; measure: asked }
+            group {
+                show: r.state == 0
+                box { from: 316, asked.height + 34; size: 110, 28; corner: 9; color: #2a2b2c; opacity: 80% + 20% * deny.glow }
+                text "Not this" { at: 371, asked.height + 48; anchor: center; size: 11.5; weight: 600; color: ink }
+                box { from: 432, asked.height + 34; size: 110, 28; corner: 9; color: amber; opacity: 85% + 15% * allow.glow }
+                text "Allow" { at: 487, asked.height + 48; anchor: center; size: 11.5; weight: 700; color: #0c0f12 }
+                zone box deny_zone { from: 316, asked.height + 34; size: 110, 28; corner: 9; cursor: pointer; active: chatting }
+                zone box allow_zone { from: 432, asked.height + 34; size: 110, 28; corner: 9; cursor: pointer; active: chatting }
+            }
+            text pick(r.state == 3, "Not allowed", "Allowed") { at: 540, asked.height + 48; anchor: right center; size: 11; color: #8b8f95; show: r.state != 0 }
+        }
+        //  5 · a note: what failed, what was stopped.
+        text r.text { at: 2, 13; anchor: left center; size: 11.5; color: #ef7a66; width: 540; lines: 2; show: r.kind == 5 }
+        }
+        on enter allow_zone { allow.glow: 1 }
+        on leave allow_zone { allow.glow: 0 }
+        on enter deny_zone { deny.glow: 1 }
+        on leave deny_zone { deny.glow: 0 }
+        on press allow_zone { emit chat_allow(r.index) }
+        on press deny_zone { emit chat_deny(r.index) }
+    }
+
+    group {
+    clip inset 2 box { at: chat.x, chat.y; size: chat.w, chat.h; corner: 24 * chat }
+    group {
+        opacity: chat_content
+        move: 0, (1 - chat_content) * 10
+        let kx0 = chat.x - 278
+        let ky0 = chat.y - chat.h / 2
+        //  The head: who she is, and with what.
+        text "MAREA" { at: kx0, ky0 + 24; anchor: left center; size: 9; weight: 600; color: mint; opacity: 80% }
+        text chat.model { at: kx0 + 48, ky0 + 24; anchor: left center; size: 9.5; color: #8b8f95; width: 300; lines: 1 }
+        prop new.glow = 0 ~140ms
+        group {
+            opacity: 55% + 45% * new.glow
+            line { from: kx0 + 512, ky0 + 24; to: kx0 + 524, ky0 + 24; width: 1.6; color: ink }
+            line { from: kx0 + 518, ky0 + 18; to: kx0 + 518, ky0 + 30; width: 1.6; color: ink }
+        }
+        zone box new_chat { at: kx0 + 518, ky0 + 24; size: 28, 28; corner: 14; cursor: pointer; active: chatting }
+        box { at: kx0 + 548, ky0 + 24; size: 36, 22; corner: 7; color: #202021 }
+        text "Esc" { at: kx0 + 548, ky0 + 24; anchor: center; size: 10.5; color: #8b8f95 }
+        line { from: kx0, ky0 + 44; to: kx0 + 556, ky0 + 44; width: 1; color: ink; opacity: 8% }
+        //  The water under the thread, moving while she works.
+        shader chat_tide { at: chat.x, ky0 + 45 + (chat.h - 45) / 2; size: chat.w, chat.h - 45; values: chat.stir; colors: mint }
+        //  The thread. It scrolls with the wheel and by dragging, and follows
+        //  what arrives while you are at the bottom of it.
+        column chat_list ~quick {
+            at: kx0, ky0 + 56
+            view: 556, 404
+            gap: 12
+            for r in chat.rows { ChatRow(r) }
+        }
+        //  (Its length, in a property a rule can read: a layout's own names
+        //  are only known by the drawing of its group.)
+        follow chat.length = chat_list.content
+        follow chat.from_end = chat_list.content - chat_list.scroll
+        //  Following the end: while you are at the bottom, whatever grows the
+        //  thread (a row, a letter, a measure that arrives a frame later) keeps
+        //  it there. Scrolling up yourself lets go; back at the bottom, it
+        //  follows again. Its own jumps are instant, so they never look like
+        //  yours.
+        on change chat_list.scroll while chat_list.content - chat_list.scroll > 440 { chat.stuck = false }
+        on change chat_list.scroll while chat_list.content - chat_list.scroll < 420 { chat.stuck = true }
+        on change chat.length while chat.stuck { chat_list.scroll: max(0, chat.length - 404) ~0ms }
+        on change chat.rows.count while chat.rows.count == 0 { chat.stuck = true }
+        //  Nothing said yet: a few words of hers and what she can do.
+        group {
+            show: chat.rows.count < 1 and chat.signed_in
+            text "Ask me anything" { at: chat.x, ky0 + 200; anchor: center; size: 20; weight: 500; color: ink; opacity: 85% }
+            text "I can also use your desktop: open the browser, look something up, fill a form. I will ask before each step." { at: chat.x, ky0 + 238; anchor: center; size: 12; color: #8b8f95; width: 420; lines: 3; align: center }
+        }
+        //  Not signed in: the way to, right here.
+        prop chat.login.glow = 0 ~140ms
+        group {
+            show: not chat.signed_in
+            text "To talk, she needs an account" { at: chat.x, ky0 + 186; anchor: center; size: 18; weight: 500; color: ink; opacity: 85% }
+            text pick(if(chat.signing, 1, 0), "Your ChatGPT account: the browser opens to sign in, and she remembers it.", chat.login_hint) { at: chat.x, ky0 + 220; anchor: center; size: 12; color: #8b8f95; width: 420; lines: 2; align: center }
+            box { at: chat.x, ky0 + 272; size: 168, 38; corner: 19; color: mix(mix(#3d6b5c, #4a8270, chat.login.glow), #2a2d30, chat.signing) }
+            text pick(if(chat.signing, 1, 0), "Sign in", "Cancel") { at: chat.x, ky0 + 272; anchor: center; size: 13; weight: 600; color: ink }
+        }
+        zone box chat_login_btn { at: chat.x, ky0 + 272; size: 168, 38; corner: 19; cursor: pointer; active: chatting and not chat.signed_in }
+        on enter chat_login_btn { chat.login.glow: 1 }
+        on leave chat_login_btn { chat.login.glow: 0 }
+        on press chat_login_btn while chat.signing { emit chat_login_cancel }
+        on press chat_login_btn while not chat.signing { emit chat_login }
+        //  Working: the water at the foot of the thread breathes —three waves,
+        //  out of phase— and says what she is on.
+        group {
+            show: chat.state == thinking or chat.state == acting or chat.state == starting
+            repeat w in 0..3 {
+                path { at: kx0, ky0 + 468; color: mix(mint, #c9b3f2, w / 2); stroke: 1.6; opacity: 55% - 15% * w
+                       move 0, 0
+                       curve 140, 4 * sin(chat.t * 120 + w * 70) via 70, -6 * sin(chat.t * 90 + w * 60)
+                       curve 280, 0 via 210, 6 * sin(chat.t * 150 + w * 50)
+                       curve 420, -4 * sin(chat.t * 110 + w * 80) via 350, -6 * sin(chat.t * 130 + w * 40)
+                       curve 556, 0 via 490, 5 * sin(chat.t * 100 + w * 90) }
+            }
+            text chat.status { at: kx0 + 2, ky0 + 480; anchor: left center; size: 10.5; color: #8b8f95; width: 480; lines: 1 }
+        }
+        text chat.status { at: kx0 + 2, ky0 + 480; anchor: left center; size: 10.5; color: #ef7a66; width: 540; lines: 1; show: chat.state == offline }
+        //  What you write. Enter sends; while she works, Stop.
+        box { from: kx0, ky0 + 496; size: 556, 44; corner: 14; color: #141415 }
+        box { from: kx0, ky0 + 496; size: 556, 44; corner: 14; stroke: 1; color: mint; opacity: 18% }
+        input chat.input { at: kx0 + 16, ky0 + 518; width: 470; size: 14; color: ink; placeholder: "Ask Marea…"; selection: #2f5f52 }
+        prop send.glow = 0 ~140ms
+        let busy = chat.state == thinking or chat.state == acting or chat.state == awaiting or chat.state == starting
+        ellipse { at: kx0 + 532, ky0 + 518; radius: 15; color: mix(mint, #ef7a66, busy); opacity: 80% + 20% * send.glow }
+        path { at: kx0 + 526, ky0 + 511; color: #0c0f12; stroke: 2; show: not busy
+               move 6, 13; line 6, 1 }
+        path { at: kx0 + 526, ky0 + 511; color: #0c0f12; stroke: 2; show: not busy
+               move 1, 6; line 6, 1; line 11, 6 }
+        box { at: kx0 + 532, ky0 + 518; size: 10, 10; corner: 2; color: #0c0f12; show: busy }
+        zone ellipse send_btn { at: kx0 + 532, ky0 + 518; radius: 16; cursor: pointer; active: chatting }
+        zone box chat_area { from: kx0, ky0 + 56; size: 556, 404; active: chatting }
+    }
+    }
+    on enter new_chat { new.glow: 1 }
+    on leave new_chat { new.glow: 0 }
+    on press new_chat { emit chat_new }
+    on enter send_btn { send.glow: 1 }
+    on leave send_btn { send.glow: 0 }
+    on press send_btn while chat.state == thinking or chat.state == acting or chat.state == awaiting or chat.state == starting { emit chat_stop }
+    on press send_btn while not (chat.state == thinking or chat.state == acting or chat.state == awaiting or chat.state == starting) { emit chat_send }
+    on submit chat.input { emit chat_send }
+
     // ── the shots ────────────────────────────────────────────────
     //  Where each one lands, on her surface: around her and below, never on her.
     event bang.1
@@ -3388,7 +3659,7 @@ scene Marea {
         let mx0 = menu.x - menu.w / 2 + 4
         //  The two house ones. They are written out and not in the model because
         //  they are hers: an add-on cannot add or remove Settings.
-        repeat m in 0..4 {
+        repeat m in 0..5 {
             prop own.$m = 0 ~110ms
             box { at: menu.x, menu.y0 + 15.5 + m * 23; size: 155, 23; corner: 7
                   color: #23282b; opacity: own.$m }
@@ -3396,39 +3667,45 @@ scene Marea {
                   opacity: if(menu_selected == m, 1, 0) * (1 - own.$m) }
         }
         let ry.search = menu.y0 + 15.5
-        let ry.settings = menu.y0 + 38.5
-        let ry.custom = menu.y0 + 61.5
-        let ry.sleep = menu.y0 + 84.5
+        let ry.chat = menu.y0 + 38.5
+        let ry.settings = menu.y0 + 61.5
+        let ry.custom = menu.y0 + 84.5
+        let ry.sleep = menu.y0 + 107.5
         //  Search goes first because it is what is done most. And its icon is the
         //  magnifying glass, the same one that appears on her face.
         arc { at: mx0 + 12, ry.search - 1; radius: 4.6; span: 360deg; width: 1.5; color: mix(#8b8f95, #f6f6f5, own.0) }
         line { from: mx0 + 15, ry.search + 2; to: mx0 + 18, ry.search + 5; width: 1.6; color: mix(#8b8f95, #f6f6f5, own.0) }
         text "Search…" { at: mx0 + 26, ry.search; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.0) }
+        //  Talking with her: a little speech bubble.
+        box { at: mx0 + 13, ry.chat - 1; size: 11, 8.5; corner: 3.5; stroke: 1.4; color: mix(#8b8f95, #f6f6f5, own.1) }
+        path { at: mx0 + 10, ry.chat + 3; color: mix(#8b8f95, #f6f6f5, own.1)
+               move 0, 0; line 3.4, 0; line 0, 3.2; close }
+        text "Talk with Marea" { at: mx0 + 26, ry.chat; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.1) }
         //  The Settings gear, the same one as in the panel's header.
-        arc { at: mx0 + 13, ry.settings; radius: 5; span: 300deg; width: 1.4; color: mix(#8b8f95, #f6f6f5, own.1) }
-        ellipse { at: mx0 + 13, ry.settings; radius: 1.9; color: mix(#8b8f95, #f6f6f5, own.1) }
-        text "Settings" { at: mx0 + 26, ry.settings; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.1) }
+        arc { at: mx0 + 13, ry.settings; radius: 5; span: 300deg; width: 1.4; color: mix(#8b8f95, #f6f6f5, own.2) }
+        ellipse { at: mx0 + 13, ry.settings; radius: 1.9; color: mix(#8b8f95, #f6f6f5, own.2) }
+        text "Settings" { at: mx0 + 26, ry.settings; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.2) }
         //  And Customize's sparkle: a four-pointed star, which is a square whose
         //  sides have been eaten away.
-        path { at: mx0 + 13, ry.custom; color: mix(#8b8f95, #f6f6f5, own.2)
+        path { at: mx0 + 13, ry.custom; color: mix(#8b8f95, #f6f6f5, own.3)
                move 0, -5.5; curve 5.5, 0 via 1.2, -1.2; curve 0, 5.5 via 1.2, 1.2
                curve -5.5, 0 via -1.2, 1.2; curve 0, -5.5 via -1.2, -1.2; close }
-        text "Customize" { at: mx0 + 26, ry.custom; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.2) }
+        text "Customize" { at: mx0 + 26, ry.custom; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.3) }
         //  And the third house one: sleep. In Marea these are the control
         //  center's «zZ»; here the center is the sheet's —three cards, and none of
         //  them is this one—, so it goes with hers, which is where the things
         //  SHE does are.
         text "z" { at: mx0 + 10, ry.sleep - 3; anchor: center; size: 9; weight: 600
-                   color: mix(#8b8f95, #f6f6f5, own.3) }
+                   color: mix(#8b8f95, #f6f6f5, own.4) }
         text "z" { at: mx0 + 16, ry.sleep + 3; anchor: center; size: 12; weight: 600
-                   color: mix(#8b8f95, #f6f6f5, own.3) }
-        text "Sleep" { at: mx0 + 26, ry.sleep; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.3) }
+                   color: mix(#8b8f95, #f6f6f5, own.4) }
+        text "Sleep" { at: mx0 + 26, ry.sleep; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.4) }
         //  The line, and below it the add-ons' stuff.
-        line { from: mx0 + 8, menu.y0 + 99; to: mx0 + 147, menu.y0 + 99; width: 1; color: #1f2226 }
+        line { from: mx0 + 8, menu.y0 + 122; to: mx0 + 147, menu.y0 + 122; width: 1; color: #1f2226 }
         column menu_col {
-            at: mx0, menu.y0 + 102
+            at: mx0, menu.y0 + 125
             gap: 0
-            for e in entries { MenuRow(e, marked: menu_selected - 4, pick: menu_entry) }
+            for e in entries { MenuRow(e, marked: menu_selected - 5, pick: menu_entry) }
         }
     }
 
@@ -3892,7 +4169,7 @@ scene Marea {
             text "Focus" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == concentration }
             text "Her wardrobe" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == wardrobe }
             text "Sound" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == sound }
-            text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock", "Notices") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
+            text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock", "Notices", "Talking with her") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
             text "Agents" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == agents }
             text "History" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == history }
             text "Deriva" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == drift }
@@ -4591,6 +4868,8 @@ scene Marea {
             on to_language { section = language }
             on to_lock { section = lock }
             on to_notices { section = notices }
+            event to_talk
+            on to_talk { section = talk }
             on to_wardrobe { emit customize; page = wardrobe }
             on flip_follow { toggle following }
             on flip_room { toggle taking_room }
@@ -4601,15 +4880,15 @@ scene Marea {
                 pages section {
                     page menu "Settings" {
                         grid {
-                            at: card.x - 228, card.top + 109; columns: 2; gap: 12; width: 456; row: 106
-                            Tile("Where she lives", pick(if(following, 0, home + 1), "Follows you", screen.0.name, screen.1.name), to_home, cell.w) {
+                            at: card.x - 228, card.top + 98; columns: 2; gap: 10; width: 456; row: 90
+                            Tile("Where she lives", pick(if(following, 0, home + 1), "Follows you", screen.0.name, screen.1.name), to_home, cell.w, h: 90) {
                                 group { size: 30, 26
                                     box { at: 15, 10; size: 26, 17; corner: 3; stroke: 1.8; color: ink }
                                     line { from: 9, 23; to: 21, 23; width: 1.8; color: ink }
                                     ellipse { at: 15, 10; radius: 4.5; color: mint }
                                 }
                             }
-                            Tile("Her look", pick(skin, "Liquid", "Light liquid", "Classic"), to_look, cell.w) {
+                            Tile("Her look", pick(skin, "Liquid", "Light liquid", "Classic"), to_look, cell.w, h: 90) {
                                 group { size: 32, 32
                                     body {
                                         color: coal
@@ -4622,10 +4901,10 @@ scene Marea {
                                     box { at: 20, 16; size: 3, 7; corner: 1.5; color: ink }
                                 }
                             }
-                            Tile("Language", pick(language, "System", "English", "Español"), to_language, cell.w) {
+                            Tile("Language", pick(language, "System", "English", "Español"), to_language, cell.w, h: 90) {
                                 text "Aa" { size: 17; weight: 700; color: ink }
                             }
-                            Tile("The lock", pick(with_exit, "Password only", "Safety net on"), to_lock, cell.w) {
+                            Tile("The lock", pick(with_exit, "Password only", "Safety net on"), to_lock, cell.w, h: 90) {
                                 group { size: 20, 24
                                     arc { at: 10, 8; radius: 6; span: 180deg; width: 2; color: ink }
                                     line { from: 4, 8; to: 4, 12; width: 2; color: ink }
@@ -4633,7 +4912,7 @@ scene Marea {
                                     box { at: 10, 17; size: 18, 13; corner: 3; color: mix(ink, mint, with_exit) }
                                 }
                             }
-                            Tile("Notices", pick(if(dnd, 3, min(muted.count, 2)), "All of them arrive", "One app muted", "Some apps muted", "Do not disturb"), to_notices, cell.w) {
+                            Tile("Notices", pick(if(dnd, 3, min(muted.count, 2)), "All of them arrive", "One app muted", "Some apps muted", "Do not disturb"), to_notices, cell.w, h: 90) {
                                 group { size: 24, 26
                                     path { at: 12, 13; color: ink
                                            move -9, 6; line -7, 3; line -7, -3; curve 0, -11 via -7, -11; curve 7, -3 via 7, -11; line 7, 3; line 9, 6; close }
@@ -4641,11 +4920,20 @@ scene Marea {
                                     ellipse { at: 19, 5; radius: 3.2; color: mix(mint, lilac, dnd) }
                                 }
                             }
-                            Tile("Wardrobe and wallpaper", "Pieces and the background", to_wardrobe, cell.w) {
+                            Tile("Wardrobe and wallpaper", "Pieces and the background", to_wardrobe, cell.w, h: 90) {
                                 group { size: 30, 22
                                     box { at: 15, 11; size: 28, 20; corner: 4; stroke: 1.6; color: ink }
                                     path { at: 3, 19; color: ink; move 0, 0; line 8, -9; line 13, -3; line 17, -7; line 24, 0; close }
                                     ellipse { at: 22, 6; radius: 2.4; color: mint }
+                                }
+                            }
+                            Tile("Talking with her", pick(if(not chat.signed_in, 0, if(chat.free, 2, 1)), "Not signed in", "Asks before each step", "Uses the computer"), to_talk, cell.w, h: 90) {
+                                group { size: 30, 26
+                                    box { at: 15, 11; size: 26, 18; corner: 7; stroke: 1.8; color: ink }
+                                    path { at: 7, 18; color: ink; move 0, 0; line 6, 0; line 0, 7; close }
+                                    ellipse { at: 11, 11; radius: 1.8; color: mint }
+                                    ellipse { at: 15, 11; radius: 1.8; color: mint }
+                                    ellipse { at: 19, 11; radius: 1.8; color: mint }
                                 }
                             }
                         }
@@ -4831,6 +5119,57 @@ scene Marea {
                             for m in muted { MutedPill(m, drop: unmute) }
                         }
                         text "None. The bell on a notice mutes its app." { at: card.x - 228, card.top + 394; anchor: left center; size: 11.5; color: st.faint; show: muted.count < 1 }
+                    }
+
+                    // ── talking with her ──
+                    //  Her account, whether she may use the computer without a
+                    //  card for each step, and which of the account's models
+                    //  (only the ones that can see a picture: she looks at windows).
+                    page talk "Talking with her" {
+                        text "She talks with you, and can use your desktop with hands of her own." { at: card.x - 228, card.top + 116; anchor: left center; size: 12; color: st.faint }
+                        //  The account.
+                        box { at: card.x, card.top + 164; size: 456, 60; corner: 16; color: #202021 }
+                        text "Her account" { at: card.x - 206, card.top + 155; anchor: left center; size: 13; weight: 600; color: ink }
+                        text pick(if(chat.signing, 0, if(chat.signed_in, 1, 2)), chat.login_hint, chat.account, "Not signed in: she cannot talk yet") { at: card.x - 206, card.top + 176; anchor: left center; size: 10.5; width: 280; lines: 2; color: if(chat.signed_in, mint, st.faint) }
+                        prop login.glow = 0 ~140ms
+                        box { at: card.x + 160, card.top + 164; size: 112, 32; corner: 16; color: mix(mix(#2a2d30, #33383b, login.glow), #3d6b5c, if(chat.signed_in or chat.signing, 0, 1)) }
+                        text pick(if(chat.signing, 0, if(chat.signed_in, 1, 2)), "Cancel", "Sign in again", "Sign in") { at: card.x + 160, card.top + 164; anchor: center; size: 12; weight: 600; color: ink }
+                        zone box login_btn { at: card.x + 160, card.top + 164; size: 112, 32; corner: 16; cursor: pointer }
+                        on enter login_btn { login.glow: 1 }
+                        on leave login_btn { login.glow: 0 }
+                        on press login_btn while chat.signing { emit chat_login_cancel }
+                        on press login_btn while not chat.signing { emit chat_login }
+                        //  Free hands.
+                        box { at: card.x, card.top + 236; size: 456, 64; corner: 16; color: mix(#202021, #2a2519, chat.free) }
+                        box { at: card.x, card.top + 236; size: 456, 64; corner: 16; stroke: 1.2; color: amber; opacity: chat.free * 70% }
+                        text "Let her use the computer" { at: card.x - 206, card.top + 226; anchor: left center; size: 13; weight: 600; color: ink }
+                        text "Without a card for each step. Sending, buying or deleting still asks" { at: card.x - 206, card.top + 245; anchor: left center; size: 11; width: 350; lines: 1; color: st.faint }
+                        column { at: card.x + 174, card.top + 224
+                            Switch(chat.free, flip_chat_free, accent: amber)
+                        }
+                        //  Her model.
+                        text "HER MODEL" { at: card.x - 228, card.top + 300; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
+                        component ModelPill(m: record, choose: event) {
+                            size: 146, 34
+                            prop glow = 0 ~140ms
+                            let on = m.on
+                            //  The grid lays out every record there could be: the empty ones are not drawn.
+                            group {
+                                show: m.index < chat.models.count
+                                box { from: 0, 0; size: 146, 34; corner: 17; color: mix(mix(#202021, #262728, glow), #1a2a25, on) }
+                                box { from: 0, 0; size: 146, 34; corner: 17; stroke: 1.2; color: mint; opacity: if(on, 70%, 0) }
+                                text m.name { at: 73, 17; anchor: center; size: 11.5; weight: 500; width: 130; lines: 1; align: center; color: mix(#a9adb3, ink, on) }
+                                zone box touch { from: 0, 0; size: 146, 34; corner: 17; cursor: pointer }
+                            }
+                            on enter touch { glow: 1 }
+                            on leave touch { glow: 0 }
+                            on press touch { emit choose(m.index) }
+                        }
+                        grid {
+                            at: card.x - 228, card.top + 316; columns: 3; gap: 9; width: 456; row: 42
+                            for m in chat.models { ModelPill(m, choose: chat_pick) }
+                        }
+                        text "Her models appear once she is signed in." { at: card.x - 228, card.top + 332; anchor: left center; size: 11.5; color: st.faint; show: chat.models.count < 1 }
                     }
                 }
             }
@@ -5531,12 +5870,12 @@ scene Marea {
     //  brought out from there, was cut against the edge. Now she goes back when
     //  nothing is left out and it stays like that for 200 ms: if something else
     //  comes out in that time, she does not go back.
-    let anything_out = open or searching or tray_open
-    on change open while open { tray_open = false; searching = false }
+    let anything_out = open or searching or tray_open or chatting
+    on change open while open { tray_open = false; searching = false; chatting = false }
     //  Whatever opened the card —a press, the finder, a shortcut—, she wakes
     //  up for it: a card beside a sleeping ball was a page nobody was showing.
     on change open while open and asleep { asleep = false }
-    on change tray_open while tray_open { open = false; searching = false; menu_open = false }
+    on change tray_open while tray_open { open = false; searching = false; menu_open = false; chatting = false }
     on still anything_out for 200ms while not anything_out { offset: 0 ~homing }
 
     //  And neither the gulp nor the splash go by the clock: they go by what is
@@ -5548,6 +5887,32 @@ scene Marea {
         impulse bounce -70
     }
 
+    // ── opening and closing the chat ─────────────────────────────
+    //  As the finder: she moves aside and the panel comes out of her. Closing
+    //  it does not stop her: what she was doing goes on, and the thread is
+    //  there when it opens again.
+    on chat while not chatting { chatting = true }
+    on chat while chatting { chatting = false }
+    on change chatting while chatting {
+        open = false
+        menu_open = false
+        tray_open = false
+        searching = false
+        asleep = false
+        needed = true
+        wanted = true
+        offset: 1 ~300ms
+        chat: 1 ~300ms
+        chat_content: 1 ~200ms after 100ms
+        focus chat.input
+    }
+    on change chatting while not chatting {
+        chat_content: 0 ~50ms
+        chat: 0 ~220ms after 30ms
+        blur
+    }
+    on key Escape while chatting { chatting = false }
+
     // ── opening and closing the finder ───────────────────────────
     //  «She moves aside» and **turns into a magnifying glass**: both things at
     //  once, because it is the same movement. And on closing, the usual order
@@ -5555,6 +5920,7 @@ scene Marea {
     //  with her spring.
     on search { searching = true }
     on change searching while searching {
+        chatting = false
         open = false
         menu_open = false
         tray_open = false
@@ -5992,30 +6358,32 @@ scene Marea {
     //  With the keyboard: the arrows move the pointed row and Enter chooses it.
     //  Enter without having pointed at anything takes the first one, which is
     //  Settings: what the right button used to do is still one key away.
-    on key Down while menu_open { menu_selected = min(menu_selected + 1, 3 + entries.count) }
+    on key Down while menu_open { menu_selected = min(menu_selected + 1, 4 + entries.count) }
     on key Up while menu_open { menu_selected = max(menu_selected - 1, 0) }
     on key Return while menu_open and menu_selected < 1 { emit search; menu_open = false }
-    on key Return while menu_open and menu_selected == 1 { emit settings; menu_open = false }
+    on key Return while menu_open and menu_selected == 1 { emit chat; menu_open = false }
+    on key Return while menu_open and menu_selected == 2 { emit settings; menu_open = false }
     //  «Settings», from her menu or from outside, opens its page in the control
     //  center.
     on settings { open = true; page = settings; section = menu }
-    on key Return while menu_open and menu_selected == 2 { emit customize; menu_open = false; open = true; page = wardrobe }
-    on key Return while menu_open and menu_selected == 3 { emit sleep; menu_open = false }
-    on key Return while menu_open and menu_selected > 3 { emit menu_entry(menu_selected - 4); menu_open = false }
+    on key Return while menu_open and menu_selected == 3 { emit customize; menu_open = false; open = true; page = wardrobe }
+    on key Return while menu_open and menu_selected == 4 { emit sleep; menu_open = false }
+    on key Return while menu_open and menu_selected > 4 { emit menu_entry(menu_selected - 5); menu_open = false }
     on menu_entry { menu_open = false }
 
     //  The house zones, outside the drawing and after the whole.
-    repeat m in 0..4 {
+    repeat m in 0..5 {
         zone box own_zone.$m { at: menu.x, menu.y0 + 4 + 11.5 + m * 23; size: 155, 23
                                 corner: 7; cursor: pointer; active: menu > 0.9 }
         on enter own_zone.$m { own.$m: 1; menu_selected = -1 }
         on leave own_zone.$m { own.$m: 0 }
     }
     on press own_zone.0 { emit search; menu_open = false }
-    on press own_zone.1 { emit settings; menu_open = false }
-    on press own_zone.3 { emit sleep; menu_open = false }
+    on press own_zone.1 { emit chat; menu_open = false }
+    on press own_zone.2 { emit settings; menu_open = false }
+    on press own_zone.4 { emit sleep; menu_open = false }
     //  «Customize» opens her wardrobe, which is where this lives.
-    on press own_zone.2 { emit customize; menu_open = false; open = true; page = wardrobe }
+    on press own_zone.3 { emit customize; menu_open = false; open = true; page = wardrobe }
 
     // ── the corner ───────────────────────────────────────────────
     //  She peeks out 82 %: with a little more than half, the red eye spent the
@@ -6102,7 +6470,7 @@ scene Marea {
         anchor: top_left
         level: top
         screens: each max 2
-        open: open or tray_open or menu_open or reel_open or searching
+        open: open or tray_open or menu_open or reel_open or searching or chatting
         //  And the zone says it again: a full-screen zone that stays on by
         //  mistake is the whole desktop taken. It happened.
         zone box outside { from: 0, 0; size: catcher.width, catcher.height; active: open or tray_open or menu_open or reel_open }
@@ -6114,14 +6482,15 @@ scene Marea {
         //  the top: `ox` is where it starts on this one.)
         let ox = (catcher.width - 820) / 2
         let hole.x0 = ox + cx - r - 12
-        let hole.x1 = ox + finder.x + finder.w / 2 + 8
-        let hole.y1 = finder.y + finder.h / 2 + 8
-        zone box outside_left { from: 0, 0; size: hole.x0, catcher.height; active: searching }
-        zone box outside_right { from: hole.x1, 0; size: catcher.width - hole.x1, catcher.height; active: searching }
-        zone box outside_below { from: hole.x0, hole.y1; size: hole.x1 - hole.x0, catcher.height - hole.y1; active: searching }
-        on press outside_left { searching = false }
-        on press outside_right { searching = false }
-        on press outside_below { searching = false }
+        //  (The chat the same: whichever of the two is out.)
+        let hole.x1 = ox + max(finder.x + finder.w / 2, chat.x + chat.w / 2) + 8
+        let hole.y1 = max(finder.y + finder.h / 2, chat.y + chat.h / 2) + 8
+        zone box outside_left { from: 0, 0; size: hole.x0, catcher.height; active: searching or chatting }
+        zone box outside_right { from: hole.x1, 0; size: catcher.width - hole.x1, catcher.height; active: searching or chatting }
+        zone box outside_below { from: hole.x0, hole.y1; size: hole.x1 - hole.x0, catcher.height - hole.y1; active: searching or chatting }
+        on press outside_left { searching = false; chatting = false }
+        on press outside_right { searching = false; chatting = false }
+        on press outside_below { searching = false; chatting = false }
     }
 
     // ── the tide, under the windows ──────────────────────────────

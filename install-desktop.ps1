@@ -1,12 +1,16 @@
 param(
     [string]$PleamarBinary = (Join-Path $PSScriptRoot '../pleamar/target/release/pleamar.exe'),
     [string]$DerivaWorkerBinary = (Join-Path $PSScriptRoot 'deriva/target/release/deriva-worker.exe'),
+    [string]$AgentHostBinary = (Join-Path $PSScriptRoot 'windows/agent-host/target/release/marea-agent.exe'),
+    [string]$NodeDirectory = (Join-Path $PSScriptRoot '.tools/installer-tools/node-v22.23.3-win-x64'),
     [string]$Prefix = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Marea Windows')
 )
 $ErrorActionPreference = 'Stop'
 $PleamarBinary = (Resolve-Path -LiteralPath $PleamarBinary).Path
 . (Join-Path $PSScriptRoot 'windows/runtime-files.ps1')
+. (Join-Path $PSScriptRoot 'windows/agent-package.ps1')
 $runtimeFiles = Get-PleamarRuntimeFiles $PleamarBinary
+$agentFiles = Get-MareaAgentFiles $AgentHostBinary $NodeDirectory
 $Prefix = [IO.Path]::GetFullPath($Prefix)
 $shortcutPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'Marea Windows.lnk'
 # Detect an incomplete source package before creating an installation folder.
@@ -27,6 +31,7 @@ python (Join-Path $PSScriptRoot 'windows/prepare-winget.py')
 if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the verified WinGet client; no installation was created.' }
 & $PleamarBinary --check (Join-Path $PSScriptRoot 'marea-desktop.plm')
 if ($LASTEXITCODE -ne 0) { throw 'The desktop profile did not compile.' }
+Test-MareaAgentFiles $agentFiles
 foreach ($folder in @('app', 'app/tools', 'bin', 'windows', 'logs')) {
     New-Item -ItemType Directory -Force (Join-Path $Prefix $folder) | Out-Null
 }
@@ -37,6 +42,11 @@ foreach ($relative in $runtimeFiles.Keys) {
     New-Item -ItemType Directory -Force (Split-Path $destination -Parent) | Out-Null
     Copy-Item -LiteralPath $runtimeFiles[$relative] -Destination $destination
 }
+foreach ($relative in $agentFiles.Keys) {
+    $destination = Join-Path $Prefix $relative
+    [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination))
+    [IO.File]::Copy($agentFiles[$relative], $destination)
+}
 foreach ($item in @('marea.plm', 'marea.luau', 'marea-desktop.plm', 'marea-desktop.luau', 'LICENSE', 'common', 'lang', 'wardrobe', 'shaders', 'assets')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $item) -Destination (Join-Path $Prefix 'app') -Recurse
 }
@@ -45,10 +55,11 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/deriva-preview.mjs') -Des
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/startup.ps1') -Destination (Join-Path $Prefix 'app/tools/startup.ps1')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/software.ps1') -Destination (Join-Path $Prefix 'app/tools/software.ps1')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/winget') -Destination (Join-Path $Prefix 'app/tools/winget') -Recurse
-foreach ($item in @('desktop.ps1', 'run-desktop.ps1')) {
+foreach ($item in @('desktop.ps1', 'run-desktop.ps1', 'agent-package.ps1')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "windows/$item") -Destination (Join-Path $Prefix 'windows')
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'windows/DESKTOP.md') -Destination (Join-Path $Prefix 'README.md')
+Invoke-MareaAgentMaintenance $Prefix '--prepare'
 $launcherTarget = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
 $launcherArguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + (Join-Path $Prefix 'windows/desktop.ps1') + '" start'
 [Marea.Windows.Shortcuts]::Create($shortcutPath, $launcherTarget, $launcherArguments, $Prefix, 'Marea: native Windows desktop companion.', (Join-Path $Prefix 'app/assets/marea.ico'))

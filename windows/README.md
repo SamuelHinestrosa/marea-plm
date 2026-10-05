@@ -5,11 +5,17 @@ pleamar builds, installation, updates, controls and the capability matrix.
 The port is under development; the guide distinguishes implemented features
 from limited integrations and hardware checks that remain unverified.
 
+The new upstream chat is being integrated separately; see its
+[Windows agent status and validation](AGENT.md). Packaging now includes its
+native host and locked SDK; full account and desktop interaction validation
+remains pending.
+
 From the repository root, after preparing the native x64/MSVC pleamar build
 with default Luau and its app-local runtime files:
 
 ```powershell
 cargo build --release --locked --manifest-path deriva/Cargo.toml
+# Prepare the native AI host, Node and SDK as shown in windows/DESKTOP.md.
 .\install-windows.ps1 -PleamarBinary ..\pleamar\target\release\pleamar.exe
 ```
 

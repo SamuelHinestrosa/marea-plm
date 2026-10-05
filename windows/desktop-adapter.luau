@@ -106,7 +106,10 @@ local run = function(command, args, callback, options)
     if command == "grim" or command == "slurp" or command == "wf-recorder" then notice("Esta integración externa no está disponible en Windows.") end
     if callback then after(1, function() callback("", -1) end) end
 end
-local spawn = function(command)
+local spawn = function(command, args, on_line, on_exit, options)
+    if command == "agent/sandbox" then
+        return native_spawn("marea-agent", args, on_line, on_exit, options)
+    end
     notice("No disponible en Windows: " .. command)
     error("Windows profile cannot start " .. command)
 end

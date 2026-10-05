@@ -7,6 +7,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $identity = 'A8D741A8-45D5-4DE8-A38E-27DA65D253F8'
+. (Join-Path $PSScriptRoot 'agent-package.ps1')
 
 function Get-PackageHash([string]$Path) {
     $stream = [IO.File]::OpenRead($Path)
@@ -66,7 +67,8 @@ function Test-Package {
             throw "Incomplete or changed package file: $($file.Name)"
         }
     }
-    foreach ($required in @('bin/pleamar.exe','bin/deriva-worker.exe','bin/node.exe','bin/dxcompiler.dll','bin/dxil.dll',
+    foreach ($required in @('bin/pleamar.exe','bin/deriva-worker.exe','bin/node.exe','bin/marea-agent.exe','bin/dxcompiler.dll','bin/dxil.dll',
+        'app/agent/worker.mjs','app/agent/package-lock.json','app/agent/node_modules/@earendil-works/pi-coding-agent/package.json','windows/agent-package.ps1',
         'bin/vcruntime140.dll','bin/vcruntime140_1.dll','bin/msvcp140.dll','app/marea-desktop.plm','app/marea-desktop.luau','app/assets/marea.ico','app/tools/deriva-preview.mjs','app/tools/startup.ps1','app/tools/software.ps1','app/tools/winget/Microsoft.WinGet.Client.psd1')) {
         if (-not $manifest.files.PSObject.Properties[$required]) { throw "Missing package manifest entry: $required" }
     }
@@ -97,6 +99,7 @@ function Test-Package {
         $null = Invoke-PackageProcess (Join-Path $Package 'bin/deriva-worker.exe') 'stats'
         $node = Invoke-PackageProcess (Join-Path $Package 'bin/node.exe') '--version'
         if ($node.Trim() -ne $manifest.node_version) { throw 'Unexpected packaged Node.js version.' }
+        Test-MareaAgentPackage $Package
     } finally {
         foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $previous[$name], 'Process') }
         # Only this freshly created, resolved temporary directory is removed.
@@ -130,8 +133,13 @@ try {
         'unregister' {
             . (Join-Path $Package 'app/tools/startup.ps1') -Library
             $null = Invoke-MareaStartup -Package $Package -Action disable
+            Invoke-MareaAgentMaintenance $Package '--remove-profile'
+            Invoke-MareaAgentMaintenance $Package '--remove-validation-profile'
         }
-        'register' { $null = Invoke-PackageProcess (Join-Path $Package 'bin/pleamar.exe') ('--register-notification-shortcut "' + $Shortcut + '"') }
+        'register' {
+            Invoke-MareaAgentMaintenance $Package '--prepare'
+            $null = Invoke-PackageProcess (Join-Path $Package 'bin/pleamar.exe') ('--register-notification-shortcut "' + $Shortcut + '"')
+        }
     }
     if ($ResultFile) { [IO.File]::WriteAllText($ResultFile, 'OK') }
     Write-Output 'PASS: native package checks completed without a display.'

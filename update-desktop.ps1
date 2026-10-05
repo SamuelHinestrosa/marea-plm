@@ -1,6 +1,8 @@
 param(
     [string]$PleamarBinary = (Join-Path $PSScriptRoot '../pleamar/target/release/pleamar.exe'),
     [string]$DerivaWorkerBinary = (Join-Path $PSScriptRoot 'deriva/target/release/deriva-worker.exe'),
+    [string]$AgentHostBinary = (Join-Path $PSScriptRoot 'windows/agent-host/target/release/marea-agent.exe'),
+    [string]$NodeDirectory = (Join-Path $PSScriptRoot '.tools/installer-tools/node-v22.23.3-win-x64'),
     [string]$Prefix = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Marea Windows'),
     [switch]$NoStart
 )
@@ -8,7 +10,9 @@ $ErrorActionPreference = 'Stop'
 $PleamarBinary = (Resolve-Path -LiteralPath $PleamarBinary).Path
 . (Join-Path $PSScriptRoot 'windows/runtime-files.ps1')
 . (Join-Path $PSScriptRoot 'windows/update-files.ps1')
+. (Join-Path $PSScriptRoot 'windows/agent-package.ps1')
 $runtimeFiles = Get-PleamarRuntimeFiles $PleamarBinary
+$agentFiles = Get-MareaAgentFiles $AgentHostBinary $NodeDirectory
 $Prefix = (Resolve-Path -LiteralPath $Prefix).Path
 $entry = Join-Path $Prefix 'windows/desktop.ps1'
 $shortcutPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'Marea Windows.lnk'
@@ -32,6 +36,7 @@ python (Join-Path $PSScriptRoot 'windows/prepare-winget.py')
 if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the verified WinGet client; the installed Marea was not stopped.' }
 & $PleamarBinary --check (Join-Path $PSScriptRoot 'marea-desktop.plm')
 if ($LASTEXITCODE -ne 0) { throw 'The new scene did not compile.' }
+Test-MareaAgentFiles $agentFiles
 $files = [ordered]@{
     'bin/pleamar.exe' = $PleamarBinary
     'bin/deriva-worker.exe' = $DerivaWorkerBinary
@@ -43,11 +48,13 @@ $files = [ordered]@{
     'app/tools/software.ps1' = (Join-Path $PSScriptRoot 'tools/software.ps1')
     'windows/desktop.ps1' = (Join-Path $PSScriptRoot 'windows/desktop.ps1')
     'windows/run-desktop.ps1' = (Join-Path $PSScriptRoot 'windows/run-desktop.ps1')
+    'windows/agent-package.ps1' = (Join-Path $PSScriptRoot 'windows/agent-package.ps1')
     'README.md' = (Join-Path $PSScriptRoot 'windows/DESKTOP.md')
 }
 # An upstream scene can add a shader, translation or asset. Updating only the
 # two generated files leaves an installation with incompatible resources.
 foreach ($relative in $runtimeFiles.Keys) { $files[$relative] = $runtimeFiles[$relative] }
+foreach ($relative in $agentFiles.Keys) { $files[$relative] = $agentFiles[$relative] }
 foreach ($relative in @('marea.plm', 'marea.luau', 'LICENSE')) {
     $files[('app/' + $relative)] = Join-Path $PSScriptRoot $relative
 }
@@ -71,6 +78,9 @@ $runtimeHashes = [ordered]@{}
 $runtimeHashes['bin/deriva-worker.exe'] = (Get-FileHash -LiteralPath $DerivaWorkerBinary -Algorithm SHA256).Hash.ToLowerInvariant()
 foreach ($relative in $runtimeFiles.Keys) {
     $runtimeHashes[$relative] = (Get-FileHash -LiteralPath $runtimeFiles[$relative] -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+foreach ($relative in $agentFiles.Keys) {
+    $runtimeHashes[$relative] = (Get-FileHash -LiteralPath $agentFiles[$relative] -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 $backup = Join-Path $Prefix ('backups/' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
 New-Item -ItemType Directory -Force $backup | Out-Null
@@ -104,6 +114,7 @@ try {
         New-Item -ItemType Directory -Force (Split-Path $destination -Parent) | Out-Null
         Copy-MareaUpdateFile -Source $files[$relative] -Destination $destination
     }
+    Invoke-MareaAgentMaintenance $Prefix '--prepare'
     [Marea.Windows.Shortcuts]::SetIcon($shortcutPath, (Join-Path $Prefix 'app/assets/marea.ico'))
     & (Join-Path $Prefix 'bin/pleamar.exe') --register-notification-shortcut $shortcutPath
     if ($LASTEXITCODE -ne 0) { throw 'Could not register the updated Marea notification publisher.' }

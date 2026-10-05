@@ -17,30 +17,35 @@ def remove_between(source, begin, end, replacement=''):
     return source[:start] + replacement + source[stop:]
 
 scene = remove_between(scene, '    surface lockscreen {', '    // ── the adventure\'s stage')
-scene = re.sub(r'^        run: .*$', '        run: "node", "deriva-worker", "curl.exe", "powershell.exe"', scene, flags=re.M)
+scene = re.sub(r'^        run: .*$', '        run: "node", "deriva-worker", "marea-agent", "curl.exe", "powershell.exe"', scene, flags=re.M)
+logic = replace_once(logic, '''    local base = sys.ask("env", "XDG_STATE_HOME")
+    if base == nil or base == "" then base = home_dir .. "/.local/state" end
+    local STATE = base .. "/marea-plm/agent"''', '''    local base = sys.ask("env", "LOCALAPPDATA")
+    if base == nil or base == "" then error("Marea's agent needs LOCALAPPDATA") end
+    local STATE = base .. "/Marea/Agent"''')
+logic = replace_once(logic, 'image = { path = "/state/" .. name }', 'image = { path = STATE .. "/" .. name }')
 scene = replace_once(scene, '    fact language:', (root / 'windows/startup.plm').read_text(encoding='utf-8') + '\n    fact language:')
 settings_start = scene.index('                    page menu "Settings" {')
 settings_end = scene.index('                    // ── where she lives ──', settings_start)
 settings_menu = scene[settings_start:settings_end]
-settings_menu = replace_once(settings_menu, '                        grid {', '''                        let windows_settings_tile_h = 94
-                        grid {''')
-settings_menu = replace_once(settings_menu, 'width: 456; row: 106', 'width: 456; row: windows_settings_tile_h')
-assert settings_menu.count(', cell.w) {') == 6, 'The settings tile list changed'
-settings_menu = settings_menu.replace(', cell.w) {', ', cell.w, windows_settings_tile_h) {')
-scene = scene[:settings_start] + settings_menu + scene[settings_end:]
-scene = replace_once(scene, '''                        }
+assert settings_menu.count(', cell.w, h: 90) {') == 7, 'The settings tile list changed'
+assert 'width: 456; row: 90' in settings_menu
+settings_menu = replace_once(settings_menu, '''                        }
                     }
-
-                    // ── where she lives ──''', '                        }\n' + (root / 'windows/startup-row.plm').read_text(encoding='utf-8') + '''                    }
-
-                    // ── where she lives ──''')
+''', (root / 'windows/startup-row.plm').read_text(encoding='utf-8') + '''                        }
+                    }
+''')
+scene = scene[:settings_start] + settings_menu + scene[settings_end:]
 scene = replace_once(scene, 'text "Reading your windows…" {', 'text windows_agents_status {')
 logic = replace_once(logic, 'if g.observed then\n                local ago = now - g.observed', '''if #g.limits == 0 then table.insert(parts, "Sin datos de cuota") end
             if g.observed and g.observed <= now then
                 local ago = now - g.observed''')
 logic = replace_once(logic, 'local fresh = g and g.observed and now - g.observed < 900', 'local fresh = g and g.observed and now >= g.observed and now - g.observed < 900')
 scene = scene.replace('"network",', '"network", "network.*", "bluetooth", "bluetooth.*",')
-scene = scene.replace('"apps.launch",', '"apps.*",')
+scene = scene.replace('"apps.launch",', '"apps.*", "desktop.*",')
+logic = replace_once(logic, 'local chat_desktop = nil', 'local chat_desktop = install_desktop_agent(native_sys)')
+for first, windows in [('"dolphin"', '"explorer", "file explorer"'), ('"kitty"', '"windows terminal", "powershell", "command prompt"'), ('"zen"', '"microsoft edge"'), ('"gnome-text-editor"', '"notepad", "bloc de notas"')]:
+    logic = replace_once(logic, 'apps = { ' + first, 'apps = { ' + windows + ', ' + first)
 scene = scene.replace('"apps.*",', '"apps.*", "search.*", "shell.open", "hotkeys", "hotkeys.*", "wallpaper.*", "screenshot.*", "recording.*", "clipboard.set",')
 scene = replace_once(scene, 'model icons max 8 { icon: image 22, 22; title: text }', 'model icons max 8 { icon: image 22, 22; title: text; more: bool }')
 scene = replace_once(scene, 'image i.icon { at: 3, 3 - rise * 1.5; size: 22, 22 }', '''image i.icon { at: 3, 3 - rise * 1.5; size: 22, 22; show: not i.more }
@@ -551,9 +556,10 @@ logic = remove_between(logic, '--  Only the `swaybg`', '-- ── her home:')
 logic = remove_between(logic, '-- ── the wallpapers, and the tide', '--  Which monitor each copy is,',
     (root / 'windows/wallpapers.luau').read_text(encoding='utf-8') + '\n\n')
 adapter = (root / 'windows/desktop-adapter.luau').read_text(encoding='utf-8')
-logic = logic[:logic.index('-- ── software: updates, and programs to install')] + '''-- Native WinGet software page.
+adapter = 'local install_desktop_agent = (function()\n' + (root / 'windows/desktop-agent.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
+logic = remove_between(logic, '-- ── software: updates, and programs to install', '-- ── the chat: talking to her', '''-- Native WinGet software page.
 install_software(native_run, native_spawn, hooks, notice)
-'''
+\n''')
 adapter = 'local install_software = (function()\n' + (root / 'windows/software.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 scene = replace_once(scene, '    text sw.pw = ""', '''    text sw.pw = ""
     text windows_sw_search_error = ""

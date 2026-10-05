@@ -1,0 +1,12 @@
+{
+  "name": "marea-agent",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Marea's AI worker: the Pi SDK in a sandbox, speaking JSON lines to her logic.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22.19.0" },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.4"
+  }
+}
