@@ -3639,49 +3639,123 @@ local function chat()
     --  is kept, and Settings › What she remembers forgets any of it.
     local MAX_FACTS, MAX_NOTES, MAX_TALKS = 200, 100, 300
     local memory = { facts = {}, notes = {}, next = 1 }
+    local memory_ready, memory_problem = true, ""
     do
         local ok, saved = pcall(sys.ask, "files.read", "memory.json", "json")
-        if ok and type(saved) == "table" then
-            memory.facts = type(saved.facts) == "table" and saved.facts or {}
-            memory.notes = type(saved.notes) == "table" and saved.notes or {}
-            memory.next = tonumber(saved.next) or (#memory.facts + #memory.notes + 1)
+        if not ok or (saved ~= nil and type(saved) ~= "table") then
+            memory_ready = false
+            memory_problem = "Could not read memory. Existing data has been left untouched."
+        elseif type(saved) == "table" then
+            local ids, next_id = {}, 1
+            local function valid(list, note)
+                if list == nil then return true end
+                if type(list) ~= "table" then return false end
+                local count = 0
+                for k, item in pairs(list) do
+                    if type(k) ~= "number" or k % 1 ~= 0 or k < 1 or k > #list or type(item) ~= "table"
+                        or type(item.id) ~= "string" or ids[item.id]
+                        or (note and type(item.title) ~= "string") or (not note and type(item.text) ~= "string")
+                        or (note and (type(item.when) ~= "string" or type(item.how) ~= "string")) then return false end
+                    ids[item.id] = true
+                    local number = tonumber(item.id:match("^[fn](%d+)$")) or 0
+                    if number >= 9e15 then return false end
+                    next_id = math.max(next_id, number + 1)
+                    count += 1
+                end
+                return count == #list
+            end
+            if valid(saved.facts, false) and valid(saved.notes, true) then
+                memory.facts, memory.notes = saved.facts or {}, saved.notes or {}
+                local stored_next = tonumber(saved.next)
+                memory.next = stored_next and stored_next >= next_id and stored_next < 9e15 and math.floor(stored_next) or next_id
+            else
+                memory_ready = false
+                memory_problem = "Could not read memory. Existing data has been left untouched."
+            end
         end
     end
-    local shelf = {}         -- what Settings lists, in its order: { kind, id }
+    local shelf = {}         -- current row tokens: { kind, id }
+    local memory_page, PAGE_SIZE = 0, 24
+    local memory_token = 0
+    local function memory_error(message, reason)
+        memory_problem = message or ""
+        text["mem.error"] = tr(memory_problem)
+        if reason then log("memory: " .. tostring(reason)) end
+    end
+    local function talk_order(name)
+        local stamp, suffix = name:match("^(chat%-%d+%-%d+)%-(%d+)%.json$")
+        return stamp or name:match("^(chat%-%d+%-%d+)%.json$"), tonumber(suffix) or 0
+    end
+    local function newer_talk(a, b)
+        local stamp_a, index_a = talk_order(a)
+        local stamp_b, index_b = talk_order(b)
+        return stamp_a == stamp_b and index_a > index_b or stamp_a > stamp_b
+    end
     local function talks()
         local ok, names = pcall(sys.ask, "files.list")
         local out = {}
         if ok and type(names) == "table" then
             for _, n in ipairs(names) do
-                if type(n) == "string" and n:match("^chat%-%d+%-%d+%.json$") then out[#out + 1] = n end
+                if type(n) == "string" and talk_order(n) then out[#out + 1] = n end
             end
+        else
+            return out, tostring(names or "No file list was returned")
         end
-        table.sort(out, function(a, b) return a > b end)
+        table.sort(out, newer_talk)
         return out
     end
     local function show_memory()
         local out = {}
         shelf = {}
+        local pages = math.max(1, math.ceil((#memory.facts + #memory.notes) / PAGE_SIZE))
+        local previous_page = memory_page
+        memory_page = math.clamp(memory_page, 0, pages - 1)
+        local index = 0
+        local function entry(kind, item)
+            if index >= memory_page * PAGE_SIZE and #out < PAGE_SIZE then
+                memory_token += 1
+                out[#out + 1] = { kind = kind, token = memory_token,
+                    text = tostring((kind == 1 and item.text or item.title) or ""),
+                    detail = kind == 2 and tostring(item.when or "") or "" }
+                shelf[memory_token] = { kind = kind, id = item.id }
+            end
+            index += 1
+        end
         for k = #memory.facts, 1, -1 do
-            local f = memory.facts[k]
-            out[#out + 1] = { kind = 1, text = tostring(f.text or ""), detail = "" }
-            shelf[#shelf + 1] = { kind = 1, id = f.id }
+            entry(1, memory.facts[k])
         end
         for k = #memory.notes, 1, -1 do
-            local n = memory.notes[k]
-            out[#out + 1] = { kind = 2, text = tostring(n.title or ""), detail = tostring(n.when or "") }
-            shelf[#shelf + 1] = { kind = 2, id = n.id }
+            entry(2, memory.notes[k])
         end
-        while #out > 24 do table.remove(out); table.remove(shelf) end
         model["mem.items"] = out
-        local n = #talks()
-        text["mem.talks"] = n == 0 and tr("None kept yet") or string.format(tr("%d kept on this computer"), n)
-        text["mem.summary"] = string.format(tr("%d things, %d notes"), #memory.facts, #memory.notes)
+        fact["mem.page"], fact["mem.pages"] = memory_page + 1, pages
+        text["mem.page_label"] = string.format(tr("%d / %d"), memory_page + 1, pages)
+        local all, problem = talks()
+        local n = #all
+        text["mem.talks"] = problem and tr("Could not read saved conversations.") or n == 0 and tr("None kept yet") or string.format(tr("%d kept on this computer"), n)
+        text["mem.summary"] = memory_ready and string.format(tr("%d things, %d notes"), #memory.facts, #memory.notes) or tr("Memory unavailable")
+        fact["mem.readable"] = memory_ready
         fact["mem.kept"] = n
+        text["mem.error"] = tr(memory_problem)
+        if previous_page ~= memory_page then emit("mem_page_changed") end
     end
-    local function keep_memory()
-        pcall(sys.call, "files.write", "memory.json", memory)
+    local function changed_memory()
+        return { facts = table.clone(memory.facts), notes = table.clone(memory.notes), next = memory.next }
+    end
+    local function keep_memory(candidate)
+        if not memory_ready then
+            memory_error("Could not read memory. Existing data has been left untouched.")
+            return false, memory_problem
+        end
+        local ok, problem = pcall(sys.call, "files.write", "memory.json", candidate)
+        if not ok then
+            memory_error("Could not save memory. Your previous memories are still kept.", problem)
+            return false, problem
+        end
+        memory = candidate
+        memory_error(nil)
         show_memory()
+        return true
     end
     --  What goes to her in every conversation (her worker trims it to fit).
     local function for_her()
@@ -3696,10 +3770,28 @@ local function chat()
         for _, r in ipairs(rows) do
             if r.kind == 1 or r.kind == 2 then said[#said + 1] = { kind = r.kind, text = r.text } end
         end
-        if #said == 0 then return end
-        pcall(sys.call, "files.write", "chat-" .. os.date("%Y%m%d-%H%M%S") .. ".json", { at = os.time(), rows = said })
-        local all = talks()
-        for k = MAX_TALKS + 1, #all do pcall(sys.call, "files.remove", all[k]) end
+        if #said == 0 then return true end
+        local all, problem = talks()
+        if problem then memory_error("Could not save this conversation. It is still open.", problem); return false end
+        local used = {}
+        for _, name in ipairs(all) do used[name] = true end
+        local base = "chat-" .. os.date("%Y%m%d-%H%M%S")
+        local name, suffix = base .. ".json", 0
+        while used[name] do suffix += 1; name = base .. string.format("-%04d.json", suffix) end
+        local ok, problem = pcall(sys.call, "files.write", name, { at = os.time(), rows = said })
+        if not ok then memory_error("Could not save this conversation. It is still open.", problem); return false end
+        -- Only prune after the new archive is safely written. A failed save
+        -- must neither discard the current conversation nor remove old ones.
+        all[#all + 1] = name
+        table.sort(all, newer_talk)
+        local failed = false
+        for k = MAX_TALKS + 1, #all do
+            local removed, reason = pcall(sys.call, "files.remove", all[k])
+            if not removed then failed = true; log("memory: " .. tostring(reason)) end
+        end
+        memory_error(failed and "Conversation saved, but some older conversations could not be removed." or nil)
+        show_memory()
+        return true
     end
 
     local function trimmed(v, n)
@@ -3737,6 +3829,11 @@ local function chat()
 
     local function remember(id, tool, args)
         local function row(words) return add(3, words, "", 0) end
+        if not memory_ready and tool ~= "memory_search" then
+            memory_error("Could not read memory. Existing data has been left untouched.")
+            answer(id, false, "Could not read memory. Existing data has been left untouched.")
+            return
+        end
         if tool == "memory_save" then
             local t = trimmed(args.text, 300)
             if t == "" then answer(id, false, "Nothing to keep."); return end
@@ -3744,21 +3841,23 @@ local function chat()
                 if string.lower(tostring(f.text)) == string.lower(t) then answer(id, true, "Already kept, as [" .. f.id .. "]."); return end
             end
             local r = row(tr("Remembered: ") .. t)
-            local fid = "f" .. memory.next
-            memory.next += 1
-            memory.facts[#memory.facts + 1] = { id = fid, text = t, at = os.time() }
-            while #memory.facts > MAX_FACTS do table.remove(memory.facts, 1) end
-            keep_memory()
-            finish_row(r, true)
-            answer(id, true, "Kept, as [" .. fid .. "].")
+            local candidate = changed_memory()
+            local fid = "f" .. candidate.next
+            candidate.next += 1
+            candidate.facts[#candidate.facts + 1] = { id = fid, text = t, at = os.time() }
+            while #candidate.facts > MAX_FACTS do table.remove(candidate.facts, 1) end
+            local ok, problem = keep_memory(candidate)
+            finish_row(r, ok)
+            answer(id, ok, ok and ("Kept, as [" .. fid .. "].") or ("Could not save memory: " .. tostring(problem)))
         elseif tool == "memory_forget" then
             local want = trimmed(args.id, 16):gsub("[%[%]]", "")
             for k, f in ipairs(memory.facts) do
                 if f.id == want then
-                    table.remove(memory.facts, k)
-                    keep_memory()
-                    finish_row(row(tr("Forgot: ") .. tostring(f.text)), true)
-                    answer(id, true, "Forgotten.")
+                    local candidate = changed_memory()
+                    table.remove(candidate.facts, k)
+                    local ok, problem = keep_memory(candidate)
+                    finish_row(row(tr("Forgot: ") .. tostring(f.text)), ok)
+                    answer(id, ok, ok and "Forgotten." or ("Could not save memory: " .. tostring(problem)))
                     return
                 end
             end
@@ -3768,16 +3867,17 @@ local function chat()
             if title == "" or how == "" then answer(id, false, "A note needs a title and the steps."); return end
             local r = row(tr("Noted how to: ") .. title)
             local k = note_named(title)
-            local note = { id = "n" .. memory.next, title = title, when = when, how = how, at = os.time() }
-            memory.next += 1
+            local candidate = changed_memory()
+            local note = { id = "n" .. candidate.next, title = title, when = when, how = how, at = os.time() }
+            candidate.next += 1
             if k and string.lower(tostring(memory.notes[k].title)) == string.lower(title) then
-                table.remove(memory.notes, k)
+                table.remove(candidate.notes, k)
             end
-            memory.notes[#memory.notes + 1] = note
-            while #memory.notes > MAX_NOTES do table.remove(memory.notes, 1) end
-            keep_memory()
-            finish_row(r, true)
-            answer(id, true, "Written down.")
+            candidate.notes[#candidate.notes + 1] = note
+            while #candidate.notes > MAX_NOTES do table.remove(candidate.notes, 1) end
+            local ok, problem = keep_memory(candidate)
+            finish_row(r, ok)
+            answer(id, ok, ok and "Written down." or ("Could not save memory: " .. tostring(problem)))
         elseif tool == "memory_recall" then
             local words = words_of(tostring(args.query or ""))
             local found = {}
@@ -3823,28 +3923,43 @@ local function chat()
                 end
             end
             look(rows, "this conversation")
-            for _, name in ipairs(talks()) do
+            local archives, problem = talks()
+            if problem then finish_row(r, false); answer(id, false, "Could not read saved conversations: " .. problem); return end
+            local unreadable = 0
+            for _, name in ipairs(archives) do
                 if #found >= 8 then break end
                 local ok, talk = pcall(sys.ask, "files.read", name, "json")
                 if ok and type(talk) == "table" and type(talk.rows) == "table" then
                     local y, mo, d = name:match("^chat%-(%d%d%d%d)(%d%d)(%d%d)")
                     look(talk.rows, string.format("%s-%s-%s", y or "?", mo or "?", d or "?"))
+                else
+                    unreadable += 1
                 end
             end
-            finish_row(r, true)
-            answer(id, true, #found > 0 and table.concat(found, "\n\n") or "Nothing said about that, in this conversation or the ones kept.")
+            finish_row(r, unreadable == 0)
+            local result = #found > 0 and table.concat(found, "\n\n") or "Nothing said about that, in this conversation or the ones kept."
+            if unreadable > 0 then result = "Search incomplete: some saved conversations could not be read.\n" .. (#found > 0 and table.concat(found, "\n\n") or "No matches in the readable conversations.") end
+            answer(id, unreadable == 0, result)
         else
             answer(id, false, "Marea does not know that tool.")
         end
     end
-    on("mem_forget", function(i)
-        local it = shelf[(tonumber(i) or -1) + 1]
+    on("mem_forget", function(token)
+        -- A click from a superseded page must never delete its replacement row.
+        local it = shelf[tonumber(token) or -1]
         if not it then return end
-        local list = it.kind == 1 and memory.facts or memory.notes
+        local candidate = changed_memory()
+        local list = it.kind == 1 and candidate.facts or candidate.notes
         for k, x in ipairs(list) do
             if x.id == it.id then table.remove(list, k); break end
         end
-        keep_memory()
+        keep_memory(candidate)
+    end)
+    on("mem_page", function(delta)
+        if delta ~= -1 and delta ~= 1 then return end
+        memory_page += delta
+        show_memory()
+        emit("mem_page_changed")
     end)
     --  Pressed once, it asks to be sure; again within four seconds, it deletes.
     local sure, sure_timer = false, nil
@@ -3859,12 +3974,19 @@ local function chat()
         if sure_timer then cancel(sure_timer); sure_timer = nil end
         sure = false
         fact["mem.sure"] = false
-        for _, name in ipairs(talks()) do pcall(sys.call, "files.remove", name) end
+        local all, problem = talks()
+        local failed = problem ~= nil
+        for _, name in ipairs(all) do
+            local ok, reason = pcall(sys.call, "files.remove", name)
+            if not ok then failed = true; log("memory: " .. tostring(reason)) end
+        end
+        memory_error(failed and "Some conversations could not be deleted. You can try again." or nil, problem)
         show_memory()
     end)
     on("fact:section", function(v)
         if v == "memory" then show_memory() end
     end)
+    on("fact:locale", show_memory)
     show_memory()
 
     -- ── the worker ──
@@ -4128,11 +4250,11 @@ local function chat()
         if not chat_desktop then run("pleamar-wm", { "agent", "done" }, function() end, HANDS) end
     end)
     on("chat_new", function()
+        if not keep_talk() then status(tr("Could not save this conversation. It is still open.")); return end
         generation += 1
         queue = {}
         if chat_desktop then chat_desktop("cancel", {}, function() end) end
         close_worker()
-        keep_talk()
         rows, history, asks, live = {}, {}, {}, nil
         shown_row, shown = nil, 0
         if not closing then fact["chat.state"] = "idle"; status("") end

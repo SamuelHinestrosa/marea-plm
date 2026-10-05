@@ -17,8 +17,13 @@ The Windows settings grid scrolls so startup and keyboard shortcuts remain
 reachable. Shared memory logic and a real isolated storage roundtrip passed;
 the Spanish memory/settings/chat layouts were captured from owned D3D12 windows
 on DISPLAY2. These checks use fixture data and do not establish signed-in model
-or physical mouse/keyboard acceptance. Storage-error handling and larger memory
-libraries still need review before claiming full memory-feature acceptance.
+or physical mouse/keyboard acceptance. Failed writes now preserve the current
+conversation and saved memories; corrupt storage stays untouched and reports
+an error. Archive names remain distinct within the same second, and partial
+deletions retain the files that could not be removed. All 300 bounded memories
+are reachable in pages of 24 rows, including after deleting the last page.
+Seven native storage/error cases, shared logic tests, and six DISPLAY2 captures
+passed; the captures used fixtures and sent no physical input.
 
 From the repository root, after preparing the native x64/MSVC pleamar build
 with default Luau and its app-local runtime files:

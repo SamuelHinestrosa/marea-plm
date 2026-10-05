@@ -198,5 +198,15 @@ library SpanishLogic {
         "None kept yet" = "Ninguna guardada aún"
         "%d kept on this computer" = "%d guardadas en este equipo"
         "%d things, %d notes" = "%d cosas, %d notas"
+        "%d / %d" = "%d / %d"
+        "Memory unavailable" = "Memoria no disponible"
+        "Previous" = "Anterior"
+        "Next" = "Siguiente"
+        "Could not read memory. Existing data has been left untouched." = "No se ha podido leer la memoria. Los datos guardados se conservan."
+        "Could not read saved conversations." = "No se han podido leer las conversaciones guardadas."
+        "Could not save memory. Your previous memories are still kept." = "No se ha podido guardar la memoria. Se conservan los recuerdos anteriores."
+        "Could not save this conversation. It is still open." = "No se ha podido guardar esta conversación. Sigue abierta."
+        "Conversation saved, but some older conversations could not be removed." = "Conversación guardada, pero no se han podido eliminar algunas anteriores."
+        "Some conversations could not be deleted. You can try again." = "No se han podido borrar algunas conversaciones. Puedes volver a intentarlo."
     }
 }

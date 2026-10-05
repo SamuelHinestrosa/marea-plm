@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--binary',type=Path,required=True)
@@ -64,3 +65,5 @@ assert 'first frame' not in trace and 'runtime error:' not in trace,trace
 report={'passed':True,'real_files_service':True,'graphical_validation':False,'real_model':False,'physical_input':False}
 (out/'report.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
 print('PASS: native shared memory files roundtrip; isolated storage, no windows/account')
+subprocess.run([sys.executable,str(root/'windows/test-chat-memory-errors.py'),
+    '--binary',str(args.binary.resolve()),'--output',str(out/'errors')],check=True)

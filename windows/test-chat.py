@@ -18,7 +18,7 @@ local home_dir = 'C:/owned test user'
 local launches = {}
 local chat_desktop = function() return false end
 local open_reply, open_code, hold_open, pending_open = 'no agent socket here', 1, false, nil
-local sys = {ask=function(name) if name=='env' then return 'C:/owned state' end return nil end,call=function() end,
+local sys = {ask=function(name) if name=='env' then return 'C:/owned state' end if name=='files.list' then return {} end return nil end,call=function() end,
     call_async=function(name,args,done) assert(name=='apps.launch');launches[#launches+1]={args=args,done=done} end}
 local function tr(value) return value end
 local function save_settings() end
@@ -179,6 +179,13 @@ jobs[3].exit('',1)
 assert(fact['chat.state']=='thinking','late exit interrupted the current worker')
 event({type='ready',usable=true,models={}})
 assert(writes[#writes].id==4 and writes[#writes].message.text=='After the timeout')
+-- A failed archive keeps this conversation and its worker alive.
+local before_shutdown=count('shutdown')
+sys.call=function(name) if name=='files.write' then error('injected archive write failure') end end
+handlers.chat_new()
+assert(count('shutdown')==before_shutdown and fact['chat.state']=='thinking')
+assert(text['chat.status']=='Could not save this conversation. It is still open.')
+sys.call=function() end
 -- Idle retirement uses the same bounded shutdown and retains conversation history.
 event({type='done'})
 local idle_timeout=timers[#timers]

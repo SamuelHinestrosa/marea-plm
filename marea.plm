@@ -527,9 +527,16 @@ scene Marea {
     //  Her memory (Settings › What she remembers): what she knows about you
     //  (kind 1) and her notes on how to do things (2, with when they apply),
     //  newest first; and the conversations she can look back on.
-    model mem.items max 24 { kind: number; text: text; detail: text }
+    model mem.items max 24 { kind: number; token: number; text: text; detail: text }
     text mem.talks = ""
     text mem.summary = ""
+    text mem.error = ""
+    text mem.page_label = ""
+    fact mem.page = 1
+    fact mem.pages = 1
+    fact mem.readable = true
+    event mem_page ->
+    event mem_page_changed
     fact mem.kept = 0                  // how many conversations are kept
     event mem_forget ->                // `emit mem_forget(3)`: the fourth one goes
     event mem_clear_talks ->           // the first press asks to be sure (mem.sure)
@@ -5224,15 +5231,27 @@ scene Marea {
                             zone box touch { from: 416, 7; size: 32, 30; corner: 10; cursor: pointer }
                             on enter touch { glow: 1 }
                             on leave touch { glow: 0 }
-                            on press touch { emit drop(r.index) }
+                            on press touch { emit drop(r.token) }
                         }
                         column mem_list ~quick {
                             at: card.x - 228, card.top + 136
-                            view: 456, 250
+                            view: 456, 232
                             gap: 6
                             for r in mem.items { MemoryRow(r, drop: mem_forget) }
                         }
-                        text "Nothing yet: she keeps things as you talk." { at: card.x - 228, card.top + 152; anchor: left center; size: 11.5; color: st.faint; show: mem.items.count < 1 }
+                        on mem_page_changed { mem_list.scroll: 0 ~0ms }
+                        group {
+                            show: mem.pages > 1
+                            text mem.page_label { at: card.x, card.top + 388; anchor: center; size: 11; color: st.faint }
+                            text "Previous" { at: card.x - 182, card.top + 388; anchor: center; size: 11; color: mint; show: mem.page > 1 }
+                            text "Next" { at: card.x + 182, card.top + 388; anchor: center; size: 11; color: mint; show: mem.page < mem.pages }
+                            zone box mem_previous { at: card.x - 182, card.top + 388; size: 92, 24; cursor: pointer; active: mem.page > 1 }
+                            zone box mem_next { at: card.x + 182, card.top + 388; size: 92, 24; cursor: pointer; active: mem.page < mem.pages }
+                            on press mem_previous { emit mem_page(-1) }
+                            on press mem_next { emit mem_page(1) }
+                        }
+                        text mem.error { at: card.x - 228, card.top + 478; width: 456; lines: 2; size: 10.5; color: #ef7a66 }
+                        text "Nothing yet: she keeps things as you talk." { at: card.x - 228, card.top + 152; anchor: left center; size: 11.5; color: st.faint; show: mem.items.count < 1 and mem.readable }
                         //  The conversations before this one.
                         box { at: card.x, card.top + 428; size: 456, 52; corner: 16; color: #202021 }
                         text "Past conversations" { at: card.x - 206, card.top + 420; anchor: left center; size: 13; weight: 600; color: ink }
