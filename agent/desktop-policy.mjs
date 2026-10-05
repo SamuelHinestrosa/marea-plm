@@ -7,6 +7,7 @@ export function desktopPolicy(platform = process.platform) {
 export function describeDesktopTool(tool, platform = process.platform) {
     if (platform !== "win32") return tool.description;
     const descriptions = {
+        open_app: "Requests a normal Windows launch of an installed application by name. The application chooses its monitor and may activate itself. The monitor parameter is currently unsupported and returns an error before launch. Do not promise background opening, monitor glow or that the user's keyboard remains with their current application. Use desktop_windows to verify the window appeared.",
         desktop_windows: "Lists native windows and monitors. The pid field takes the opaque catalog id shown in this list, not an OS process id. Reports physical boxes, monitor names, foreground focus, minimized state and dialog ownership.",
         desktop_look: "Captures one native window in physical pixels. Its picture is the coordinate system for input. Capture a fresh picture after every action. A modal dialog routes only when it is present in the current window catalog; list again if a new dialog appears.",
         desktop_click: "Clicks using the user's shared pointer. Requires this window in the foreground and a fresh picture; covered or out-of-bounds points are rejected.",

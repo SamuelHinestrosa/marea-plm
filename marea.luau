@@ -3515,18 +3515,47 @@ local function chat()
         if tool == "open_app" then
             local found = find_app(tostring(args.name or ""))
             if found then
-                local function launched(error, code)
-                    complete(code == 0, code == 0 and ("Launch requested for " .. found.name .. ". Use desktop_windows to check whether its window appeared.") or tostring(error))
+                local function ordinary()
+                    local function launched(error, code)
+                        complete(code == 0, code == 0 and ("Launch requested for " .. found.name .. ". Use desktop_windows to check whether its window appeared.") or tostring(error))
+                    end
+                    if type(sys.call_async) == "function" then
+                        local ok, error = pcall(sys.call_async, "apps.launch", { found.exec }, launched)
+                        if not ok then complete(false, tostring(error)) end
+                    else
+                        local ok, error = pcall(sys.call, "apps.launch", found.exec)
+                        launched(error, ok and 0 or -1)
+                    end
                 end
-                if type(sys.call_async) == "function" then
-                    local ok, error = pcall(sys.call_async, "apps.launch", { found.exec }, launched)
-                    if not ok then complete(false, tostring(error)) end
-                else
-                    -- The original Linux runtime has the synchronous service
-                    -- call; keep it usable before the native runtime PR lands.
-                    local ok, error = pcall(sys.call, "apps.launch", found.exec)
-                    launched(error, ok and 0 or -1)
+                if chat_desktop then
+                    -- Windows does not yet provide compositor-controlled
+                    -- startup placement or an independent keyboard.
+                    if args.monitor ~= nil then
+                        complete(false, "Opening directly on a selected monitor is not available on Windows yet. No program was launched.")
+                    else ordinary() end
+                    return
                 end
+                local exec = tostring(found.exec):gsub("%%%a", ""):gsub("%s+$", "")
+                local argv = { "agent", "open" }
+                local m = tonumber(args.monitor)
+                if m then
+                    argv[#argv + 1] = "--monitor"
+                    argv[#argv + 1] = tostring(math.floor(m))
+                end
+                argv[#argv + 1] = "--"
+                argv[#argv + 1] = exec
+                run("pleamar-wm", argv, function(out, code)
+                    if turn ~= generation then return end
+                    out = tostring(out)
+                    local where = code == 0 and tostring(out):match("on monitor (%d+)")
+                    if where then
+                        complete(true, "Launch requested for " .. found.name .. " on monitor " .. where .. ", without taking the user's keyboard. Use desktop_windows to check whether its window appeared.")
+                    elseif code ~= 0 and args.monitor == nil and (code == 127 or out:find("no agent socket here", 1, true)) then
+                        -- No WM session: preserve the ordinary launcher, but
+                        -- never retry a stopped or failed WM action this way.
+                        ordinary()
+                    else complete(false, out ~= "" and out or "The window manager did not confirm the launch.") end
+                end, HANDS)
                 return
             end
             local names = {}

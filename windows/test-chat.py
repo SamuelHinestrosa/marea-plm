@@ -16,6 +16,8 @@ local handlers, jobs, writes, runs, wire, timers, kills = {}, {}, {}, {}, {}, {}
 local settings, apps, hooks = {}, {{name='Fixture App',exec='fixture:app',id='fixture'}}, {}
 local home_dir = 'C:/owned test user'
 local launches = {}
+local chat_desktop = function() return false end
+local open_reply, open_code, hold_open, pending_open = 'no agent socket here', 1, false, nil
 local sys = {ask=function(name) if name=='env' then return 'C:/owned state' end return nil end,call=function() end,
     call_async=function(name,args,done) assert(name=='apps.launch');launches[#launches+1]={args=args,done=done} end}
 local function tr(value) return value end
@@ -31,7 +33,14 @@ local function emit() end
 local json = {}
 json.encode=function(value) wire[#wire+1]=value;return '{'..#wire..'}' end
 json.decode=function(value) local id=tonumber(value:match('^{(%d+)}%s*$'));assert(id and wire[id]);return wire[id] end
-local function run(command,args,callback) runs[#runs+1]={command=command,args=args};if callback then callback('',0) end end
+local function run(command,args,callback)
+    runs[#runs+1]={command=command,args=args}
+    if callback then
+        if args[1]=='agent' and args[2]=='open' then
+            if hold_open then pending_open=callback else callback(open_reply,open_code) end
+        else callback('',0) end
+    end
+end
 local function spawn(command,args,line,exit,options) assert(options.stdin=='open');jobs[#jobs+1]={line=line,exit=exit};return #jobs end
 local function write(id,line) writes[#writes+1]={id=id,message=json.decode(line)};return true end
 local function kill(id) kills[#kills+1]=id end
@@ -89,6 +98,7 @@ before_result=count('result')
 launches[3].done('',0)
 assert(count('result')==before_result,'late launch result escaped cancellation')
 -- Upstream Linux has sys.call but not the port's asynchronous extension.
+chat_desktop=nil
 local native_launch=sys.call_async
 sys.call_async=nil
 sys.call=function(name,value) assert(name=='apps.launch' and value=='fixture:app');error('Linux launch denied') end
@@ -97,9 +107,37 @@ assert(writes[#writes].message.ok==false and writes[#writes].message.text:find('
 sys.call=function(name,value) assert(name=='apps.launch' and value=='fixture:app') end
 event({type='propose',id='linux-ok',tool='open_app',args={name='Fixture App'}})
 assert(writes[#writes].message.ok==true and writes[#writes].message.text:find('Launch requested',1,true))
+-- Linux keeps the upstream monitor-aware WM route; it must not double-launch
+-- or fall through to the ordinary launcher after cancellation or a WM error.
+local service_calls=0
+sys.call=function() service_calls+=1 end
+open_reply,open_code='opened on monitor 1 (process 123): fixture',0
+event({type='propose',id='wm-ok',tool='open_app',args={name='Fixture App',monitor=1}})
+assert(writes[#writes].message.ok and writes[#writes].message.text:find('on monitor 1',1,true))
+assert(runs[#runs].args[3]=='--monitor' and runs[#runs].args[4]=='1' and service_calls==0)
+open_reply,open_code='open: stopped-by-user',1
+event({type='propose',id='wm-stopped',tool='open_app',args={name='Fixture App'}})
+assert(not writes[#writes].message.ok and service_calls==0)
+open_reply,open_code='unknown successful reply',0
+event({type='propose',id='wm-unknown',tool='open_app',args={name='Fixture App'}})
+assert(not writes[#writes].message.ok and service_calls==0)
+open_reply,open_code='no agent socket here',1
+event({type='propose',id='wm-monitor-unavailable',tool='open_app',args={name='Fixture App',monitor=1}})
+assert(not writes[#writes].message.ok and service_calls==0)
+hold_open=true
+event({type='propose',id='wm-late',tool='open_app',args={name='Fixture App'}})
+handlers.chat_stop();before_result=count('result')
+pending_open('no agent socket here',1)
+assert(count('result')==before_result and service_calls==0,'cancelled WM attempt launched a fallback')
+hold_open=false
+chat_desktop=function() return false end
 sys.call_async=native_launch
 sys.call=function() end
+local before_launch=#launches
+event({type='propose',id='windows-monitor-unavailable',tool='open_app',args={name='Fixture App',monitor=1}})
+assert(not writes[#writes].message.ok and #launches==before_launch)
 event({type='propose',id='launch-new',tool='open_app',args={name='Fixture App'}})
+chat_desktop=nil
 handlers.chat_new()
 before_result=count('result')
 launches[4].done('',0)

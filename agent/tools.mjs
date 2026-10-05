@@ -87,8 +87,12 @@ export const TOOLS = [
     },
     {
         name: "open_app",
-        description: "Opens a program installed on the user's computer, by its name (Firefox, Dolphin, Calculator…) or what it is (a file manager, a terminal, a browser). If none matches, it answers with the programs there are. Its window opens on the monitor where the user is: desktop_windows to find it.",
-        parameters: Type.Object({ name: Type.String({ maxLength: 80 }), why, final }),
+        description: "Opens a program installed on the user's computer, by its name (Firefox, Dolphin, Calculator…) or what it is (a file manager, a terminal, a browser). If none matches, it answers with the programs there are. Its window opens on the monitor you work on —one the user is not on, unless you say which—, lit first so they see it coming, and without taking their keyboard: desktop_windows to find it.",
+        parameters: Type.Object({
+            name: Type.String({ maxLength: 80 }),
+            monitor: Type.Optional(Type.Integer({ minimum: 0, maximum: 7, description: "Which monitor, from desktop_windows, when the user names one" })),
+            why, final,
+        }),
     },
     // ── her memory ──
     {

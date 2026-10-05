@@ -49,5 +49,13 @@ tied to the exact Marea process. Full Marea UI acceptance and compositor-effect
 parity remain pending. Updating these sources does not update an existing
 installed preview.
 
+Upstream's `agent open --monitor` integration is retained for the Linux WM.
+Windows currently keeps the native ordinary application launcher; an explicit
+launch-monitor request fails before launching instead of claiming placement or
+keyboard isolation. Its worker describes this limitation. Native monitor-aware
+startup without stealing focus remains part of the unfinished WM port. Shared
+chat launch results now preserve OS failures, cancellation and the WM's stop
+decision, and do not launch a second copy after an unrecognized success reply.
+
 AI assistance: the Windows port and its validation tools were developed with
 Codex. This branch is not an upstream Marea Windows release.
