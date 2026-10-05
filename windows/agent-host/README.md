@@ -61,6 +61,16 @@ validated before permissions are assigned. Image requests validate containment,
 reject Windows reparse points and hard links, and compare file identities across
 the open before performing a bounded read.
 
+The host itself uses the Windows GUI subsystem, with explicitly redirected
+protocol streams. It creates no window or console: a console-subsystem host
+started with `CREATE_NO_WINDOW` still kept an extra `conhost.exe` alive for the
+whole chat session (about 7.9 MiB working set in the observed native run).
+Pleamar keeps its console subsystem for the engine's command-line interface.
+After this change, the thirteen native boundary checks passed again. A native
+UI run on DISPLAY2 completed seven 90-second samples with three real signed-out
+SDK reopen/retirement cycles; all owned processes exited. This covers idle
+lifecycle/resource use, not authenticated work or physical interaction.
+
 The implementation follows Microsoft's [LPAC launch contract](https://learn.microsoft.com/en-us/windows/win32/secauthz/implementing-an-appcontainer),
 [AccessCheck](https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-accesscheck)
 and the documented non-propagating `MAXIMUM_ALLOWED` behavior of
@@ -114,9 +124,11 @@ first use. A cold SDK tree took about 116 seconds to prepare, versus 4.6 seconds
 on a repeated preparation; allow up to three minutes for the bounded preflight.
 Set `MAREA_AGENT_TRACE=1` when diagnosing startup to print stage timings to
 stderr; paths, credentials and conversations are not printed by that trace.
-Positive desktop-agent input, full Setup lifecycle on a clean account,
-Marea visual validation and broader performance/hardware checks remain required.
+Positive desktop-agent input, a model conversation and broader
+performance/hardware checks remain required. Six native layout states have
+been reviewed with fixture data. Full Setup lifecycle passed in Windows CI
+at Marea `91b6240` / pleamar `7c0edeb`; it is not graphical acceptance.
 The installed package is still `0.2.15-preview.13`; this work is not installed
-and is not a claim of complete parity. CI additions have not run remotely yet.
+and is not a claim of complete parity. See [the current evidence](../AGENT.md).
 
 Developed with Codex.

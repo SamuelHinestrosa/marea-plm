@@ -1,3 +1,7 @@
+// The host only uses explicitly supplied protocol pipes. A console subsystem
+// creates an extra conhost even when its caller requests CREATE_NO_WINDOW.
+#![cfg_attr(all(windows, not(test)), windows_subsystem = "windows")]
+
 #[cfg(windows)]
 mod host;
 #[cfg(windows)]
