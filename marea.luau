@@ -646,15 +646,30 @@ local function shown(f, s)
     return s
 end
 
+--  How long ago a notice came, from the time the service keeps for it; the
+--  made-up ones of the demo, which have none, by their place.
+local function age_of(f, k)
+    if not f.time or f.time <= 0 then return tr(AGES[k]) end
+    local s = os.time() - f.time
+    if s < 60 then return tr("now") end
+    if s < 3600 then return string.format("%d min", s // 60) end
+    if s < 86400 then return string.format("%d h", s // 3600) end
+    return os.date("%d/%m", f.time)
+end
+
 local function render()
     for k = 1, 5 do
         local f = rows[k]
-        fact["alive." .. k] = f ~= nil
+        --  One dealt with stays out of sight until the list is redone (the tray
+        --  closed): drawn again for any reason —another notice arriving— it came
+        --  back, as if dismissing it had failed. A resolved one is still seen
+        --  while its drop flies home.
+        fact["alive." .. k] = f ~= nil and (not f.done or f.flying == true)
         if f ~= nil then
             text["row." .. k .. ".app"] = shown(f, f.app)
             text["row." .. k .. ".title"] = shown(f, f.title)
             text["row." .. k .. ".detail"] = shown(f, f.detail)
-            text["row." .. k .. ".age"] = tr(AGES[k])
+            text["row." .. k .. ".age"] = age_of(f, k)
             fact["row_cat." .. k] = f.cat
             fact["row_urgent." .. k] = f.urgent == true
         end
@@ -715,9 +730,13 @@ end
 
 local function arrive(n)
     n.cat = CATEGORY_OF[n.app] or classify(n.app)
-    table.insert(rows, 1, n)
-    while #rows > 5 do table.remove(rows) end
-    render()
+    --  With the tray open the rows do not move under the pointer (one dealt
+    --  with by its place would be another): it joins them when it closes.
+    if not fact.tray_open then
+        table.insert(rows, 1, n)
+        while #rows > 5 do table.remove(rows) end
+        render()
+    end
     fact.cat = n.cat
     show_front(n)
     fact.hush = quiet_for(n)
@@ -1060,7 +1079,7 @@ for k = 1, 4 do on("fact:n." .. k, cap_counts) end
 local function row_of(n)
     local app = string.upper(n.app ~= "" and n.app or tr("notice"))
     return { id = n.id, app = app, title = n.title, detail = n.body, urgent = (n.urgency or 1) >= 2,
-             actions = n.actions, icon = n.icon, cat = CATEGORY_OF[app] or classify(app) }
+             actions = n.actions, icon = n.icon, cat = CATEGORY_OF[app] or classify(app), time = n.time }
 end
 
 --  What hovering over her shows: the newest one still pending. Not while a
@@ -1102,6 +1121,8 @@ local function refill()
     refresh_preview()
 end
 on("fact:tray_open", refill)
+--  The ages keep up while the tray is open.
+every(30000, function() if fact.tray_open == true then render() end end)
 
 --  In pleamar-wm, the shore shows what is unread on each program's icon: it
 --  is told how many notices each one has, whenever that changes.
@@ -1167,7 +1188,7 @@ local function from_service(list)
             --  rearranged, and they go.
             remove_done()
             arrive({ id = n.id, app = string.upper(n.app ~= "" and n.app or tr("notice")), title = n.title, detail = n.body,
-                     urgent = (n.urgency or 1) >= 2, actions = n.actions, icon = n.icon })
+                     urgent = (n.urgency or 1) >= 2, actions = n.actions, icon = n.icon, time = n.time })
         end
     end
     refill()
@@ -1405,6 +1426,27 @@ on("notice_act", function(i)
     end
 end)
 on("tray", function() log("the tray would open at the newest one") end)
+--  «Clear all», at the foot of the tray: every notice that is waiting —the
+--  ones in the tray and the ones that did not fit— goes to the history and
+--  out of the service. Not the ones sent «later»: those come back at their time.
+on("clear_all", function()
+    for _, f in ipairs(rows) do
+        if not f.done then
+            f.done = true
+            remember(f)
+            if f.id then finished[f.id] = true; sys.call("notifications.dismiss", f.id) end
+        end
+    end
+    for _, n in ipairs(live or {}) do
+        if not finished[n.id] and not snoozed[n.id] then
+            finished[n.id] = true
+            remember(row_of(n))
+            sys.call("notifications.dismiss", n.id)
+        end
+    end
+    render()
+    for k = 1, 4 do fact["n." .. k] = 0 end
+end)
 -- ── the calendar ───────────────────────────────────────────────────
 --  Her own: events kept in `calendar.json`, a month on screen (six weeks,
 --  Monday first) and the day that is chosen. Writing «10:30 Dentist» makes an

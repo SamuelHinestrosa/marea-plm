@@ -337,6 +337,7 @@ scene Marea {
     //  a row for each day (`head`). `age` 0 today … 1 a week or more.
     model past max 9 { app: text; title: text; detail: text; when: text; day: text; cat: number = 4; head: bool; age: number }
     event show_history                 // from her menu or the swell's footer
+    event clear_all ->                 // the swell's footer: every notice waiting, to the history
     // ── wallpapers: the tide that brings a new one ───────────────
     //  Her page shows the wallpapers there are, small. Picking one closes
     //  the card, a drop falls from her onto the desktop, and from where it
@@ -1030,7 +1031,10 @@ scene Marea {
     //  And with the menu out neither of the two comes out: they take its place.
     //  Going out it takes its time —it is a division, see below— and it goes
     //  back in quickly: two rules, because the two journeys are not the same.
-    let notecard.wants = note and not open and not haven and not menu_open and face == eye and out > 0.9 and phase == 0 and pending < 1
+    //  With notices waiting too: the fan opens below her and the time beside
+    //  her. It used to be one or the other, and with notices the time was
+    //  never seen.
+    let notecard.wants = note and not open and not haven and not menu_open and face == eye and out > 0.9 and phase == 0
     on change notecard.wants while notecard.wants { notecard: 1 ~700ms }
     on change notecard.wants while not notecard.wants { notecard: 0 ~260ms }
     follow fan = if(note and not open and not tray_open and not haven and not menu_open and face == eye and out > 0.9 and phase == 0 and pending > 0, 1, 0)
@@ -3051,14 +3055,23 @@ scene Marea {
 
         }
 
+        //  Nothing waiting: said, not an empty box.
+        text "Nothing waiting" { at: tray.x, tray.y - 10; anchor: center; size: 13; color: #8b8f95; show: pending < 0.5 and not undoable }
+
         //  The footer: what has arrived, and its settings. While it can be undone
         //  its place belongs to the fuse, which is more urgent than a link.
         group {
             show: not undoable
             text "History" { at: tx0, tray.y + 198; anchor: left center; size: 11.5; color: mix(#8b8f95, ink, hist_link.glow) }
             zone box hist_link { from: tx0 - 6, tray.y + 186; size: 80, 24; corner: 8; cursor: pointer; active: tray > 0.9 and not undoable }
-            text "Settings" { at: tray.x + 232, tray.y + 198; anchor: right center; size: 11.5; color: #8b8f95 }
+            //  All of them out at once, to the history.
+            prop swellclear.glow = 0 ~140ms
+            text "Clear all" { at: tray.x + 232, tray.y + 198; anchor: right center; size: 11.5; color: mix(#8b8f95, #ef7a66, swellclear.glow); show: pending > 0 }
+            zone box clear_all_zone { from: tray.x + 232 - 96, tray.y + 186; size: 102, 24; corner: 8; cursor: pointer; active: tray > 0.9 and not undoable and pending > 0 }
         }
+        on enter clear_all_zone { swellclear.glow: 1 }
+        on leave clear_all_zone { swellclear.glow: 0 }
+        on press clear_all_zone { emit clear_all }
 
         // ── undo, with its fuse ──────────────────────────────────
         //  Five seconds, and you can see how many are left: the fuse burns from
@@ -6510,7 +6523,7 @@ scene Marea {
     on enter fan_area { in.fan = true }
     on still note and not (in.body or in.note or in.fan) for 400ms while note and not (in.body or in.note or in.fan) and not haven { note = false }
     //  With the fan out, the grace is counted over the whole.
-    on away fan_area for 300ms { note = false }
+    on away fan_area for 300ms while not in.note { note = false }
     //  And opening the card takes the menu with it, as the menu takes the card
     //  with it: there are no two things of hers open at once.
     on change open while open { note = false; menu_open = false }
