@@ -17,7 +17,7 @@ def remove_between(source, begin, end, replacement=''):
     return source[:start] + replacement + source[stop:]
 
 scene = remove_between(scene, '    surface lockscreen {', '    // ── the adventure\'s stage')
-scene = re.sub(r'^        run: .*$', '        run: "node", "deriva-worker", "marea-agent", "curl.exe", "powershell.exe"', scene, flags=re.M)
+scene = re.sub(r'^        run: .*$', '        run: "node", "deriva-worker", "marea-agent", "pleamar-wm", "curl.exe", "powershell.exe"', scene, flags=re.M)
 logic = replace_once(logic, '''    local base = sys.ask("env", "XDG_STATE_HOME")
     if base == nil or base == "" then base = home_dir .. "/.local/state" end
     local STATE = base .. "/marea-plm/agent"''', '''    local base = sys.ask("env", "LOCALAPPDATA")
@@ -548,7 +548,16 @@ on("fact:menu_open", function(value) if value then set_menu() end end)
 
 on("menu_entry"''')
 logic = replace_once(logic, '    local e = plugin_entries[i + 1]', '''    local e = plugin_entries[i + 1]
+    if e ~= nil and e.id == "windows.wm.layout" then hooks.wm_free(); return end
+    if e ~= nil and e.id == "windows.wm.restore" then hooks.wm_restore(); return end
     if e ~= nil and e.id == "windows.shelf" then emit("windows_toggle_shelf"); return end''')
+logic += '\ndo\n(function()\n' + (root / 'windows/window-manager.luau').read_text(encoding='utf-8') + '''
+end)()(native_run, hooks, plugin_entries, set_menu, function()
+    for k = 0, 1 do if fact["hosts." .. k] == true then return monitors[k + 1] end end
+    return nil
+end, notice)
+end
+'''
 # Development shells often inject C.UTF-8; it is not a user language choice.
 logic = replace_once(logic, 'value ~= "C" and value ~= "POSIX"', 'value ~= "C" and not value:match("^C%.") and value ~= "POSIX"')
 # Keep the original portable animation/calendar/settings logic. Linux command

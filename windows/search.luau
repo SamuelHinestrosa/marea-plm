@@ -11,7 +11,7 @@ local function search()
     end
     if #q >= 2 then
         for k, o in ipairs(OWN) do
-            if o[5] ~= "wm" or hooks.in_wm then
+            if o[5] ~= "wm" or (hooks.windows_wm_allowed and hooks.windows_wm_allowed(o[1])) then
                 local name = tr(o[1])
                 local score = search_match.score(name, q) or search_match.score(o[2], q)
                 add({name = name, kind_label = "Marea", icon = "", glyph = o[3], own = k}, score)

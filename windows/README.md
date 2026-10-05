@@ -29,5 +29,15 @@ installations and their separate settings are not removed or migrated.
 upstream scenes and the adapters here. Those generated files are not tracked;
 the installer and logic checks regenerate them. Linux uses the original files.
 
+An experimental native `pleamar-wm` session can now supply automatic per-monitor
+layouts. When its Windows executable is available beside pleamar and its
+session is running, Marea's context menu and finder expose the supported
+layout/restore actions. Capability detection never enables Linux-only rain,
+snow, ride or agent-seat actions. The adapter has passed isolated logic tests
+and a real Luau/IPC test arranging owned windows on DISPLAY2. Full Marea UI
+acceptance, shipping the companion in this installer and supervising its
+lifetime remain pending; the existing installed preview has not gained these
+features just by updating these sources.
+
 AI assistance: the Windows port and its validation tools were developed with
 Codex. This branch is not an upstream Marea Windows release.

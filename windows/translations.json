@@ -52,5 +52,7 @@
   "Queued": "En cola",
   "Working": "En curso",
   "WinGet errors are shown above; check again before retrying": "Comprueba el error de WinGet antes de volver a intentarlo",
-  "Stopping requests cancellation; an installer may still finish": "Se puede cancelar, pero una instalación en curso podría terminar"
+  "Stopping requests cancellation; an installer may still finish": "Se puede cancelar, pero una instalación en curso podría terminar",
+  "The window manager could not complete the action.": "El gestor de ventanas no pudo completar la acción.",
+  "The window manager is not managing this screen.": "El gestor de ventanas no está gestionando esta pantalla."
 }
