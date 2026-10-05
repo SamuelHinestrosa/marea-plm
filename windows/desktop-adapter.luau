@@ -19,18 +19,6 @@ local run_agent_reader = install_agent_reader(native_run, notice)
 install_media_controls(native_sys, notice)
 install_startup(native_run, native_sys, notice)
 
-local hotkey_sequence
-native_sys.watch("hotkeys", function(value)
-    local previous = hotkey_sequence
-    hotkey_sequence = value.sequence
-    if previous ~= nil and previous ~= value.sequence and value.event == "search" then emit("search") end
-end)
-local search_shortcut = native_sys.ask("env", "MAREA_SEARCH_HOTKEY") or "Ctrl+Alt+Space"
-if search_shortcut ~= "" then
-    perform("hotkeys.bind", "search", search_shortcut)
-else
-    perform("hotkeys.unbind", "search")
-end
 on("windows_lock", function() perform("session.lock") end)
 on("windows_lock_info", function() notice("El bloqueo utiliza la pantalla segura de Windows.") end)
 on("fact:page", function(page)

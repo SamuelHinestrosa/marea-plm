@@ -13,7 +13,7 @@ remains pending.
 The upstream chat/memory changes through `90e4f4b` are integrated: reading-paced
 answers, the corrected input position, and Settings > What she remembers.
 Memory uses the native files service under `%APPDATA%/pleamar/marea-desktop`.
-The Windows settings grid now scrolls so the ninth tile (startup) remains
+The Windows settings grid scrolls so startup and keyboard shortcuts remain
 reachable. Shared memory logic and a real isolated storage roundtrip passed;
 the Spanish memory/settings/chat layouts were captured from owned D3D12 windows
 on DISPLAY2. These checks use fixture data and do not establish signed-in model
@@ -48,6 +48,12 @@ and a real Luau/IPC test arranging owned windows on DISPLAY2. The package now bu
 tied to the exact Marea process. Full Marea UI acceptance and compositor-effect
 parity remain pending. Updating these sources does not update an existing
 installed preview.
+
+Settings > Keyboard shortcuts offers an optional dedicated Windows-key layer,
+off by default. It reserves Win and its combinations for Marea while she runs.
+See the [shortcut behavior and validation](SHORTCUTS.md); physical shortcut and
+foreground acceptance are still pending, separate from the tested native hook
+lifetime and rendered settings page.
 
 Upstream's `agent open --monitor` integration is retained for the Linux WM.
 Windows currently keeps the native ordinary application launcher; an explicit

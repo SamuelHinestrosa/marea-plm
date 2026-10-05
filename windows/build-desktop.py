@@ -25,12 +25,13 @@ logic = replace_once(logic, '''    local base = sys.ask("env", "XDG_STATE_HOME")
     local STATE = base .. "/Marea/Agent"''')
 logic = replace_once(logic, 'image = { path = "/state/" .. name }', 'image = { path = STATE .. "/" .. name }')
 scene = replace_once(scene, '    fact language:', (root / 'windows/startup.plm').read_text(encoding='utf-8') + '\n    fact language:')
+scene = replace_once(scene, '    fact language:', (root / 'windows/shortcuts.plm').read_text(encoding='utf-8') + '\n    fact language:')
 settings_start = scene.index('                    page menu "Settings" {')
 settings_end = scene.index('                    // ── where she lives ──', settings_start)
 settings_menu = scene[settings_start:settings_end]
 assert settings_menu.count(', cell.w, h: 90) {') == 8, 'The settings tile list changed'
 assert 'width: 456; row: 90' in settings_menu
-# The new memory tile makes nine Windows settings. Keep every tile reachable
+# Startup and shortcuts make ten Windows settings. Keep every tile reachable
 # inside the card instead of letting the startup control fall below its edge.
 settings_menu = replace_once(settings_menu, '''                        grid {
                             at: card.x - 228, card.top + 98; columns: 2; gap: 10; width: 456; row: 90''', '''                        column windows_settings_list {
@@ -40,12 +41,24 @@ settings_menu = replace_once(settings_menu, '''                        grid {
                             at: 0, 0; columns: 2; gap: 10; width: 456; row: 90''')
 settings_menu = replace_once(settings_menu, '''                        }
                     }
-''', (root / 'windows/startup-row.plm').read_text(encoding='utf-8') + '''                        }
+''', (root / 'windows/startup-row.plm').read_text(encoding='utf-8') + (root / 'windows/shortcuts-row.plm').read_text(encoding='utf-8') + '''                        }
                         }
                         text "↓" { at: card.x + 239, card.top + 476; anchor: center; size: 15; color: mint; show: windows_settings_list.content - windows_settings_list.scroll > 391 }
                     }
 ''')
 scene = scene[:settings_start] + settings_menu + scene[settings_end:]
+# Append the page without renumbering the upstream section enum or its titles.
+scene = replace_once(scene, '''                    }
+                }
+            }
+
+            // ── the agents' reservoirs''', '''                    }
+''' + (root / 'windows/shortcuts-page.plm').read_text(encoding='utf-8') + '''                }
+            }
+
+            // ── the agents' reservoirs''')
+scene = replace_once(scene, '"Talking with her", "What she remembers") { at: px0',
+    '"Talking with her", "What she remembers", "Keyboard shortcuts") { at: px0')
 scene = replace_once(scene, 'text "Reading your windows…" {', 'text windows_agents_status {')
 scene = replace_once(scene, 'She talks with you, and can use your desktop with hands of her own.',
     'She talks with you. Desktop actions share your mouse and keyboard.')
@@ -568,6 +581,7 @@ end)()(native_run, hooks, plugin_entries, set_menu, function()
     return nil
 end, notice, native_spawn)
 end
+install_shortcuts(native_sys, notice, hooks)
 '''
 logic = replace_once(logic, 'local OWN = {', '''local OWN = {
     { "Window overview", "windows overview ventanas vista abiertas overview resumen", 1,
@@ -601,6 +615,7 @@ scene = replace_once(scene, '"Leave it be until it ends: it is changing the syst
 scene = replace_once(scene, '                    input sw.query {', '''                    text windows_sw_search_error { at: sw.x0 + 4, card.top + 456; anchor: left center; width: 446; lines: 2; size: 10.5; color: #ef7a66 }
                     input sw.query {''')
 adapter = 'local install_startup = (function()\n' + (root / 'windows/startup.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
+adapter = 'local install_shortcuts = (function()\n' + (root / 'windows/shortcuts.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_weather = (function()\n' + (root / 'windows/weather.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_media_controls = (function()\n' + (root / 'windows/media-controls.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_media_volume = (function()\n' + (root / 'windows/media-volume.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
