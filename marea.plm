@@ -3320,11 +3320,12 @@ scene Marea {
                 rim: 10%
                 box { from: 556 - said.width - 26, 0; size: said.width + 26, said.height + 14; corner: 14 }
             }
-            text r.text { at: 556 - 13, 7; anchor: right top; width: 420; size: 13; color: ink; align: right; measure: said }
+            text r.text { at: 556 - 13, 7; anchor: right top; width: 420; size: 13; color: ink; align: right; measure: said; selectable: true; selection: #3d6b5e }
         }
         //  2 · hers: as each letter arrives it fades in and rises the last
         //  few pixels, a ripple running along the newest ones.
         text r.text { at: 2, 2; anchor: left top; width: 520; size: 13.5; line_height: 1.4; color: ink; measure: hers; show: r.kind == 2
+                      selectable: true; selection: #2f5a50
                       letter_opacity: if(arriving, clamp((chat.reveal - letter) / 12, 0, 1), 1)
                       letter_move: 0, if(arriving, (1 - clamp((chat.reveal - letter) / 12, 0, 1)) * 7, 0) }
         //  3 · something she used: a drop that fills while it goes, a tick, a
@@ -3348,7 +3349,7 @@ scene Marea {
             box { from: 0, 0; size: 556, asked.height + 66; corner: 14; stroke: 1 + 1.2 * chat.ask * (r.state == 0); color: amber
                   opacity: if(r.state == 0, 45% + 35% * (0.5 + 0.5 * sin(chat.t * 220)), 25%) }
             text r.detail { at: 16, 16; anchor: left center; size: 9.5; weight: 700; color: amber; width: 400; lines: 1 }
-            text r.text { at: 16, 30; anchor: left top; width: 520; size: 12.5; color: ink; measure: asked }
+            text r.text { at: 16, 30; anchor: left top; width: 520; size: 12.5; color: ink; measure: asked; selectable: true; selection: #5a4a2a }
             group {
                 show: r.state == 0
                 box { from: 316, asked.height + 34; size: 110, 28; corner: 9; color: #2a2b2c; opacity: 80% + 20% * deny.glow }
@@ -3361,7 +3362,7 @@ scene Marea {
             text pick(r.state == 3, "Not allowed", "Allowed") { at: 540, asked.height + 48; anchor: right center; size: 11; color: #8b8f95; show: r.state != 0 }
         }
         //  5 · a note: what failed, what was stopped.
-        text r.text { at: 2, 13; anchor: left center; size: 11.5; color: #ef7a66; width: 540; lines: 2; show: r.kind == 5 }
+        text r.text { at: 2, 13; anchor: left center; size: 11.5; color: #ef7a66; width: 540; lines: 2; show: r.kind == 5; selectable: true; selection: #5a3a34 }
         }
         on enter allow_zone { allow.glow: 1 }
         on leave allow_zone { allow.glow: 0 }
