@@ -21,8 +21,12 @@ local sys = {ask=function(name) if name=='env' then return 'C:/owned state' end 
 local function tr(value) return value end
 local function save_settings() end
 local function on(name, handler) handlers[name]=handler end
-local function after(delay, callback) timers[#timers+1]={delay=delay,run=callback};return #timers end
-local function cancel() end
+local function after(delay, callback)
+    local timer={delay=delay}
+    timer.run=function() timer.fired=true;callback() end
+    timers[#timers+1]=timer;return #timers
+end
+local function cancel(id) timers[id].cancelled=true end
 local function emit() end
 local json = {}
 json.encode=function(value) wire[#wire+1]=value;return '{'..#wire..'}' end
@@ -148,6 +152,77 @@ text['chat.input']='Continue our conversation'
 handlers.chat_send()
 assert(#jobs==5 and writes[#writes].message.type=='start')
 assert(writes[#writes].message.history[1].text=='After the timeout')
+-- A startup crash must not replay an unsent prompt into a new conversation.
+jobs[5].exit('',1)
+handlers.chat_new()
+text['chat.input']='Only this new request'
+handlers.chat_send()
+assert(#jobs==6)
+before_prompt=count('prompt')
+event({type='ready',usable=true,models={}})
+assert(count('prompt')==before_prompt+1,'a dead worker retained an old queued prompt')
+assert(writes[#writes].id==6 and writes[#writes].message.text=='Only this new request')
+-- Windows retires the SDK sooner only while both chat surfaces are hidden.
+chat_desktop=function() return true end
+local function change(name,value)
+    fact[name]=value
+    handlers['fact:'..name](value)
+end
+local function idle_timer()
+    for i=#timers,1,-1 do
+        local timer=timers[i]
+        if not timer.cancelled and not timer.fired and (timer.delay==30000 or timer.delay==180000) then return timer end
+    end
+end
+change('chatting',true)
+event({type='done'})
+assert(idle_timer().delay==180000)
+change('chatting',false)
+local hidden_timeout=idle_timer()
+assert(hidden_timeout.delay==30000)
+change('chatting',true)
+assert(hidden_timeout.cancelled and idle_timer().delay==180000,'reopening did not extend the idle deadline')
+change('open',true);change('page','settings');change('section','talk')
+change('chatting',false)
+assert(idle_timer().delay==180000,'visible account settings used the short deadline')
+change('page','none')
+assert(idle_timer().delay==30000)
+change('page','settings')
+assert(idle_timer().delay==180000)
+change('open',false)
+assert(idle_timer().delay==30000,'closed settings retained the SDK too long')
+-- Long authentication must not lose the idle timer after completion/cancel.
+handlers.chat_login();assert(idle_timer()==nil)
+event({type='login_done',ok=false,reason='cancelled'})
+assert(idle_timer().delay==30000)
+handlers.chat_login();assert(idle_timer()==nil)
+event({type='login_url',url='file:///invalid'})
+assert(idle_timer().delay==30000)
+handlers.chat_login();assert(idle_timer()==nil)
+handlers.chat_login_cancel()
+assert(idle_timer().delay==30000)
+-- Thinking, approval and tool execution survive hidden panels without a deadline.
+text['chat.input']='Keep working while closed'
+handlers.chat_send()
+change('chatting',false)
+assert(idle_timer()==nil and fact['chat.state']=='thinking')
+fact['chat.free']=false
+event({type='propose',id='pending',tool='desktop_click',args={pid='1',x=20,y=30}})
+change('chatting',false)
+assert(idle_timer()==nil and fact['chat.state']=='awaiting')
+fact['chat.free']=true
+event({type='propose',id='active',tool='desktop_click',args={pid='1',x=20,y=30}})
+change('open',false)
+assert(idle_timer()==nil and fact['chat.state']=='acting')
+event({type='done'})
+assert(idle_timer().delay==30000)
+idle_timer().run()
+assert(writes[#writes].message.type=='shutdown')
+jobs[6].exit('',0)
+text['chat.input']='Resume the same thread'
+handlers.chat_send()
+assert(#jobs==7 and writes[#writes].message.type=='start')
+assert(writes[#writes].message.history[1].text=='Only this new request')
 log('PASS: chat login, cancellation, worker retirement and truthful application launch')
 '''.replace('__CHAT__',chat)
 run_checks(args,checks,'PASS: chat login','chat')

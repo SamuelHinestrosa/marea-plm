@@ -618,8 +618,10 @@ mocked startup toggle readback and unchanged foreground HWND. It caught and
 fixed missing Luau signal forwarding in the new startup control. Real sign-in
 and actual Spotify/YouTube versions were not exercised during this update.
 
-The new upstream desktop-agent controls require pleamar-wm on Linux and are not
-part of the native Windows profile. The authoring skill remains available.
+The upstream desktop-agent controls use pleamar-wm on Linux. The Windows bridge
+and isolated AI host are described in [AGENT.md](AGENT.md), including the remaining
+input, account and UI validation. Windows has shared input, not a compositor
+input seat. The authoring skill remains available.
 
 The software page preserves active installation/progress controls when a prior
 scan replies late. WinGet exceptions and cancellation retain completed package

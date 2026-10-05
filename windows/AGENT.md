@@ -19,8 +19,12 @@ enter a cancelled/new conversation. Shared application launching now waits for
 the actual native callback and reports errors instead of assuming success.
 
 New conversations wait for the previous worker to exit before accepting a
-message; text typed during shutdown stays in the input field. Idle retirement
-and model changes use the same two-second shutdown deadline. A helper that
+message; text typed during shutdown stays in the input field. A failed worker's
+unsent messages are discarded before another conversation starts. On Windows,
+the SDK retires after 30 idle seconds when both chat and its account settings
+are hidden; reopening either restores the three-minute allowance. Active turns,
+approval requests and sign-in have no idle deadline. Linux keeps three minutes.
+Idle retirement and model changes use the same two-second shutdown deadline. A helper that
 does not exit is killed, and stale output/exit callbacks cannot affect its
 replacement. These lifecycle cases are covered by the isolated chat test.
 
@@ -33,7 +37,7 @@ replacement. These lifecycle cases are covered by the isolated chat test.
 | Click/type/key/hotkey/scroll/drag | Native implementation exists; positive input and application acceptance tests pending |
 | Foreground / independent input | Windows uses shared input. No separate compositor keyboard, pointer, glow or stop pill is claimed |
 | Full Marea chat UI / performance | Complete visual flow, real conversation, memory and responsiveness measurements pending |
-| Installer | Host, locked SDK, licenses and profile lifecycle are included in the build/source-install paths; real signed-out preflight and repeated provisioning/removal pass locally. Complete Setup install/update/uninstall for this revision still needs a clean account/CI |
+| Installer | Full Setup lifecycle passed in Windows CI at `57b6ef0`: Unicode install, SDK isolation/state preservation, locked-update failure, tamper rejection/repair, uninstall and optional startup. This is automated acceptance, not graphical validation |
 
 The worker prompt and tool descriptions distinguish Windows's shared input
 from Linux's compositor input. Windows may deny activation or input to protected
@@ -63,6 +67,15 @@ repeat preparation took 4.6 seconds, and signed-out readiness/shutdown completed
 in 6.8 seconds. Setup prepares permissions before first use; these observations
 are not a sustained memory/latency benchmark or authenticated chat test.
 
+`python windows/measure-agent.py --package <owned-complete-bundle> --output
+<new-directory> --seconds 15 --cycles 3` measures the actual signed-out SDK in
+separate account state without opening a window. Three local cycles on
+2026-10-05 ended at 84.7–85.3 MiB working set, 92.9–93.6 MiB private memory and
+114 handles. Warm readiness took 2.3–2.4 seconds; idle CPU used about 1.0–1.2%
+of one logical core over each 15-second sample. Every Node process exited with
+its host and the validation profile was removed. These short observations do
+not measure Marea's UI, authenticated responses or long sessions.
+
 For the real bridge, build pleamar's release executable and lib-test executable
 (`cargo test --release --locked --lib --no-run` prints its path), then pass both:
 
@@ -75,6 +88,7 @@ only owned fixture/test windows there and sends no physical input. The returned
 evidence directory includes the native scene log, facts and exit status. It
 tests the actual adapter source rather than a duplicate implementation.
 
-Linux retains upstream's compositor tools and sandbox. Shared chat changes
-have isolated logic coverage; the updated cross-platform CI still needs to be
-published/run for this in-progress merge. Implemented with Codex.
+Linux retains upstream's compositor tools and sandbox. Windows/Ubuntu logic
+and the Windows installer lifecycle passed in CI at Marea `57b6ef0` with
+pleamar `cd3e4c3`. The newer idle/queue corrections pass the local isolated
+suite; CI must be repeated at their new commit. Implemented with Codex.

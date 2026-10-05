@@ -3562,9 +3562,13 @@ local function chat()
     end
     local function rest_later()
         stop_idle()
-        --  Three minutes without a word, and the worker goes (a hundred MB
-        --  of Node): the next message starts it again with the thread.
-        idle_timer = after(3 * 60 * 1000, function()
+        if not worker or not ready or closing or fact["chat.signing"] == true then return end
+        if fact["chat.state"] ~= "idle" and fact["chat.state"] ~= "offline" then return end
+        local visible = fact.chatting == true or (fact.open == true and fact.page == "settings" and fact.section == "talk")
+        -- The bundled Windows SDK can retire sooner when both chat surfaces
+        -- are closed. The next message restores the saved thread.
+        local delay = chat_desktop and not visible and 30000 or (3 * 60 * 1000)
+        idle_timer = after(delay, function()
             idle_timer = nil
             if worker and (fact["chat.state"] == "idle" or fact["chat.state"] == "offline") and fact["chat.signing"] ~= true then
                 close_worker()
@@ -3604,6 +3608,7 @@ local function chat()
             end
             for _, line in ipairs(queue) do write(worker, line) end
             queue = {}
+            rest_later()
         elseif kind == "login_url" then
             if fact["chat.signing"] ~= true then return end
             local url = type(m.url) == "string" and m.url or ""
@@ -3612,6 +3617,7 @@ local function chat()
                 send({ type = "login_cancel" })
                 fact["chat.signing"] = false
                 status(tr("The sign-in address was not recognized."))
+                rest_later()
                 return
             end
             text["chat.login_hint"] = code ~= "" and (tr("Enter this code in your browser: ") .. code) or tr("Finish signing in, in your browser")
@@ -3624,6 +3630,7 @@ local function chat()
             else
                 status("")
             end
+            rest_later()
         elseif kind == "delta" then
             if live == nil then
                 live = add(2, "")
@@ -3698,9 +3705,10 @@ local function chat()
             log("chat · the worker ended", code)
             worker = nil
             ready = false
+            stop_idle()
+            queue = {}
             fact["chat.signing"] = false
             text["chat.login_hint"] = ""
-            forget_login()
             if closing then
                 closing = false
                 if close_timer then cancel(close_timer); close_timer = nil end
@@ -3712,7 +3720,6 @@ local function chat()
                 fact["chat.state"] = "offline"
                 status(tr("Her engine cannot start: ") .. said_why)
                 if #rows > 0 and rows[#rows].kind == 1 then add(5, tr("Her engine cannot start: ") .. said_why) end
-                queue = {}
                 return
             end
             if fact["chat.state"] ~= "idle" and fact["chat.state"] ~= "offline" then
@@ -3807,6 +3814,7 @@ local function chat()
     end)
     on("chat_new", function()
         generation += 1
+        queue = {}
         if chat_desktop then chat_desktop("cancel", {}, function() end) end
         close_worker()
         rows, history, asks, live = {}, {}, {}, nil
@@ -3819,15 +3827,20 @@ local function chat()
     --  before the first word, and the first answer comes sooner.
     on("fact:chatting", function(v)
         if v == true and not worker then start_worker(); rest_later() end
+        if chat_desktop then rest_later() end
     end)
     --  Settings › Talking with her: her engine wakes to say how she is.
     on("fact:section", function(v)
         if v == "talk" and not worker then start_worker(); rest_later() end
+        if chat_desktop then rest_later() end
     end)
+    on("fact:open", function() if chat_desktop then rest_later() end end)
+    on("fact:page", function() if chat_desktop then rest_later() end end)
     on("chat_login", function()
         if closing or fact["chat.signing"] == true then return end
         start_worker()
         if not worker then return end
+        stop_idle()
         fact["chat.signing"] = true
         text["chat.login_hint"] = tr("Preparing sign-in…")
         send({ type = "login", provider = (chosen():match("^([^/]+)/") or "openai-codex") })
@@ -3837,6 +3850,7 @@ local function chat()
         if worker then write(worker, json.encode({ type = "login_cancel" }) .. "\n") end
         fact["chat.signing"] = false
         text["chat.login_hint"] = ""
+        rest_later()
     end)
     on("chat_pick", function(i)
         local name = models[(tonumber(i) or -1) + 1]
