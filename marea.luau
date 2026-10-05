@@ -4100,7 +4100,14 @@ local function chat()
     local today = function() return os.date("%Y-%m-%d") end
     --  When Marea started today: what was due before then, she was not there for.
     local born_day, born_at = today(), (function() local d = os.date("*t"); return d.hour * 60 + d.min end)()
-    local WEEK = { sun = 1, mon = 2, tue = 3, wed = 4, thu = 5, fri = 6, sat = 7 }
+    --  Days by their first three letters, in English or Spanish, with or
+    --  without accents (her model may write «lunes, miércoles»).
+    local WEEK = { sun = 1, mon = 2, tue = 3, wed = 4, thu = 5, fri = 6, sat = 7,
+                   dom = 1, lun = 2, mar = 3, mie = 4, jue = 5, vie = 6, sab = 7 }
+    local function day_of(word)
+        local w = string.lower(word):gsub("á", "a"):gsub("é", "e"):gsub("í", "i"):gsub("ó", "o"):gsub("ú", "u")
+        return WEEK[w:sub(1, 3)]
+    end
     local WEEK_NAMES = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" }
     local function minutes_of(hhmm)
         local h, m = tostring(hhmm or ""):match("^(%d%d?):(%d%d)$")
@@ -4114,8 +4121,8 @@ local function chat()
         if days == "weekends" then return d.wday == 1 or d.wday == 7 end
         local once = days:match("^once:(%d%d%d%d%-%d%d%-%d%d)$")
         if once then return once == today() end
-        for w in days:gmatch("%a+") do
-            if WEEK[w:sub(1, 3)] == d.wday then return true end
+        for w in days:gmatch("[^%s,;/]+") do
+            if day_of(w) == d.wday then return true end
         end
         return false
     end
@@ -4127,8 +4134,8 @@ local function chat()
         local once = days:match("^once:(%d%d%d%d%-%d%d%-%d%d)$")
         if once then return once end
         local out = {}
-        for w in days:gmatch("%a+") do
-            local k = WEEK[w:sub(1, 3)]
+        for w in days:gmatch("[^%s,;/]+") do
+            local k = day_of(w)
             if k then out[#out + 1] = tr(WEEK_NAMES[k]) end
         end
         return #out > 0 and table.concat(out, ", ") or days
