@@ -3278,6 +3278,12 @@ local function chat()
     local ready = false
     local queue = {}         -- lines for the worker until it is ready
     local live = nil         -- the row of her answer arriving
+    --  What is seen of it: the model hands the whole answer over in about a
+    --  second, so it is shown at a reading pace instead —letter by letter,
+    --  hurrying when far behind—, and keeps going after the model is done.
+    local shown_row = nil
+    local shown = 0
+    local revealing = false
     local asks = {}          -- proposal id -> { row, tool, args }
     local programs = {}      -- pid -> program, from the last list of windows
     local looks = 0
@@ -3290,6 +3296,13 @@ local function chat()
         return ok and n or #s
     end
 
+    --  The first `n` letters of a text.
+    local function first_letters(s, n)
+        local ok, b = pcall(utf8.offset, s, n + 1)
+        if ok and b then return s:sub(1, b - 1) end
+        return s
+    end
+
     local painting = false
     local function paint()
         if painting then return end
@@ -3300,16 +3313,47 @@ local function chat()
             local out = {}
             for k = first, #rows do
                 local r = rows[k]
-                out[#out + 1] = { kind = r.kind, text = r.text, detail = r.detail or "", state = r.state or 0 }
+                local words = r.text
+                if k == shown_row then words = first_letters(words, shown) end
+                out[#out + 1] = { kind = r.kind, text = words, detail = r.detail or "", state = r.state or 0 }
             end
             model["chat.rows"] = out
-            if live and live >= first then
-                fact["chat.live"] = live - first
-                fact["chat.letters"] = letters(rows[live].text)
+            if shown_row and shown_row >= first then
+                fact["chat.live"] = shown_row - first
+                fact["chat.letters"] = shown
             else
                 fact["chat.live"] = -1
             end
         end)
+    end
+    --  The last letters shown fade in (the scene's `chat.letters`): past the
+    --  end it goes on a little, so the last ones finish fading too.
+    local TAIL = 12
+    local function reveal()
+        if revealing then return end
+        revealing = true
+        local function tick()
+            if not shown_row or not rows[shown_row] then
+                revealing = false
+                return
+            end
+            local total = letters(rows[shown_row].text)
+            local behind = total - shown
+            if behind <= -TAIL then
+                --  All of it seen, and the model done with it.
+                if shown_row ~= live then
+                    shown_row = nil
+                    revealing = false
+                    paint()
+                    return
+                end
+            else
+                shown = shown + math.clamp(math.floor(behind / 12), 2, 10)
+                paint()
+            end
+            after(33, tick)
+        end
+        after(33, tick)
     end
     local function add(kind, text, detail, state)
         rows[#rows + 1] = { kind = kind, text = text or "", detail = detail or "", state = state or 0 }
@@ -3578,11 +3622,12 @@ local function chat()
         elseif kind == "delta" then
             if live == nil then
                 live = add(2, "")
+                shown_row, shown = live, 0
                 fact["chat.state"] = "thinking"
                 status(tr("Thinking…"))
             end
             rows[live].text = rows[live].text .. (m.text or "")
-            paint()
+            reveal()
         elseif kind == "propose" then
             live = nil
             local tool, args = tostring(m.tool), (type(m.args) == "table" and m.args or {})
@@ -3715,6 +3760,7 @@ local function chat()
     on("chat_new", function()
         if worker then write(worker, json.encode({ type = "shutdown" }) .. "\n") end
         rows, history, asks, live = {}, {}, {}, nil
+        shown_row, shown = nil, 0
         fact["chat.state"] = "idle"
         status("")
         paint()
