@@ -14,13 +14,22 @@ local json = {decode=function(key) assert(replies[key]); return replies[key] end
 local function tr(s) return s end
 local function on(name, callback) handlers[name]=callback end
 local changed = 0
+local fact = {locale="es"}
 local screen = "\\\\.\\DISPLAY2"
+local children = {}
+local function spawn(name,args,line,done,options)
+    assert(name=="pleamar-wm" and args[1]=="--scene" and args[2]=="tools/windows-overview.plm")
+    assert(args[3]=="--screen" and args[4]==screen and args[5]=="--preview-monitor" and args[6]==screen)
+    assert(args[7]=="--window-actions" and options.cwd=="." and options.errors==true and options.env.MAREA_LOCALE=="es")
+    children[#children+1]={line=line,done=done}
+    return #children
+end
 local function run(name, args, callback)
     assert(name=="pleamar-wm" and args[1]=="--say" and args[2]=="wm")
     requests[#requests+1]={command=args[3],done=callback}
 end
 local install=(function() __MODULE__ end)()
-install(run,hooks,entries,function() changed+=1 end,function() return screen end,function(message) notices[#notices+1]=message end)
+install(run,hooks,entries,function() changed+=1 end,function() return screen end,function(message) notices[#notices+1]=message end,spawn)
 assert(#requests==1 and requests[1].command=="status")
 requests[1].done("not installed",1)
 assert(#entries==1 and #notices==0 and not hooks.windows_wm_allowed("Tiled or free windows"))
@@ -47,6 +56,20 @@ assert(#entries==1)
 handlers["fact:searching"](true)
 requests[5].done("good",0)
 assert(#entries==3 and hooks.windows_wm_allowed("Bring back every window"))
+assert(not hooks.windows_wm_allowed("Window overview"))
+replies.good.window_overview=true
+handlers["fact:menu_open"](true);requests[6].done("good",0)
+assert(#entries==4 and hooks.windows_wm_allowed("Window overview"))
+screen="\\\\.\\DISPLAY1"
+hooks.windows_overview(); assert(#children==0 and #notices==3)
+screen="\\\\.\\DISPLAY2"
+hooks.windows_overview();hooks.windows_overview()
+assert(#children==1 and #notices==4)
+children[1].line("capture failed");children[1].done("",1)
+assert(#notices==5 and notices[5]:find("capture failed",1,true))
+hooks.windows_overview();assert(#children==2)
+children[1].done("",0);hooks.windows_overview();assert(#children==2)
+children[2].done("",0);hooks.windows_overview();assert(#children==3)
 log("PASS: native WM capability menus, serialization, monitor scope and failed actions")
 '''
 run_checks(args, checks.replace('__MODULE__', module), 'PASS: native WM capability', 'window-manager')

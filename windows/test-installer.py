@@ -81,6 +81,11 @@ try:
     assert manifest['agent_sdk_version']
     assert len(manifest['wm_source']) == 40
     assert (target / 'bin/pleamar-wm.exe').is_file() and (target / 'bin/pleamar-wm-host.exe').is_file()
+    for extension in ['plm', 'luau']:
+        assert (target / f'app/tools/windows-overview.{extension}').is_file()
+    run([target / 'bin/pleamar-wm.exe', '--check', target / 'app/tools/windows-overview.plm'])
+    assert json.loads(run([target / 'bin/pleamar-wm.exe', 'capabilities']).stdout)['visible_window_capture']
+    report['stages'].append('packaged overview source compiles with matching native capture capability; no GUI test')
     programs = ctypes.create_unicode_buffer(32768)
     assert ctypes.windll.shell32.SHGetFolderPathW(None, 2, None, 0, programs) == 0
     menu = Path(programs.value) / group

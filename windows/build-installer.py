@@ -91,6 +91,8 @@ def main():
     copy(ROOT / 'tools/deriva-preview.mjs', 'app/tools/deriva-preview.mjs')
     copy(ROOT / 'tools/startup.ps1', 'app/tools/startup.ps1')
     copy(ROOT / 'tools/software.ps1', 'app/tools/software.ps1')
+    for name in ['windows-overview.plm', 'windows-overview.luau']:
+        copy(ROOT / 'tools' / name, 'app/tools/' + name)
     bundle = json.loads((ROOT / 'tools/winget/bundle.json').read_text(encoding='utf-8'))
     for relative, sha in bundle['files'].items():
         source = ROOT / 'tools/winget' / relative

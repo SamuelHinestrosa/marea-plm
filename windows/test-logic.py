@@ -26,6 +26,9 @@ def run(*command):
 run(sys.executable, root / 'windows/build-desktop.py')
 run(binary, '--check', root / 'marea-desktop.plm')
 run(runner, '--compile-only', root / 'marea-desktop.luau')
+run(binary, '--check', root / 'tools/windows-overview.plm')
+run(runner, '--compile-only', root / 'tools/windows-overview.luau')
 for name in ['level-controls', 'device-controls', 'wallpapers', 'screenshots', 'window-shelf', 'recording', 'notifications', 'tray', 'agent-reader', 'calendar-reminders', 'deriva', 'media-controls', 'media-volume', 'desktop-controls', 'weather', 'startup', 'menu-language', 'software', 'chat', 'chat-memory', 'desktop-agent', 'window-manager']:
     run(sys.executable, root / f'windows/test-{name}.py', '--luau-runner', runner)
-print('PASS: generated PLM/Luau and twenty-two isolated logic suites; no desktop or hardware validation')
+run(sys.executable, root / 'windows/test-window-overview.py', '--luau-runner', runner)
+print('PASS: generated PLM/Luau, native overview source and twenty-three isolated logic suites; no desktop or hardware validation')

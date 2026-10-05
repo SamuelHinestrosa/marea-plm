@@ -648,5 +648,21 @@ available, but does not rearrange them automatically on startup. Native window
 creation/closure, minimized-state recovery and owner-exit cleanup have been
 tested with owned windows on a secondary display. Broad application testing,
 mixed-DPI hotplug and maximized-window acceptance remain pending. Rain, snow,
-ride, dock effects, live PLM window layouts and remote desktop are not yet
+ride, dock effects, compositor input redirection and remote desktop are not yet
 available from the Windows WM; they stay hidden in Marea.
+
+The context menu and finder also expose **Window overview** when the companion
+reports `window_overview`. It opens on Marea's monitor, with up to 32 native
+windows and four live previews per page. Select a card to activate the original
+application; minimize, restore and close use native window actions. A refused
+activation keeps the view open, and a cancelled application close keeps its
+card. Windows with no available capture remain listed. The view uses the chosen
+English/Spanish language, and Escape or **Close view** ends its scene process.
+Only one overview can be open per Marea process.
+
+Hidden pages stop capturing and release their retained CPU images. The renderer
+may retain GPU atlas capacity for reuse; this is not a claim that all reserved
+GPU memory shrinks. Capture has an aggregate pixel limit, so some very large or
+protected windows may have no preview. View-only pictures do not redirect input
+into applications. This feature needs matching new engine and WM binaries, and
+its two scene files are included in install, update and installer packaging.

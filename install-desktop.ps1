@@ -64,6 +64,9 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/reservas') -Destination (
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/deriva-preview.mjs') -Destination (Join-Path $Prefix 'app/tools/deriva-preview.mjs')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/startup.ps1') -Destination (Join-Path $Prefix 'app/tools/startup.ps1')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/software.ps1') -Destination (Join-Path $Prefix 'app/tools/software.ps1')
+foreach ($name in @('windows-overview.plm', 'windows-overview.luau')) {
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot "tools/$name") -Destination (Join-Path $Prefix "app/tools/$name")
+}
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tools/winget') -Destination (Join-Path $Prefix 'app/tools/winget') -Recurse
 foreach ($item in @('desktop.ps1', 'run-desktop.ps1', 'agent-package.ps1')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "windows/$item") -Destination (Join-Path $Prefix 'windows')
