@@ -4,7 +4,7 @@ This separate profile uses the native Windows x64/MSVC port of pleamar, with
 Luau, Win32 and DirectComposition/DX12. It keeps the Linux originals unchanged.
 No WSL, Wayland, Unix shell or Linux helper programs are required.
 
-The upstream refresh uses pleamar 0.2.15. **Control center → Programs** now
+The upstream refresh uses pleamar 0.2.17. **Control center → Programs** now
 offers native WinGet updates and a catalogue. Search results can also suggest
 programs to install. Select the updates, review the confirmation and press
 **Confirm**; Marea never asks for an administrator password. Windows handles
