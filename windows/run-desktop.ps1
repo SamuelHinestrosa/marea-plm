@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $package = Split-Path $PSScriptRoot -Parent
 if (-not $env:PLEAMAR_SOCKET_DIR) { $env:PLEAMAR_SOCKET_DIR = 'marea-desktop' }
 if (-not $env:PLEAMAR_WM_NAMESPACE) { $env:PLEAMAR_WM_NAMESPACE = 'marea-desktop' }
+if (-not $env:PLEAMAR_MEDIA_NAME) { $env:PLEAMAR_MEDIA_NAME = 'Marea' }
 if ($Screen -and $Screen -notmatch '^\\\\\.\\DISPLAY[0-9]+$') { throw 'Use a Windows display name, such as \\.\DISPLAY2.' }
 if (-not $env:LANG -or $env:LANG -match '^(C([.].*)?|POSIX)$') {
     $env:LANG = [Globalization.CultureInfo]::CurrentUICulture.Name

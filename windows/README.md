@@ -74,3 +74,10 @@ decision, and do not launch a second copy after an unrecognized success reply.
 
 AI assistance: the Windows port and its validation tools were developed with
 Codex. This branch is not an upstream Marea Windows release.
+
+
+The Windows launcher sets `PLEAMAR_MEDIA_NAME=Marea` unless it is already set.
+This preserves `Pictures/Marea`, `Videos/Marea` and the `marea-` filename prefix
+with the generic pleamar capture backend. Existing captures and recordings are
+not moved; launching pleamar directly uses its own default unless you set the
+variable in that PowerShell session.
