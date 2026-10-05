@@ -90,7 +90,7 @@ function Test-Package {
     $tempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
     if (-not $temporary.StartsWith($tempPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid temporary root.' }
     New-Item -ItemType Directory -Path $temporary | Out-Null
-    $names = @('APPDATA','LOCALAPPDATA','MAREA_DERIVA_DIR','PLEAMAR_CONFIG','PLEAMAR_SOCKET_DIR','PLEAMAR_WM_NAMESPACE','PLEAMAR_NO_RELAUNCH')
+    $names = @('APPDATA','LOCALAPPDATA','MAREA_DERIVA_DIR','PLEAMAR_CONFIG','PLEAMAR_WM_CONFIG','PLEAMAR_SOCKET_DIR','PLEAMAR_WM_NAMESPACE','PLEAMAR_NO_RELAUNCH')
     $previous = @{}
     foreach ($name in $names) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
     try {
@@ -98,6 +98,8 @@ function Test-Package {
         $env:LOCALAPPDATA = Join-Path $temporary 'local'
         $env:MAREA_DERIVA_DIR = Join-Path $temporary 'library'
         $env:PLEAMAR_CONFIG = Join-Path $temporary 'config'
+        $env:PLEAMAR_WM_CONFIG = Join-Path $temporary 'empty-session.conf'
+        [IO.File]::WriteAllText($env:PLEAMAR_WM_CONFIG, '')
         $env:PLEAMAR_SOCKET_DIR = 'marea-setup-' + [guid]::NewGuid().ToString('N')
         $env:PLEAMAR_WM_NAMESPACE = $env:PLEAMAR_SOCKET_DIR
         $env:PLEAMAR_NO_RELAUNCH = '1'

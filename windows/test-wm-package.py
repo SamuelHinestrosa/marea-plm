@@ -56,10 +56,13 @@ def main():
             raise
 
     report = {'passed': False, 'graphical_validation': False, 'physical_input': False, 'stages': []}
+    rules = root / 'empty-session.conf'
+    rules.write_text('', encoding='utf-8')
     try:
         for mode in ('normal', 'engine-killed', 'supervisor-killed'):
             namespace = 'wm-package-' + uuid.uuid4().hex
             env = dict(os.environ, PLEAMAR_CONFIG=str(root / ('config-' + mode)),
+                       PLEAMAR_WM_CONFIG=str(rules),
                        PLEAMAR_SOCKET_DIR=namespace, PLEAMAR_WM_NAMESPACE=namespace, PLEAMAR_NO_RELAUNCH='1')
 
             def command(binary, *arguments, check=True):
@@ -89,6 +92,7 @@ def main():
                 try:
                     ready = until(lambda: status())
                     assert ready['running'] and ready['automatic_layouts'] and ready['owner']
+                    assert ready.get('window_rules', 0) == 0, 'Package test inherited desktop rules'
                     assert all(not m['tiled'] for m in ready['monitors']) and ready['saved_windows'] == 0
                     engine_handle = own_handle(ready['owner'], 'pleamar.exe')
                     until(lambda: command('pleamar.exe', '--say', 'marea-desktop', 'get ready').stdout.strip() == 'true')

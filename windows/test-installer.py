@@ -28,6 +28,9 @@ def registration():
     except FileNotFoundError: return None
 assert registration() is None, 'An actual Setup installation exists. Run this smoke test on a clean account/runner.'
 test_environment = dict(os.environ, LOCALAPPDATA=str(output / 'Local data ñ'))
+inherited_rules = output / 'personal session ñ.conf'
+inherited_rules.write_text('window app=* private\n', encoding='utf-8')
+test_environment['PLEAMAR_WM_CONFIG'] = str(inherited_rules)
 agent_state = output / 'Local data ñ/Marea/Agent'
 agent_state.mkdir(parents=True)
 agent_marker = agent_state / 'installer-preserve.txt'
@@ -65,6 +68,8 @@ try:
     sentinel.unlink()
     report['stages'].append('unrelated directory rejected without changes')
     install('install')
+    assert inherited_rules.read_text(encoding='utf-8') == 'window app=* private\n'
+    report['stages'].append('preflight ignores and preserves inherited personal window rules')
     assert Path(registration()).resolve() == target
     manifest = json.loads((target / 'package.json').read_text(encoding='utf-8'))
     for relative, digest in manifest['files'].items():
