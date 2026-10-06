@@ -35,7 +35,7 @@ scene Marea {
         //  Software: `checkupdates` and the AUR's helper look, `pacman` and
         //  `sudo` update and install (the password goes on sudo's input),
         //  `kitty` takes what wants an answer by hand.
-        run: "curl", "timedatectl", "node", "notify-send", "fd", "deriva-worker", "kill", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm", "checkupdates", "pacman", "yay", "paru", "sudo", "pkill", "kitty", "uname", "grep", "agent/sandbox", "secret-tool"
+        run: "curl", "timedatectl", "node", "notify-send", "fd", "deriva-worker", "kill", "xdg-open", "grim", "slurp", "hyprctl", "magick", "wl-copy", "mkdir", "wf-recorder", "xdg-user-dir", "test", "pgrep", "swaybg", "pactl", "pleamar-wm", "checkupdates", "pacman", "yay", "paru", "sudo", "pkill", "kitty", "uname", "grep", "agent/sandbox", "secret-tool", "nmcli", "qrencode", "rm"
     }
     service clock as now { time: text = "--:--"; date: text; hour: number; minute: number }
     service audio as sound { volume: number; muted: bool; input: number; input_muted: bool }
@@ -66,8 +66,42 @@ scene Marea {
     fact language: system | english | spanish = system
     prop paging = 0 ~240ms
     follow paging = if(page == none, 0, 1)
-    model networks max 8 { name: text; signal: number; current: bool; secure: bool; known: bool }
-    model gadgets max 8 { name: text; current: bool; paired: bool; battery: number = -1 }
+    model networks max 5 { name: text; signal: number; current: bool; secure: bool; known: bool; percent: number }
+    //  The Wi-Fi page's hero: `wifi.state` 0 off · 1 on, not connected ·
+    //  2 connected · 3 by cable · 4 joining. Its title and what it says under it.
+    fact wifi.state = 1
+    text wifi.title = ""
+    text wifi.status = ""
+    //  The networks are more than fit: where the list starts, and how many there are.
+    fact wifi.offset = 0
+    fact wifi.total = 0
+    fact wifi.scanning = false
+    prop wifi.spin = 0
+    spin wifi.spin by if(wifi.scanning and page == wifi, 1, 0)
+    //  Shared: the code for the phone, and the password.
+    fact wifi.sharing = false
+    fact wifi.has_qr = false
+    model wifi_qr max 1 { pic: image 140, 140 }
+    text wifi.password = ""
+    text wifi.share_hint = ""
+    event wifi_share ->
+    event wifi_unshare ->
+    event wifi_disconnect ->
+    event wifi_forget ->
+    event wifi_power ->
+    event wifi_rescan ->
+    event wifi_scroll ->
+    event wifi_copy ->
+    //  Bluetooth's two lists: what is hers and what is near. `state` 0 paired ·
+    //  1 connected · 2 working on it · 3 new; `kind` the drawing; `base`, what
+    //  is added to its place for the logic to know which one it is.
+    model bt_mine max 5 { name: text; status: text; kind: number; state: number; battery: number = -1; base: number }
+    model bt_near max 4 { name: text; status: text; kind: number; state: number = 3; battery: number = -1; base: number }
+    fact bt.on = false
+    fact bt.present = true
+    fact bt.busy = false
+    event bt_power ->
+    event bt_forget ->
     //  A network that asks for its password: which row (−1, none), and the
     //  one being joined right now, which breathes until it is.
     fact asking = -1
@@ -87,13 +121,28 @@ scene Marea {
     prop join.t = 0
     prop radar.t = 0
     prop join_btn.glow = 0 ~140ms
-    spin join.t by if(joining >= 0, 1, 0)
+    spin join.t by if(joining >= 0 or wifi.state == 4 or bt.busy, 1, 0)
     spin radar.t by if(bt_scanning and page == bluetooth, 0.8, 0)
     //  Where it plays and where it listens. pleamar brings them in the same
     //  service as the volume, so this does not know about `wpctl`, nor does it
     //  need to.
     model outputs max 5 { name: text; current: bool }
     model mics max 4 { name: text; current: bool }
+    //  What is playing, each with its own level: the sound page's mixer.
+    model sound_apps max 3 { name: text; title: text; icon: image 22, 22; has_icon: bool; letter: text; volume: number; muted: bool; playing: bool }
+    fact sound.choosing = 0            // the devices dropped open: 1 where it plays, 2 where it listens
+    text sound.out_name = ""
+    text sound.in_name = ""
+    text sound.more = ""
+    event app_volume ->                // its place × 1000 + the level in hundredths
+    event app_mute ->
+    event sound_scroll ->
+    //  Focus: how long, chosen on its dial; how long it was when it began,
+    //  for the dial to show what is left; when it would end, and today's.
+    fact focus.mins = 25
+    fact focus.total = 25
+    text focus.until = ""
+    text focus.today = ""
     event pick_device ->
     //  The system tray: the icons left by the applications that stay alive
     //  without a window. pleamar brings them —`tray`, which knows how to live
@@ -4175,7 +4224,7 @@ scene Marea {
                             //  would last: when it is on, what you need to know is
                             //  when she comes back.
                             text "On · {remaining, 0} min" { size: 11.5; lines: 1; color: mint; show: k == 3 and haven }
-                            text sub.3 { size: 11.5; lines: 1; color: mix(#8b8f95, faint, glassiness); show: k == 3 and not haven }
+                            text "{focus.mins, 0} min" { size: 11.5; lines: 1; color: mix(#8b8f95, faint, glassiness); show: k == 3 and not haven }
                         }
                         //  The switch, or the arrow of those that open a page.
                         //  The one that opens a page only carries an arrow, so it
@@ -4299,117 +4348,323 @@ scene Marea {
                 on press touch { emit sw_install(f.index) }
             }
 
-            //  A list row, the same for all three: the network, the gadget and the
-            //  sound device are told apart by the drawing on the left and by
-            //  nothing else. The rest —lighting up on hover, the «this is the
-            //  current one» dot and the number sent on choosing it— is the same, so
-            //  it is written once.
-            //  `lock`: a network that asks for its password (a padlock); `busy`:
-            //  the one being joined, which breathes; `battery`: a gadget's,
-            //  0..1 (−1, it does not say); `fresh`: one not paired yet.
-            component ListRow(f: record, pick: event, glyph: number = 1, signal: number = 0, base: number = 0, lock: number = 0, busy: number = 0, battery: number = -1, fresh: number = 0) {
-                size: 456, 38
+            // ── Wi-Fi: where she is connected, and the rest around ──
+            //  On top, the connection in use, large: its strength in arcs, how
+            //  good it is said in words, and what can be done with it —share it
+            //  (a code for the phone, and its password) or leave it—. Below, the
+            //  networks in range, the strongest first, each with what it takes:
+            //  a padlock if it asks for a password, «Saved» if it is known, and
+            //  on hover, a way to forget it. With the radio off, a way to turn it on.
+            //  `wifi.state`: 0 off · 1 on, not connected · 2 connected · 3 by cable · 4 joining.
+            component WifiRow(r: record) {
+                size: 456, 36
                 prop glow = 0 ~140ms
-                let current = if(f.current, 1, 0)
-                let tone = mix(#8b8f95, mint, current)
-                zone box touch { from: 0, 0; size: 456, 38; corner: 10; cursor: pointer }
-                box { from: 0, 0; size: 456, 38; corner: 10
-                      color: mix(mix(#202021, #262728, glow), #1a241f, current) }
-                //  1 · the network, with its strength in arcs: the more lit, the
-                //  better it reaches.
-                group {
-                    show: glyph == 1
-                    repeat a in 1..4 {
-                        arc { at: 20, 26; radius: 3 + a * 3.2; span: 110deg; width: 1.7; color: ink
-                              opacity: 20% + 80% * if(signal > (a - 1) * 0.25, 1, 0) }
-                    }
-                    ellipse { at: 20, 27; radius: 1.7; color: ink }
+                prop forget.glow = 0 ~140ms
+                let on = if(asking < 0 and not wifi.sharing, 1, 0)
+                zone box touch { from: 0, 0; size: 456, 36; corner: 10; cursor: pointer; active: on > 0.5 and paging > 0.9 }
+                box { from: 0, 0; size: 456, 36; corner: 10; color: mix(#202021, #262728, glow) }
+                repeat a in 1..4 {
+                    arc { at: 20, 25; radius: 3 + a * 3.2; span: 110deg; width: 1.7; color: ink
+                          opacity: 18% + 82% * if(r.signal > (a - 1) * 0.25, 1, 0) }
                 }
-                //  2 · the gadget
-                path { at: 15, 11; color: ink; stroke: 1.7; opacity: 80%; show: glyph == 2
-                       move 0, 4; line 10, 14; line 5, 18; line 5, 0; line 10, 4; line 0, 14 }
-                //  3 · the speaker
-                path { at: 12, 13; color: tone; show: glyph == 3
-                       move 0, 3; line 4, 3; line 9, 0; line 9, 11; line 4, 8; line 0, 8; close }
-                //  4 · and the mic, which is a capsule with its stand
-                group {
-                    show: glyph == 4
-                    box { at: 20, 15; size: 7, 14; corner: 3.5; color: tone }
-                    arc { at: 20, 17; radius: 6.4; span: 180deg; width: 1.5; color: tone }
-                    box { at: 20, 27.5; size: 1.5, 3.5; color: tone }
-                }
-                text f.name { at: 42, 19; anchor: left center; size: 12; width: 300; lines: 1
-                                color: mix(#dfe1e3, #f6f6f5, glow) }
-                ellipse { at: 438, 19; radius: 4; color: mint; opacity: current * 100% }
+                ellipse { at: 20, 26; radius: 1.7; color: ink }
+                text r.name { at: 44, 18; anchor: left center; size: 12.5; width: 250; lines: 1; color: mix(#dfe1e3, #f6f6f5, glow) }
                 //  The padlock: it asks for a password the first time.
                 group {
-                    show: lock > 0.5
-                    box { at: 412, 21; size: 10, 8; corner: 2; color: #8b8f95 }
-                    arc { at: 412, 16.5; radius: 3.2; span: 180deg; width: 1.5; rotate: -90deg; color: #8b8f95 }
+                    show: r.secure and not r.known
+                    box { at: 384, 20; size: 9, 7; corner: 2; color: #8b8f95 }
+                    arc { at: 384, 17; radius: 3; span: 180deg; width: 1.4; color: #8b8f95 }
                 }
-                //  Joining: the row breathes, a ring of mint that comes and goes.
-                box { from: 0, 0; size: 456, 38; corner: 10; stroke: 1.5; color: mint
-                      opacity: busy * (35% + 35% * sin(join.t * 360)) }
-                //  A gadget's battery: a little drop, as full as it is.
+                text "{r.percent, 0}%" { at: 444, 18; anchor: right center; size: 10.5; color: #8b8f95 }
+                //  Known: «Saved», which on hover becomes the way to forget it.
+                text "Saved" { at: 370, 18; anchor: right center; size: 10.5; color: #8b8f95; opacity: (1 - glow) * if(r.known, 1, 0) }
                 group {
-                    show: battery >= 0
-                    box { at: 404, 19; size: 22, 11; corner: 3; stroke: 1.2; color: #8b8f95 }
-                    box { at: 416, 19; size: 2, 5; corner: 1; color: #8b8f95 }
-                    box { from: 394.5, 15.5; size: 19 * clamp(battery, 0, 1), 7; corner: 2
-                          color: mix(#e0655a, mint, clamp(battery * 3 - 0.3, 0, 1)) }
+                    show: r.known
+                    opacity: glow
+                    box { at: 336, 18; size: 64, 24; corner: 8; color: mix(#2b2324, #3a2828, forget.glow) }
+                    text "Forget" { at: 336, 18; anchor: center; size: 10.5; weight: 600; color: mix(#d9a19a, #f0b0a8, forget.glow) }
                 }
-                //  One just found, not paired: pressing it pairs it.
-                text "Pair" { at: 428, 19; anchor: right center; size: 11; weight: 600; color: mint; show: fresh > 0.5 }
+                zone box forget { at: 336, 18; size: 64, 24; corner: 8; cursor: pointer; active: on > 0.5 and glow > 0.5 and paging > 0.9; show: r.known }
                 on enter touch { glow: 1 }
                 on leave touch { glow: 0 }
-                on press touch { emit pick(f.index + base) }
+                on enter forget { forget.glow: 1 }
+                on leave forget { forget.glow: 0 }
+                on press touch { emit pick_network(r.index) }
+                on press forget { emit wifi_forget(r.index) }
+            }
+            //  A pill of the hero: a button with a word, lit on hover.
+            component Pill(label: text, press: event, w: number = 96, strong: number = 0, warn: number = 0) {
+                size: w, 30
+                prop glow = 0 ~140ms
+                box { from: 0, 0; size: w, 30; corner: 10
+                      color: mix(mix(mix(#2a2b2c, #333536, glow), mix(mint, #8ff0cc, glow), strong), mix(#3a2626, #4a2d2d, glow), warn) }
+                text label { at: w / 2, 15; anchor: center; size: 11.5; weight: 600
+                             color: mix(mix(ink, #0c0f12, strong), #f0b0a8, warn) }
+                zone box touch { from: 0, 0; size: w, 30; corner: 10; cursor: pointer; active: paging > 0.9 }
+                on enter touch { glow: 1 }
+                on leave touch { glow: 0 }
+                on press touch { emit press }
             }
 
-            //  The networks there are. The logic brings them from `nmcli`, because
-            //  pleamar can read the network but not list it or change it.
-            column network_list {
-                at: card.x - 228, card.top + 109
-                gap: 4
-                show: page == wifi
-                for r in networks { ListRow(r, pick: pick_network, glyph: 1, signal: r.signal, lock: r.secure and not r.known, busy: joining == r.index) }
-            }
-            //  Its password, asked for in place: under the list, with the
-            //  network's name, the field and «Join». Enter joins too; Esc, or
-            //  pressing elsewhere in the list, lets it be.
             group {
-                show: page == wifi and asking >= 0
-                opacity: clamp(ask.in * 1.4, 0, 1)
-                move: 0, (1 - ask.in) * 8
-                let ay = card.top + 109 + networks.count * 42 + 16
-                box { from: card.x - 228, ay; size: 456, 78; corner: 12; color: mix(#202021, ink, glassiness * 0.06); stroke: 1; opacity: 100% }
-                box { from: card.x - 228, ay; size: 456, 78; corner: 12; stroke: 1.2; color: mint; opacity: 35% }
-                text "Password for «{ask.name}»" { at: card.x - 212, ay + 18; anchor: left center; size: 11.5; color: #8b8f95; width: 420; lines: 1 }
-                box { from: card.x - 212, ay + 32; size: 320, 32; corner: 9; color: #141415 }
-                input wifi_pw { at: card.x - 202, ay + 48; width: 300; size: 13; color: ink; placeholder: "Password"; secret: true; selection: #2f5f52 }
-                box { from: card.x + 118, ay + 32; size: 94, 32; corner: 9; color: mint; opacity: 85% + 15% * join_btn.glow }
-                text "Join" { at: card.x + 165, ay + 48; anchor: center; size: 12; weight: 600; color: #0c0f12 }
-                zone box join_btn { from: card.x + 118, ay + 32; size: 94, 32; corner: 9; cursor: pointer; active: page == wifi and asking >= 0 }
+                show: page == wifi
+                let lx = card.x - 228
+                let hy = card.top + 102
+                let wired = wifi.state == 3
+                let linked = if(wifi.state == 2 or wifi.state == 3, 1, 0)
+                //  The hero: the connection there is, or why there is none.
+                box { from: lx, hy; size: 456, 78; corner: 14; color: mix(#202021, #1a241f, linked) }
+                box { from: lx, hy; size: 456, 78; corner: 14; stroke: 1; color: mint; opacity: linked * 30% }
+                //  Its strength in four arcs, large; the cable, a plug.
+                group {
+                    show: not wired
+                    opacity: if(wifi.state == 0, 35%, 100%)
+                    repeat a in 1..5 {
+                        arc { at: lx + 40, hy + 54; radius: 2 + a * 5.2; span: 110deg; width: 2.6; color: mix(ink, mint, linked)
+                              opacity: 15% + 85% * if(net.strength > (a - 1) * 25 and wifi.state >= 2, 1, 0) }
+                    }
+                    ellipse { at: lx + 40, hy + 56; radius: 2.6; color: mix(ink, mint, linked) }
+                    line { from: lx + 22, hy + 22; to: lx + 58, hy + 58; width: 2.2; color: #e0655a; show: wifi.state == 0 }
+                }
+                group {
+                    show: wired
+                    box { at: lx + 40, hy + 42; size: 22, 16; corner: 4; color: mint }
+                    box { at: lx + 34, hy + 30; size: 3, 9; corner: 1.5; color: mint }
+                    box { at: lx + 46, hy + 30; size: 3, 9; corner: 1.5; color: mint }
+                    box { at: lx + 40, hy + 56; size: 4, 12; corner: 2; color: mint }
+                }
+                //  Joining: a ring of mint that breathes around the arcs.
+                ellipse { at: lx + 40, hy + 40; radius: 27; stroke: 1.6; color: mint
+                          opacity: if(wifi.state == 4, 30% + 40% * sin(join.t * 360), 0) }
+                text wifi.title { at: lx + 82, hy + 30; anchor: left center; size: 15; weight: 600; color: ink
+                                  width: if(wifi.state == 2, 140, 250); lines: 1 }
+                text wifi.status { at: lx + 82, hy + 51; anchor: left center; size: 11; color: mix(#8b8f95, mint, linked * 0.6)
+                                   width: if(wifi.state == 2, 140, 250); lines: 1 }
+                row {
+                    at: lx + 444, hy + 39
+                    anchor: right middle
+                    gap: 8
+                    show: wifi.state == 2
+                    Pill("Share", wifi_share, w: 92)
+                    Pill("Disconnect", wifi_disconnect, w: 100, warn: 1)
+                }
+                row {
+                    at: lx + 444, hy + 39
+                    anchor: right middle
+                    show: wifi.state == 0
+                    Pill("Turn on", wifi_power, w: 96, strong: 1)
+                }
+                row {
+                    at: lx + 444, hy + 39
+                    anchor: right middle
+                    show: wifi.state == 4
+                    Pill("Cancel", wifi_disconnect, w: 84)
+                }
+
+                //  The networks in range, below; the wheel goes through them.
+                let ly = hy + 96
+                group {
+                    show: wifi.state != 0 and not wifi.sharing
+                    opacity: 1 - ask.in
+                    text "NEARBY" { at: lx, ly; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
+                    //  Look again: an arc that turns while it looks.
+                    prop rescan.glow = 0 ~140ms
+                    arc { at: lx + 444, ly; radius: 5.5; span: 280deg; width: 1.5; rotate: wifi.spin * 360; color: mix(#8b8f95, mint, max(rescan.glow, if(wifi.scanning, 1, 0))) }
+                    text pick(wifi.scanning, "Look again", "Looking…") { at: lx + 432, ly; anchor: right center; size: 10.5; color: mix(#8b8f95, mint, max(rescan.glow, if(wifi.scanning, 1, 0))) }
+                    zone box rescan_btn { at: lx + 400, ly; size: 100, 22; corner: 11; cursor: pointer; active: page == wifi and paging > 0.9 and asking < 0 }
+                    on enter rescan_btn { rescan.glow: 1 }
+                    on leave rescan_btn { rescan.glow: 0 }
+                    on press rescan_btn { emit wifi_rescan }
+                    //  The wheel's zone goes BEFORE the rows: the last declared is
+                    //  the one on top, and it would take their presses.
+                    zone box wifi_wheel { from: lx, ly + 12; size: 456, 200; active: page == wifi and paging > 0.9 }
+                    on scroll wifi_wheel { emit wifi_scroll(wheel) }
+                    column wifi_list {
+                        at: lx, ly + 14
+                        gap: 4
+                        for r in networks { WifiRow(r) }
+                    }
+                    text "Looking for networks…" { at: card.x, ly + 60; anchor: center; size: 11.5; color: #8b8f95
+                                                   show: networks.count < 1 }
+                    //  More than fit: a thin bar on the right says where you are.
+                    box { from: lx + 459, ly + 14 + 190 * wifi.offset / max(1, wifi.total); size: 2.5, 190 * min(1, 5 / max(1, wifi.total)); corner: 1.25; color: ink; opacity: if(wifi.total > 5, 25%, 0) }
+                }
+                text "Turn it on to see the networks around you." { at: card.x, ly + 60; anchor: center; size: 11.5; color: #8b8f95
+                                                                    show: wifi.state == 0 }
+
+                //  Its password, asked for in the list's place.
+                group {
+                    show: asking >= 0
+                    opacity: clamp(ask.in * 1.4, 0, 1)
+                    move: 0, (1 - ask.in) * 8
+                    box { from: lx, ly - 8; size: 456, 112; corner: 14; color: #1f2021 }
+                    box { from: lx, ly - 8; size: 456, 112; corner: 14; stroke: 1.2; color: mint; opacity: 35% }
+                    text "Password for «{ask.name}»" { at: lx + 16, ly + 14; anchor: left center; size: 12; weight: 500; color: ink; width: 420; lines: 1 }
+                    box { from: lx + 16, ly + 32; size: 424, 34; corner: 9; color: #141415 }
+                    input wifi_pw { at: lx + 28, ly + 49; width: 400; size: 13; color: ink; placeholder: "Password"; secret: true; selection: #2f5f52 }
+                    row {
+                        at: lx + 440, ly + 86
+                        anchor: right middle
+                        gap: 8
+                        Pill("Cancel", forget_ask, w: 84)
+                        Pill("Join", join, w: 84, strong: 1)
+                    }
+                }
+
+                //  Shared: a code the phone reads, and the password, to copy.
+                group {
+                    show: wifi.sharing
+                    box { from: lx, ly - 8; size: 456, 196; corner: 14; color: #1f2021 }
+                    box { from: lx + 14, ly + 6; size: 152, 152; corner: 12; color: #f6f6f5; show: wifi.has_qr }
+                    for q in wifi_qr { image q.pic { at: lx + 20, ly + 12; size: 140, 140; show: wifi.has_qr } }
+                    let tx = if(wifi.has_qr, lx + 184, lx + 18)
+                    text wifi.share_hint { at: tx, ly + 22; anchor: left center; size: 12; color: ink; width: 250; lines: 2 }
+                    text "PASSWORD" { at: tx, ly + 64; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
+                    text wifi.password { at: tx, ly + 88; anchor: left center; size: 16; weight: 600; color: mint; width: 250; lines: 1; selectable: true; selection: #2f5f52 }
+                    row {
+                        at: tx, ly + 136
+                        anchor: left middle
+                        gap: 8
+                        Pill("Copy", wifi_copy, w: 84, strong: 1)
+                        Pill("Done", wifi_unshare, w: 84)
+                    }
+                }
             }
-            on enter join_btn { join_btn.glow: 1 }
-            on leave join_btn { join_btn.glow: 0 }
-            on press join_btn { emit join }
             on submit wifi_pw { emit join }
             on key Escape while page == wifi and asking >= 0 { emit forget_ask }
-            text "Looking for networks…" { at: card.x, card.y + 20; anchor: center; size: 11.5; color: #8b8f95
-                                     show: page == wifi and networks.count < 1 }
+            on key Escape while page == wifi and wifi.sharing { emit wifi_unshare }
 
-            //  And the headphones and the rest, from `bluetoothctl`.
-            column gadget_list {
-                at: card.x - 228, card.top + 109
-                gap: 4
+            // ── Bluetooth: what is hers, and what is near ────────
+            //  Two lists: the paired ones, the connected on top, and while
+            //  looking, the new ones near. Each row says what it is —a drawing
+            //  for headphones, a mouse, a keyboard, a phone…—, how it is, and
+            //  carries its one action as a button: connect, disconnect or pair.
+            //  On hover, the paired ones can also be forgotten.
+            //  `kind`: 0 any · 1 headphones · 2 mouse · 3 keyboard · 4 phone ·
+            //  5 computer · 6 gamepad · 7 speaker. `state`: 0 paired · 1 connected
+            //  · 2 working on it · 3 new.
+            component BtRow(d: record) {
+                size: 456, 44
+                prop glow = 0 ~140ms
+                prop act.glow = 0 ~140ms
+                prop forget.glow = 0 ~140ms
+                let lit = if(d.state == 1, 1, 0)
+                zone box touch { from: 0, 0; size: 456, 44; corner: 11; active: paging > 0.9 }
+                box { from: 0, 0; size: 456, 44; corner: 11; color: mix(mix(#202021, #262728, glow), #1a241f, lit) }
+                //  The drawing, in a round badge.
+                ellipse { at: 22, 22; radius: 15; color: mix(#2a2b2c, #21362c, lit) }
+                group {
+                    let c = mix(ink, mint, lit)
+                    //  headphones: the band and two cups
+                    arc { at: 22, 23; radius: 7.5; span: 180deg; width: 1.7; rotate: -90deg; color: c; show: d.kind == 1 }
+                    box { at: 15, 25; size: 4, 7; corner: 1.5; color: c; show: d.kind == 1 }
+                    box { at: 29, 25; size: 4, 7; corner: 1.5; color: c; show: d.kind == 1 }
+                    //  mouse: a capsule and its line
+                    box { at: 22, 22; size: 11, 16; corner: 5.5; stroke: 1.6; color: c; show: d.kind == 2 }
+                    line { from: 22, 15; to: 22, 19; width: 1.5; color: c; show: d.kind == 2 }
+                    //  keyboard: a plate and its keys
+                    box { at: 22, 22; size: 18, 11; corner: 2.5; stroke: 1.5; color: c; show: d.kind == 3 }
+                    repeat k in 0..3 { box { at: 17 + k * 5, 20; size: 2, 2; color: c; show: d.kind == 3 } }
+                    line { from: 18, 25; to: 26, 25; width: 1.5; color: c; show: d.kind == 3 }
+                    //  phone
+                    box { at: 22, 22; size: 10, 17; corner: 2.5; stroke: 1.6; color: c; show: d.kind == 4 }
+                    line { from: 20.5, 28; to: 23.5, 28; width: 1.4; color: c; show: d.kind == 4 }
+                    //  computer: a screen on its foot
+                    box { at: 22, 20; size: 17, 11; corner: 2; stroke: 1.5; color: c; show: d.kind == 5 }
+                    line { from: 18, 29; to: 26, 29; width: 1.6; color: c; show: d.kind == 5 }
+                    //  gamepad
+                    box { at: 22, 22; size: 20, 11; corner: 5.5; stroke: 1.5; color: c; show: d.kind == 6 }
+                    line { from: 15.5, 22; to: 19.5, 22; width: 1.4; color: c; show: d.kind == 6 }
+                    line { from: 17.5, 20; to: 17.5, 24; width: 1.4; color: c; show: d.kind == 6 }
+                    ellipse { at: 26.5, 21; radius: 1.2; color: c; show: d.kind == 6 }
+                    //  speaker: a box with its cone
+                    box { at: 22, 22; size: 13, 17; corner: 3; stroke: 1.5; color: c; show: d.kind == 7 }
+                    ellipse { at: 22, 24.5; radius: 3.2; stroke: 1.4; color: c; show: d.kind == 7 }
+                    //  anything else: the rune
+                    path { at: 18, 14; color: c; stroke: 1.5; show: d.kind == 0
+                           move 0, 3.5; line 8, 10.5; line 4, 14; line 4, 0; line 8, 3.5; line 0, 10.5 }
+                }
+                text d.name { at: 46, 15; anchor: left center; size: 12.5; weight: 500; width: 220; lines: 1; color: mix(#dfe1e3, #f6f6f5, glow) }
+                text d.status { at: 46, 31; anchor: left center; size: 10.5; width: 220; lines: 1
+                                color: mix(#8b8f95, mint, lit) opacity: if(d.state == 2, 55% + 45% * sin(join.t * 360), 100%) }
+                //  Its battery, if it says: a little cell, and the number.
+                group {
+                    show: d.battery >= 0
+                    box { at: 300, 22; size: 20, 10; corner: 2.5; stroke: 1.1; color: #8b8f95 }
+                    box { at: 311, 22; size: 1.6, 4; corner: 0.8; color: #8b8f95 }
+                    box { from: 291.5, 18.5; size: 17 * clamp(d.battery, 0, 1), 7; corner: 1.5
+                          color: mix(#e0655a, mint, clamp(d.battery * 3 - 0.3, 0, 1)) }
+                    text "{d.battery * 100, 0}%" { at: 318, 22; anchor: left center; size: 10.5; color: #8b8f95 }
+                }
+                //  Forget, on hover, for the paired ones.
+                group {
+                    show: d.state != 3
+                    opacity: glow
+                    ellipse { at: 354, 22; radius: 12; color: mix(#2b2324, #3a2828, forget.glow) }
+                    line { from: 350, 18; to: 358, 26; width: 1.5; color: #f0b0a8 }
+                    line { from: 358, 18; to: 350, 26; width: 1.5; color: #f0b0a8 }
+                }
+                zone box forget { at: 354, 22; size: 26, 26; corner: 13; cursor: pointer; active: paging > 0.9 and glow > 0.5 and d.state != 2; show: d.state != 3 }
+                //  The one action: what it is now decides it.
+                box { from: 372, 8; size: 76, 28; corner: 9
+                      color: mix(mix(mix(#2a2b2c, #333536, act.glow), mix(mint, #8ff0cc, act.glow), if(d.state == 3 or d.state == 0, 1, 0)), #2a2b2c, if(d.state == 2, 1, 0)) }
+                text pick(d.state, "Connect", "Disconnect", "…", "Pair") { at: 410, 22; anchor: center; size: 11; weight: 600
+                     color: mix(ink, #0c0f12, if(d.state == 3 or d.state == 0, 1, 0)) }
+                zone box act { from: 372, 8; size: 76, 28; corner: 9; cursor: pointer; active: paging > 0.9 and d.state != 2 }
+                on enter touch { glow: 1 }
+                on leave touch { glow: 0 }
+                on enter act { act.glow: 1 }
+                on leave act { act.glow: 0 }
+                on enter forget { forget.glow: 1 }
+                on leave forget { forget.glow: 0 }
+                on press act { emit pick_gadget(d.index + d.base) }
+                on press forget { emit bt_forget(d.index + d.base) }
+            }
+
+            group {
                 show: page == bluetooth
-                for c in gadgets { ListRow(c, pick: pick_gadget, glyph: 2, battery: c.battery, fresh: not c.paired) }
+                let lx = card.x - 228
+                let ty = card.top + 104
+                //  Off, or there is none: why, and the way to turn it on.
+                group {
+                    show: not bt.on
+                    ellipse { at: card.x, ty + 70; radius: 34; color: #202021 }
+                    path { at: card.x - 7, ty + 57; color: #8b8f95; stroke: 2
+                           move 0, 6; line 14, 18; line 7, 25; line 7, 0; line 14, 6; line 0, 18 }
+                    text pick(bt.present, "This computer has no Bluetooth", "Bluetooth is off") { at: card.x, ty + 128; anchor: center; size: 13; weight: 500; color: ink }
+                    text "Turn it on to use your headphones and the rest." { at: card.x, ty + 148; anchor: center; size: 11; color: #8b8f95; show: bt.present }
+                    row {
+                        at: card.x, ty + 186
+                        anchor: center middle
+                        show: bt.present
+                        Pill("Turn on", bt_power, w: 96, strong: 1)
+                    }
+                }
+                group {
+                    show: bt.on
+                    text "YOURS" { at: lx, ty + 4; anchor: left center; size: 9.5; weight: 700; color: #8b8f95; show: bt_mine.count > 0 }
+                    column bt_mine_list {
+                        at: lx, ty + 16
+                        gap: 4
+                        for d in bt_mine { BtRow(d) }
+                    }
+                    let ny = ty + if(bt_mine.count > 0, 26 + bt_mine_list.height, 0)
+                    text "NEAR" { at: lx, ny + 4; anchor: left center; size: 9.5; weight: 700; color: #8b8f95; show: bt_near.count > 0 }
+                    column bt_near_list {
+                        at: lx, ny + 16
+                        gap: 4
+                        for d in bt_near { BtRow(d) }
+                    }
+                    text pick(bt_scanning, "Nothing paired yet. Press Search to find what is near.", "Looking around…") {
+                        at: card.x, ty + 80; anchor: center; size: 11.5; color: #8b8f95; width: 380; align: center
+                        show: bt_mine.count < 1 and bt_near.count < 1 }
+                }
             }
             //  Looking for new ones: a radar in the header, rings that leave
             //  from the Bluetooth mark while the radio listens; pressed, it
             //  starts or stops listening.
             group {
-                show: page == bluetooth
+                show: page == bluetooth and bt.on
                 let rx = card.x + 150
                 let ry = card.top + 45
                 repeat w in 0..3 {
@@ -4420,11 +4675,9 @@ scene Marea {
                 path { at: rx - 4, ry - 7; color: mix(ink, mint, if(bt_scanning, 1, 0)); stroke: 1.5
                        move 0, 3.5; line 8, 10.5; line 4, 14; line 4, 0; line 8, 3.5; line 0, 10.5 }
                 text pick(bt_scanning, "Search", "Searching…") { at: rx - 22, ry; anchor: right center; size: 11.5; color: mix(#8b8f95, mint, if(bt_scanning, 1, 0)) }
-                zone box radar_btn { at: rx - 30, ry; size: 110, 32; corner: 16; cursor: pointer; active: page == bluetooth and paging > 0.9 }
+                zone box radar_btn { at: rx - 30, ry; size: 110, 32; corner: 16; cursor: pointer; active: page == bluetooth and paging > 0.9 and bt.on }
             }
             on press radar_btn { emit bt_scan }
-            text pick(bt_scanning, "Nothing paired", "Looking around…") { at: card.x, card.y + 20; anchor: center; size: 11.5; color: #8b8f95
-                                     show: page == bluetooth and gadgets.count < 1 }
 
             // ── the history: what has washed up ──────────────────
             //  Every notice dealt with —done, thrown away, opened, or closed by
@@ -5031,34 +5284,151 @@ scene Marea {
                 on press wallrow_zone { emit show_walls }
             }
 
-            // ── sound: where it plays and where it listens ───────
-            //  A device row: its name, and a mint dot if it is the current one.
-            //  `base` is what has to be added to its place for the logic to know
-            //  which one it is: the two lists travel together.
+            // ── sound: a mixer ───────────────────────────────────
+            //  Two plates, where it plays and where it listens: each with its
+            //  device —pressed, the others to choose from drop below it—, its
+            //  level to drag and its icon to silence. Below, what is playing,
+            //  one row per application with its own level: a video too loud
+            //  next to the music is set here, not in the video.
+            component AppRow(a: record) {
+                size: 456, 40
+                prop glow = 0 ~140ms
+                prop mute.glow = 0 ~140ms
+                let off = if(a.muted, 1, 0)
+                zone box touch { from: 0, 0; size: 456, 40; corner: 10; active: paging > 0.9 }
+                box { from: 0, 0; size: 456, 40; corner: 10; color: mix(#202021, #262728, glow) }
+                group {
+                    opacity: if(a.playing, 100%, 55%)
+                    image a.icon { at: 9, 9; size: 22, 22; show: a.has_icon }
+                    ellipse { at: 20, 20; radius: 11; color: #2f3a35; show: not a.has_icon }
+                    text a.letter { at: 20, 20.5; anchor: center; size: 11; weight: 700; color: mint; show: not a.has_icon }
+                    text a.name { at: 40, 13; anchor: left center; size: 12; weight: 500; width: 150; lines: 1; color: ink }
+                    text a.title { at: 40, 28; anchor: left center; size: 10; width: 150; lines: 1; color: #8b8f95 }
+                }
+                //  Its speaker: pressed, it is silenced, and crossed out.
+                group {
+                    opacity: 70% + 30% * mute.glow
+                    path { at: 205, 15; color: ink; move 0, 3; line 4, 3; line 9, 0; line 9, 11; line 4, 8; line 0, 8; close }
+                    arc { at: 216, 20.5; radius: 4.5; span: 110deg; width: 1.4; rotate: 90deg; color: ink; opacity: 1 - off }
+                    line { from: 203, 13; to: 219, 28; width: 1.7; color: #e0655a; opacity: off }
+                }
+                zone box mute { at: 211, 20; size: 28, 28; corner: 14; cursor: pointer; active: paging > 0.9 }
+                box { from: 236, 17; size: 164, 6; corner: 3; color: #2f3031 }
+                box { from: 236, 17; size: 164 * a.volume, 6; corner: 3; color: mix(mint, #6b7280, off) }
+                ellipse { at: 236 + 164 * a.volume, 20; radius: 6.5 + glow; color: #f0ece4 }
+                text "{a.volume * 100, 0}%" { at: 444, 20; anchor: right center; size: 10.5; weight: 500; color: mix(mint, #8b8f95, off) }
+                zone box track { from: 228, 6; size: 182, 28; cursor: pointer; active: paging > 0.9 }
+                on enter touch { glow: 1 }
+                on leave touch { glow: 0 }
+                on enter mute { mute.glow: 1 }
+                on leave mute { mute.glow: 0 }
+                on press mute { emit app_mute(a.index) }
+                on press track { emit app_volume(a.index * 1000 + floor(clamp((local.x - 236) / 164, 0, 1) * 100 + 0.5)) }
+                on drag track { emit app_volume(a.index * 1000 + floor(clamp((local.x - 236) / 164, 0, 1) * 100 + 0.5)) }
+            }
+            //  A device to choose, in the list that drops below its plate.
+            component DevRow(f: record, base: number = 0) {
+                size: 416, 30
+                prop glow = 0 ~140ms
+                box { from: 0, 0; size: 416, 30; corner: 8; color: #303233; opacity: glow }
+                text f.name { at: 14, 15; anchor: left center; size: 11.5; width: 340; lines: 1; color: mix(#dfe1e3, mint, if(f.current, 1, 0)) }
+                path { at: 392, 11; color: mint; stroke: 1.7; show: f.current
+                       move 0, 4; line 3.5, 7.5; line 10, 0 }
+                zone box touch { from: 0, 0; size: 416, 30; corner: 8; cursor: pointer; active: paging > 0.9 }
+                on enter touch { glow: 1 }
+                on leave touch { glow: 0 }
+                on press touch { emit pick_device(f.index + base) }
+            }
 
-            //  Two lists, one below the other, with their label. What there is is
-            //  said by pleamar —`outputs` and `inputs` of the same volume
-            //  service— and choosing one is `audio.default`, so there is not a
-            //  single line here that knows about PipeWire.
             group {
                 show: page == sound
-                text "OUTPUT" { at: card.x - 228, card.top + 118; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
-                column output_list {
-                    at: card.x - 228, card.top + 132
-                    gap: 4
-                    for a in outputs { ListRow(a, pick: pick_device, glyph: 3) }
+                let lx = card.x - 228
+                let ty = card.top + 102
+                //  The two plates: k = 0, where it plays; k = 1, where it listens.
+                repeat k in 0..2 {
+                    let py = ty + k * 82
+                    let val = pick(k, vol_level, mic_level)
+                    let off = pick(k, if(sound.muted, 1, 0), if(sound.input_muted, 1, 0))
+                    prop dev.glow.$k = 0 ~140ms
+                    prop icon.glow.$k = 0 ~140ms
+                    box { from: lx, py; size: 456, 74; corner: 14; color: #202021 }
+                    ellipse { at: lx + 30, py + 37; radius: 18; color: mix(mix(#21362c, #2b2324, off), mix(#2a4a3c, #3a2828, off), icon.glow.$k) }
+                    group {
+                        let c = mix(mint, #f0b0a8, off)
+                        path { at: lx + 22, py + 31; color: c; show: k == 0
+                               move 0, 3; line 4, 3; line 9, 0; line 9, 11; line 4, 8; line 0, 8; close }
+                        arc { at: lx + 33, py + 36.5; radius: 5; span: 110deg; width: 1.5; rotate: 90deg; color: c; opacity: 1 - off; show: k == 0 }
+                        box { at: lx + 30, py + 33; size: 7, 12; corner: 3.5; color: c; show: k == 1 }
+                        arc { at: lx + 30, py + 35; radius: 6.5; span: 180deg; width: 1.5; rotate: 90deg; color: c; show: k == 1 }
+                        line { from: lx + 30, py + 41.5; to: lx + 30, py + 45; width: 1.5; color: c; show: k == 1 }
+                        line { from: lx + 20, py + 27; to: lx + 40, py + 47; width: 1.8; color: #e0655a; opacity: off }
+                    }
+                    text pick(k, "OUTPUT", "INPUT") { at: lx + 60, py + 17; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
+                    text sound.out_name { at: lx + 60, py + 33; anchor: left center; size: 12.5; weight: 500; width: 330; lines: 1; color: mix(ink, #ffffff, dev.glow.$k); show: k == 0 }
+                    text sound.in_name { at: lx + 60, py + 33; anchor: left center; size: 12.5; weight: 500; width: 330; lines: 1; color: mix(ink, #ffffff, dev.glow.$k); show: k == 1 }
+                    //  The ▾ that says there are others to choose.
+                    path { at: lx + 432, py + 31; color: mix(#8b8f95, ink, dev.glow.$k); stroke: 1.6; show: pick(k, outputs.count, mics.count) > 1
+                           move 0, 0; line 5, 5; line 10, 0 }
+                    box { from: lx + 60, py + 51; size: 330, 6; corner: 3; color: #2f3031 }
+                    box { from: lx + 60, py + 51; size: 330 * val, 6; corner: 3; color: mix(mint, #6b7280, off) }
+                    ellipse { at: lx + 60 + 330 * val, py + 54; radius: 7; color: #f0ece4 }
+                    text "{val * 100, 0}%" { at: lx + 444, py + 54; anchor: right center; size: 11; weight: 500; color: mix(mint, #8b8f95, off) }
+                    zone box dev.$k { from: lx + 56, py + 20; size: 390, 24; corner: 8; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0 and pick(k, outputs.count, mics.count) > 1 }
+                    zone box icon.$k { at: lx + 30, py + 37; size: 38, 38; corner: 19; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0 }
+                    zone box level.$k { from: lx + 52, py + 44; size: 346, 22; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0 }
+                    on enter dev.$k { dev.glow.$k: 1 }
+                    on leave dev.$k { dev.glow.$k: 0 }
+                    on enter icon.$k { icon.glow.$k: 1 }
+                    on leave icon.$k { icon.glow.$k: 0 }
+                    on press dev.$k { sound.choosing = k + 1 }
                 }
-                //  The input goes right below whatever the output takes up, not in
-                //  a fixed place: with two speakers a hole was left in the middle.
-                text "INPUT" { at: card.x - 228, card.top + 150 + output_list.height; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
-                column mic_list {
-                    at: card.x - 228, card.top + 164 + output_list.height
+                on press icon.0 { emit mute_output }
+                on press icon.1 { emit mute_mic }
+                on press level.0 { emit set_volume(clamp((pointer.x - (card.x - 168)) / 330, 0, 1)) }
+                on drag level.0 { emit set_volume(clamp((pointer.x - (card.x - 168)) / 330, 0, 1)) }
+                on press level.1 { emit set_mic(clamp((pointer.x - (card.x - 168)) / 330, 0, 1)) }
+                on drag level.1 { emit set_mic(clamp((pointer.x - (card.x - 168)) / 330, 0, 1)) }
+
+                //  What is playing.
+                let ay = ty + 172
+                text "PLAYING" { at: lx, ay; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
+                text sound.more { at: lx + 456, ay; anchor: right center; size: 10; color: #8b8f95 }
+                zone box apps_wheel { from: lx, ay + 10; size: 456, 132; active: page == sound and paging > 0.9 and sound.choosing == 0 }
+                on scroll apps_wheel { emit sound_scroll(wheel) }
+                column app_list {
+                    at: lx, ay + 12
                     gap: 4
-                    for a in mics { ListRow(a, pick: pick_device, glyph: 4, base: outputs.count) }
+                    for a in sound_apps { AppRow(a) }
                 }
-                text "Nothing to choose" { at: card.x, card.top + 200; anchor: center; size: 11.5; color: #8b8f95
-                                         show: outputs.count < 1 and mics.count < 1 }
+                text "Nothing is playing right now." { at: card.x, ay + 50; anchor: center; size: 11.5; color: #8b8f95; show: sound_apps.count < 1 }
+
+                //  The devices to choose, dropped below their plate; pressing
+                //  elsewhere folds them away.
+                group {
+                    show: sound.choosing > 0
+                    let dy = ty + 64 + (sound.choosing - 1) * 82
+                    let n = if(sound.choosing == 1, outputs.count, mics.count)
+                    zone box choose_away { from: lx, ty; size: 456, 310; active: sound.choosing > 0 }
+                    box { from: lx + 36, dy + 2; size: 424, n * 32 + 10; corner: 12; color: #000000; opacity: 35% }
+                    box { from: lx + 32, dy - 2; size: 424, n * 32 + 10; corner: 12; color: #262728 }
+                    box { from: lx + 32, dy - 2; size: 424, n * 32 + 10; corner: 12; stroke: 1; color: ink; opacity: 10% }
+                    column {
+                        at: lx + 36, dy + 3
+                        gap: 2
+                        show: sound.choosing == 1
+                        for a in outputs { DevRow(a) }
+                    }
+                    column {
+                        at: lx + 36, dy + 3
+                        gap: 2
+                        show: sound.choosing == 2
+                        for a in mics { DevRow(a, base: outputs.count) }
+                    }
+                }
+                on press choose_away { sound.choosing = 0 }
+                on pick_device { sound.choosing = 0 }
             }
+            on key Escape while page == sound and sound.choosing > 0 { sound.choosing = 0 }
 
             // ── the settings ─────────────────────────────────────
             //  A front page of tiles, one per subject, each with its drawing and
@@ -6161,26 +6531,83 @@ scene Marea {
             on change confirming while confirming == poweroff { hint = poweroff }
             on change confirming while confirming == none { hint = none }
 
-            //  Focus: what it does, said. There is no list to bring.
+            //  Focus: a dial of up to two hours. Dragged round, or with the
+            //  wheel, it says how long; three usual lengths beside it, and when
+            //  it would end. While it is on, the dial is what is left, and the
+            //  button ends it. What it does is said below, and how much of
+            //  today has been spent in it.
             group {
                 show: page == concentration
-                text "While it lasts, notices are kept and not shown." {
-                    at: card.x - 228, card.top + 119; anchor: left center; size: 12; width: 456; lines: 2; color: #8b8f95 }
-                repeat m in 0..3 {
-                    let mx = card.x - 158 + m * 158
-                    prop mins_glow.$m = 0 ~140ms
-                    box { at: mx, card.top + 185; size: 140, 44; corner: 12; color: mix(#202021, #262728, mins_glow.$m) }
-                    text "{25 + m * 20} min" { at: mx, card.top + 185; anchor: center; size: 12.5; color: ink }
-                    zone box mins_zone.$m { at: mx, card.top + 185; size: 140, 44; corner: 12; cursor: pointer; active: page == concentration and paging > 0.9 }
-                    on enter mins_zone.$m { mins_glow.$m: 1 }
-                    on leave mins_zone.$m { mins_glow.$m: 0 }
-                    //  And here is where the Haven is entered: you choose how long,
-                    //  and the first thing it does is close. Leaving the panel open
-                    //  on top of her would be the opposite of what you have just
-                    //  asked for. The page folds away first so that on opening it
-                    //  again the three cards are there and not the inside of one.
-                    on press mins_zone.$m { remaining = 25 + m * 20; page = none; open = false; emit enter_haven }
+                let cx = card.x - 112
+                let cy = card.top + 236
+                let on = if(haven, 1, 0)
+                let shown = mix(focus.mins, remaining, on)
+                let frac = clamp(mix(focus.mins / 120, remaining / max(1, focus.total), on), 0, 1)
+                prop dial.glow = 0 ~140ms
+                ellipse { at: cx, cy; radius: 92; color: #1c1d1e }
+                ellipse { at: cx, cy; radius: 78; stroke: 10; color: #262728 }
+                //  The ticks: one every quarter of an hour, the hours longer.
+                repeat t in 0..8 {
+                    line { from: cx + 64 * sin(t * 45), cy - 64 * cos(t * 45)
+                           to: cx + (if(t == 0 or t == 4, 56, 60)) * sin(t * 45), cy - (if(t == 0 or t == 4, 56, 60)) * cos(t * 45)
+                           width: 1.5; color: #8b8f95; opacity: 60% }
                 }
+                arc { at: cx, cy; radius: 78; span: frac * 360deg; width: 10; rotate: frac * 180deg; color: mix(mint, #8ff0cc, dial.glow * (1 - on)) }
+                //  The knob, at the end of what is chosen.
+                ellipse { at: cx + 78 * sin(frac * 360), cy - 78 * cos(frac * 360); radius: 9 + 2 * dial.glow; color: #f0ece4; show: not haven }
+                //  The moon, and how long, large.
+                path { at: cx - 10, cy - 54; color: mix(ink, mint, on); opacity: 80%
+                       move 8.3, 2.4; curve 3.5, 6.1 via 5.2, 3.4; curve 2, 11.9 via 1.7, 8.7; curve 4.6, 17.4 via 2.4, 15.1
+                       curve 10.1, 20 via 6.9, 19.6; curve 15.9, 18.5 via 13.3, 20.3; curve 19.6, 13.7 via 18.6, 16.8
+                       curve 14.5, 14.4 via 17.2, 14.8; curve 10, 12 via 11.9, 13.9; curve 7.6, 7.5 via 8.1, 10.1
+                       curve 8.3, 2.4 via 7.2, 4.8; close }
+                text "{shown, 0}" { at: cx, cy + 2; anchor: center; size: 34; weight: 600; color: ink }
+                text pick(haven, "minutes", "minutes left") { at: cx, cy + 28; anchor: center; size: 11; color: #8b8f95 }
+                text focus.until { at: cx, cy + 46; anchor: center; size: 10.5; color: mint; opacity: 85% }
+                zone ellipse dial { at: cx, cy; radius: 96; cursor: pointer; active: page == concentration and paging > 0.9 and not haven }
+                on enter dial { dial.glow: 1 }
+                on leave dial { dial.glow: 0 }
+                //  Round the dial: where the finger is, from the top and clockwise,
+                //  in steps of five minutes; never less than five.
+                on press dial { focus.mins = max(5, floor(fract((atan2(pointer.y - (card.top + 236), pointer.x - (card.x - 112)) + 90) / 360) * 24 + 0.5) * 5) }
+                on drag dial { focus.mins = max(5, floor(fract((atan2(pointer.y - (card.top + 236), pointer.x - (card.x - 112)) + 90) / 360) * 24 + 0.5) * 5) }
+                on scroll dial { focus.mins = clamp(focus.mins + wheel * 5, 5, 120) }
+
+                //  The right column: the usual lengths, the button, and what it does.
+                let rx = card.x + 18
+                text pick(haven, "How long?", "Focusing") { at: rx, card.top + 128; anchor: left center; size: 14; weight: 600; color: ink }
+                repeat m in 0..3 {
+                    let mins = 25 + m * 20
+                    let chosen = if(focus.mins == mins and not haven, 1, 0)
+                    prop len.glow.$m = 0 ~140ms
+                    box { from: rx + m * 70, card.top + 146; size: 64, 32; corner: 10
+                          color: mix(mix(#202021, #2a2b2c, len.glow.$m), #1a241f, chosen); opacity: if(haven, 40%, 100%) }
+                    box { from: rx + m * 70, card.top + 146; size: 64, 32; corner: 10; stroke: 1.2; color: mint; opacity: chosen * 60% }
+                    text "{mins} min" { at: rx + m * 70 + 32, card.top + 162; anchor: center; size: 11.5; weight: 500; color: mix(ink, mint, chosen); opacity: if(haven, 40%, 100%) }
+                    zone box len.$m { from: rx + m * 70, card.top + 146; size: 64, 32; corner: 10; cursor: pointer; active: page == concentration and paging > 0.9 and not haven }
+                    on enter len.$m { len.glow.$m: 1 }
+                    on leave len.$m { len.glow.$m: 0 }
+                    on press len.$m { focus.mins = mins }
+                }
+                prop go.glow = 0 ~140ms
+                box { from: rx, card.top + 192; size: 204, 38; corner: 12
+                      color: mix(mix(mint, #8ff0cc, go.glow), mix(#3a2626, #4a2d2d, go.glow), on) }
+                text pick(haven, "Start", "End now") { at: rx + 102, card.top + 211; anchor: center; size: 13; weight: 600; color: mix(#0c0f12, #f0b0a8, on) }
+                zone box go { from: rx, card.top + 192; size: 204, 38; corner: 12; cursor: pointer; active: page == concentration and paging > 0.9 }
+                on enter go { go.glow: 1 }
+                on leave go { go.glow: 0 }
+                //  And here is where the Haven is entered: the first thing it does
+                //  is close. Leaving the panel open on top of her would be the
+                //  opposite of what you have just asked for.
+                on press go while not haven { remaining = focus.mins; focus.total = focus.mins; page = none; open = false; emit enter_haven }
+                on press go while haven { emit leave_haven }
+                //  What it does, three lines with their marks.
+                repeat w in 0..3 {
+                    let wy = card.top + 256 + w * 24
+                    ellipse { at: rx + 8, wy; radius: 3; color: mint; opacity: 70% }
+                    text pick(w, "Notices are kept, not shown", "She curls up in her haven", "She comes back when time is up") { at: rx + 20, wy; anchor: left center; size: 11; width: 200; lines: 1; color: #b9bcc0 }
+                }
+                text focus.today { at: rx, card.top + 338; anchor: left center; size: 11; weight: 500; color: mint; width: 210; lines: 1 }
             }
         }
 
@@ -6740,7 +7167,7 @@ scene Marea {
     on key Escape while menu_open { menu_open = false }
     //  Esc closes whatever is open. The session's confirmation is the only
     //  thing that goes back a step first: it is the one that cannot be undone.
-    on key Escape while open and not (page == session and confirming != none) { open = false }
+    on key Escape while open and not (page == session and confirming != none) and not (page == wifi and (asking >= 0 or wifi.sharing)) and not (page == sound and sound.choosing > 0) { open = false }
     on key Escape while tray_open { tray_open = false }
     on key Escape while reel_open { reel_open = false }
     //  «Escape goes back to the menu without executing; a second Escape closes.»

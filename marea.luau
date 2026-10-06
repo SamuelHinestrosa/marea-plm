@@ -30,187 +30,6 @@ on("play_pause", function() sys.call("media.toggle") end)
 on("previous", function() sys.call("media.previous") end)
 on("next", function() sys.call("media.next") end)
 
--- ── the three cards ────────────────────────────────────────────────
---  Only two carry a switch. Concentration does not: it is Marea's, it is set
---  from its page —where you choose how long it lasts— and the whole scene
---  carries it, without going through here. Wi-Fi and Bluetooth do, and they
---  are the system's: pleamar knows how to READ the network but not how to
---  change it, and it knows nothing about bluetooth yet. A switch that moves
---  without doing anything is a lie, so these do something.
---  The Wi-Fi and Bluetooth switches: what the system says, read from
---  pleamar's own services (NetworkManager and BlueZ, spoken to directly), and
---  flipped from what they say rather than from what was assumed.
-local net_state, bt_state = {}, {}
-
-on("flip", function(k)
-    if k == 1 then
-        pcall(sys.call, "network.wifi", not net_state.wifi)
-    elseif k == 2 then
-        pcall(sys.call, "bluetooth.power", not bt_state.powered)
-    end
-end)
-
--- ── sound: where it plays and where it listens ─────────────────────
---  pleamar says which devices there are —`outputs` and `inputs`, each with its
---  id, its name and whether it is the current one— and accepts
---  `audio.default(id)` to change. Here they are only split into two lists and
---  the name is trimmed, since PipeWire's come with the whole card model in it.
-local function shorten(name)
-    --  «TU106 High Definition Audio Controller Estéreo digital (HDMI)» does not
-    --  fit in a row, and besides, what tells them apart is at the end.
-    local clean = tostring(name):gsub("%s+", " ")
-    if #clean > 42 then clean = clean:sub(1, 41) .. "…" end
-    return clean
-end
-
-local function devices(state)
-    local outputs, mics = {}, {}
-    for _, a in ipairs(state.outputs or {}) do
-        outputs[#outputs + 1] = { name = shorten(a.name), id = a.id, current = a.default == true }
-    end
-    for _, a in ipairs(state.inputs or {}) do
-        mics[#mics + 1] = { name = shorten(a.name), id = a.id, current = a.default == true }
-    end
-    model.outputs = outputs
-    model.mics = mics
-end
-
-sys.watch("audio", devices)
-
-on("pick_device", function(i)
-    --  The two lists go together: the first ones are outputs and the rest
-    --  mics, which is how they are seen on the page.
-    local outputs = model.outputs or {}
-    local chosen = outputs[i + 1]
-    if chosen == nil then
-        local mics = model.mics or {}
-        chosen = mics[i - #outputs + 1]
-    end
-    if chosen ~= nil then sys.call("audio.default", chosen.id) end
-end)
-
--- ── the pages ──────────────────────────────────────────────────────
---  The networks and the gadgets come from pleamar's services, which also
---  join, pair and forget. A new network with a password asks for it in place;
---  one already known, or open, joins at once. Whichever is being joined
---  breathes until the system says it is the one in use.
-local joining_name, joining_since = nil, 0
-
-local function paint_networks()
-    local v = {}
-    for _, n in ipairs(net_state.networks or {}) do
-        v[#v + 1] = { name = n.ssid, signal = n.strength or 0, current = n.active == true, secure = n.secure == true, known = n.known == true }
-    end
-    table.sort(v, function(a, b)
-        if a.current ~= b.current then return a.current end
-        if a.known ~= b.known then return a.known end
-        return a.signal > b.signal
-    end)
-    while #v > 8 do table.remove(v) end
-    model.networks = v
-    fact["switched_on.1"] = net_state.wifi == true
-    --  The one being joined, by its place now (the list moves as it is joined).
-    fact.joining = -1
-    if joining_name ~= nil then
-        for k, n in ipairs(v) do
-            if n.name == joining_name then
-                if n.current then joining_name = nil else fact.joining = k - 1 end
-            end
-        end
-    end
-end
-
-sys.watch("network", function(state)
-    net_state = state or {}
-    paint_networks()
-end)
-
---  And if it never joins —a wrong password, out of reach— it stops breathing.
-every(3000, function()
-    if joining_name ~= nil and os.time() - joining_since > 25 then
-        log("wi-fi · could not join", joining_name)
-        joining_name = nil
-        paint_networks()
-    end
-end)
-
-local function join(name, password)
-    joining_name, joining_since = name, os.time()
-    local ok, err = pcall(sys.call, "network.connect", name, password)
-    if not ok then
-        log("wi-fi · joining failed:", err)
-        joining_name = nil
-    end
-    paint_networks()
-end
-
-on("pick_network", function(i)
-    local r = model.networks[i + 1]
-    if r == nil or r.current then return end
-    if r.secure and not r.known then
-        text["ask.name"] = r.name
-        text.wifi_pw = ""
-        fact.asking = i
-        return
-    end
-    fact.asking = -1
-    join(r.name, nil)
-end)
-
-on("join", function()
-    local r = model.networks[(fact.asking or -1) + 1]
-    local password = text.wifi_pw or ""
-    fact.asking = -1
-    text.wifi_pw = ""
-    if r ~= nil and password ~= "" then join(r.name, password) end
-end)
-on("forget_ask", function()
-    fact.asking = -1
-    text.wifi_pw = ""
-end)
-
---  Bluetooth: the paired ones first —the connected at the top— and, while
---  looking, the ones just found, to be paired with a press.
-local function paint_gadgets()
-    local v = {}
-    for _, d in ipairs(bt_state.devices or {}) do
-        v[#v + 1] = { name = d.name, current = d.connected == true, paired = d.paired == true, battery = d.battery or -1, address = d.address }
-    end
-    while #v > 8 do table.remove(v) end
-    model.gadgets = v
-    fact["switched_on.2"] = bt_state.powered == true
-    fact.bt_scanning = bt_state.discovering == true
-    local first = v[1]
-    text["bt.sub"] = (first and first.current) and first.name or (bt_state.powered and tr("On") or tr("Off"))
-end
-
-sys.watch("bluetooth", function(state)
-    bt_state = state or {}
-    paint_gadgets()
-end)
-
-on("pick_gadget", function(i)
-    local c = model.gadgets[i + 1]
-    if c == nil or c.address == nil then return end
-    pcall(sys.call, c.current and "bluetooth.disconnect" or "bluetooth.connect", c.address)
-end)
-
-on("bt_scan", function()
-    pcall(sys.call, "bluetooth.scan", not bt_state.discovering)
-end)
-
---  Opening a page asks for a fresh look: the networks around, and the gadgets
---  near (it listens while the page is open, and stops when it closes).
-on("scan", function(k)
-    if k == 1 then pcall(sys.call, "network.scan")
-    elseif k == 2 and bt_state.powered and not bt_state.discovering then pcall(sys.call, "bluetooth.scan", true) end
-end)
-on("fact:page", function(p)
-    if p ~= "bluetooth" and bt_state.discovering then pcall(sys.call, "bluetooth.scan", false) end
-    if p ~= "wifi" then fact.asking = -1 end
-end)
-
-
 -- ── the finder ─────────────────────────────────────────────────────
 --  «Apps, files and folders.» The apps come from the system —the `apps`
 --  service reads the `.desktop` files, with their icon and their order—, and
@@ -275,7 +94,496 @@ local hooks = {}
 --  The scene's own words change by themselves; these stay in the language
 --  they were written in, and the calendar, written before the language was
 --  known, showed «octubre» to someone who had asked for English.
-hooks.language = { paint_networks, paint_gadgets }
+hooks.language = {}
+
+-- ── the system pages: Wi-Fi, Bluetooth, sound and focus ──────────
+--  All of it from pleamar's own services —NetworkManager, BlueZ and the
+--  sound server, spoken to directly—, and flipped from what they say rather
+--  than from what was assumed. Kept in a function of its own: the file's
+--  top level has run out of room for names.
+local function system_pages()
+    local net_state, bt_state, audio_state = {}, {}, {}
+    local runtime = sys.ask("env", "XDG_RUNTIME_DIR") or "/tmp"
+    local function toast(words)
+        fact["drift.result"] = 1
+        text["drift.toast"] = words
+        emit("say_toast")
+    end
+
+    --  The control center's two switches.
+    on("flip", function(k)
+        if k == 1 then
+            pcall(sys.call, "network.wifi", not net_state.wifi)
+        elseif k == 2 then
+            pcall(sys.call, "bluetooth.power", not bt_state.powered)
+        end
+    end)
+
+    -- ── Wi-Fi ──────────────────────────────────────────────────────
+    --  On top, the connection in use; below, the rest in range, the known
+    --  ones first and then by strength, five at a time (the wheel goes
+    --  through them). A new network with a password asks for it in place;
+    --  one already known, or open, joins at once. Whichever is being joined
+    --  breathes until the system says it is the one in use, or for 25 seconds.
+    local joining_name, joining_since = nil, 0
+    local asked_name = nil
+    local failed_name, failed_until = nil, 0
+    local shown_nets = {}
+    local offset = 0
+
+    local function quality(p)
+        if p >= 75 then return tr("Excellent signal") end
+        if p >= 50 then return tr("Good signal") end
+        if p >= 25 then return tr("Fair signal") end
+        return tr("Weak signal")
+    end
+
+    local function paint_networks()
+        local current = nil
+        local others = {}
+        for _, n in ipairs(net_state.networks or {}) do
+            if n.active then current = n
+            else others[#others + 1] = n end
+        end
+        table.sort(others, function(a, b)
+            if (a.known == true) ~= (b.known == true) then return a.known == true end
+            return (a.strength or 0) > (b.strength or 0)
+        end)
+        offset = math.clamp(offset, 0, math.max(0, #others - 5))
+        shown_nets = {}
+        local rows = {}
+        for k = offset + 1, math.min(#others, offset + 5) do
+            local n = others[k]
+            shown_nets[#shown_nets + 1] = n
+            --  The networks' strength comes from 0 to 1; the one in use's, 0 to 100.
+            local p = math.floor((n.strength or 0) * 100 + 0.5)
+            rows[#rows + 1] = { name = n.ssid, signal = p / 100, percent = p, current = false, secure = n.secure == true, known = n.known == true }
+        end
+        model.networks = rows
+        fact["wifi.offset"] = offset
+        fact["wifi.total"] = #others
+        fact["switched_on.1"] = net_state.wifi == true
+        if joining_name ~= nil and current and current.ssid == joining_name then joining_name = nil end
+
+        local wired = net_state.kind == "wired" and net_state.online
+        local state, title, status
+        if joining_name ~= nil then
+            state, title, status = 4, joining_name, tr("Joining…")
+        elseif wired then
+            state, title, status = 3, tr("Connected by cable"), net_state.name or ""
+        elseif not net_state.wifi then
+            state, title, status = 0, tr("Wi-Fi is off"), tr("Its radio is resting")
+        elseif current or (net_state.online and net_state.kind == "wifi") then
+            local p = math.floor(current and (current.strength or 0) * 100 or (net_state.strength or 0) + 0.5)
+            state, title, status = 2, current and current.ssid or net_state.name or "", string.format("%s · %d%%", quality(p), p)
+        else
+            state, title, status = 1, tr("Not connected"), tr("Choose a network below")
+            if failed_name and os.time() < failed_until then
+                status = string.format(tr("Could not join «%s»"), failed_name)
+            end
+        end
+        fact["wifi.state"] = state
+        text["wifi.title"] = title
+        text["wifi.status"] = status
+        if state ~= 2 and fact["wifi.sharing"] then fact["wifi.sharing"] = false end
+    end
+    table.insert(hooks.language, paint_networks)
+
+    sys.watch("network", function(state)
+        net_state = state or {}
+        paint_networks()
+    end)
+
+    every(3000, function()
+        if joining_name ~= nil and os.time() - joining_since > 25 then
+            log("wi-fi · could not join", joining_name)
+            failed_name, failed_until = joining_name, os.time() + 8
+            joining_name = nil
+            paint_networks()
+        end
+    end)
+
+    local function join(name, password)
+        joining_name, joining_since = name, os.time()
+        failed_name = nil
+        local ok, err = pcall(sys.call, "network.connect", name, password)
+        if not ok then
+            log("wi-fi · joining failed:", err)
+            failed_name, failed_until = name, os.time() + 8
+            joining_name = nil
+        end
+        paint_networks()
+    end
+
+    local function stop_asking()
+        fact.asking = -1
+        text.wifi_pw = ""
+        asked_name = nil
+    end
+
+    on("pick_network", function(i)
+        local n = shown_nets[i + 1]
+        if n == nil then return end
+        if n.secure and not n.known then
+            asked_name = n.ssid
+            text["ask.name"] = n.ssid
+            text.wifi_pw = ""
+            fact.asking = i
+            return
+        end
+        stop_asking()
+        join(n.ssid, nil)
+    end)
+    on("join", function()
+        local name, password = asked_name, text.wifi_pw or ""
+        stop_asking()
+        if name ~= nil and password ~= "" then join(name, password) end
+    end)
+    on("forget_ask", stop_asking)
+
+    on("wifi_forget", function(i)
+        local n = shown_nets[i + 1]
+        if n == nil then return end
+        if pcall(sys.call, "network.forget", n.ssid) then
+            toast(string.format(tr("Forgot «%s»"), n.ssid))
+        end
+    end)
+    on("wifi_disconnect", function()
+        joining_name = nil
+        pcall(sys.call, "network.disconnect")
+        paint_networks()
+    end)
+    on("wifi_power", function() pcall(sys.call, "network.wifi", true) end)
+    on("wifi_rescan", function()
+        pcall(sys.call, "network.scan")
+        fact["wifi.scanning"] = true
+        after(4000, function() fact["wifi.scanning"] = false end)
+    end)
+    on("wifi_scroll", function(w)
+        offset = offset - (w > 0 and 1 or -1)
+        paint_networks()
+    end)
+
+    --  Sharing it: the password NetworkManager keeps for the connection in
+    --  use, and a code a phone's camera reads to join. The code is made by
+    --  `qrencode` from its input —the password never goes in an argument—,
+    --  into the user's runtime folder, and goes when the sharing ends.
+    local qr_file = runtime .. "/marea-wifi-share.png"
+    local qr_version = 0
+    local function forget_qr()
+        model.wifi_qr = {}
+        fact["wifi.has_qr"] = false
+        run("rm", { "-f", qr_file }, nil, { output = false })
+    end
+    local function qr_escape(s)
+        return (tostring(s):gsub("([\\;,:\"])", "\\%1"))
+    end
+    local function share()
+        local name = text["wifi.title"] or ""
+        fact["wifi.sharing"] = true
+        text["wifi.share_hint"] = string.format(tr("Scan it with your phone to join «%s»."), name)
+        text["wifi.password"] = "…"
+        forget_qr()
+        run("nmcli", { "-t", "-f", "NAME,TYPE", "connection", "show", "--active" }, function(out)
+            local id = nil
+            for line in tostring(out):gmatch("[^\n]+") do
+                local n, kind = line:match("^(.*):([^:]+)$")
+                if kind == "802-11-wireless" and id == nil then id = n:gsub("\\:", ":") end
+            end
+            if id == nil then
+                text["wifi.password"] = tr("It could not be read")
+                return
+            end
+            run("nmcli", { "-s", "-g", "802-11-wireless-security.key-mgmt,802-11-wireless-security.psk", "connection", "show", "id", id }, function(sec, code)
+                if code ~= 0 then
+                    text["wifi.password"] = tr("It could not be read")
+                    return
+                end
+                local lines = {}
+                for l in (tostring(sec) .. "\n"):gmatch("([^\n]*)\n") do lines[#lines + 1] = l end
+                local mgmt, psk = lines[1] or "", lines[2] or ""
+                local open = mgmt == "" or mgmt == "none"
+                text["wifi.password"] = open and tr("None: it is open") or psk
+                local payload = open and string.format("WIFI:T:nopass;S:%s;;", qr_escape(name))
+                    or string.format("WIFI:T:%s;S:%s;P:%s;;", mgmt == "sae" and "SAE" or "WPA", qr_escape(name), qr_escape(psk))
+                run("qrencode", { "-o", qr_file, "-s", "8", "-m", "1", "-l", "M" }, function(_, qcode)
+                    if qcode ~= 0 or not fact["wifi.sharing"] then return end
+                    qr_version = qr_version + 1
+                    model.wifi_qr = { { pic = qr_file .. "?" .. qr_version } }
+                    fact["wifi.has_qr"] = true
+                end, { input = payload })
+            end)
+        end)
+    end
+    on("wifi_share", share)
+    --  The finder opens the page and shares at once: «compartir wifi».
+    hooks.wifi_share = function()
+        if fact["wifi.state"] == 2 then share() end
+    end
+    on("wifi_unshare", function()
+        fact["wifi.sharing"] = false
+        text["wifi.password"] = ""
+        forget_qr()
+    end)
+    on("wifi_copy", function()
+        local pw = text["wifi.password"] or ""
+        if pw == "" or pw == "…" then return end
+        run("wl-copy", {}, nil, { input = pw, output = false })
+        toast(tr("Password copied"))
+    end)
+
+    -- ── Bluetooth ──────────────────────────────────────────────────
+    --  Two lists: the paired ones —connected first— and, while looking, the
+    --  new ones near. Each with a drawing by what it says it is.
+    local KINDS = {
+        ["audio-headphones"] = 1, ["audio-headset"] = 1,
+        ["input-mouse"] = 2, ["input-keyboard"] = 3, ["phone"] = 4,
+        ["computer"] = 5, ["input-gaming"] = 6, ["audio-card"] = 7, ["audio-speakers"] = 7,
+    }
+    local busy_address, busy_since, busy_word = nil, 0, ""
+    local bt_rows = {}
+
+    local function paint_gadgets()
+        local mine, near = {}, {}
+        for _, d in ipairs(bt_state.devices or {}) do
+            if d.paired then mine[#mine + 1] = d
+            elseif bt_state.discovering and (d.name or "") ~= "" then near[#near + 1] = d end
+        end
+        table.sort(mine, function(a, b)
+            if (a.connected == true) ~= (b.connected == true) then return a.connected == true end
+            return (a.name or "") < (b.name or "")
+        end)
+        local near_n = math.min(#near, #mine > 0 and math.max(2, 5 - #mine) or 5)
+        local mine_n = math.min(#mine, 5 - (near_n > 0 and near_n or 0))
+        if near_n == 0 then mine_n = math.min(#mine, 5) end
+        bt_rows = {}
+        local function row(d, base)
+            bt_rows[#bt_rows + 1] = d
+            local state, status
+            if d.address == busy_address then
+                state, status = 2, busy_word
+            elseif d.connected then
+                state, status = 1, tr("Connected")
+            elseif d.paired then
+                state, status = 0, tr("Paired")
+            else
+                state, status = 3, tr("New · press Pair")
+            end
+            return { name = d.name ~= "" and d.name or d.address, status = status, kind = KINDS[d.icon or ""] or 0,
+                     state = state, battery = d.battery or -1, base = base }
+        end
+        local a, b = {}, {}
+        for k = 1, mine_n do a[k] = row(mine[k], 0) end
+        for k = 1, near_n do b[k] = row(near[k], mine_n) end
+        model.bt_mine = a
+        model.bt_near = b
+        fact["switched_on.2"] = bt_state.powered == true
+        fact.bt_scanning = bt_state.discovering == true
+        fact["bt.present"] = bt_state.present ~= false
+        fact["bt.on"] = bt_state.present ~= false and bt_state.powered == true
+        fact["bt.busy"] = busy_address ~= nil
+        local first = mine[1]
+        text["bt.sub"] = (first and first.connected) and first.name or (bt_state.powered and tr("On") or tr("Off"))
+    end
+    table.insert(hooks.language, paint_gadgets)
+
+    sys.watch("bluetooth", function(state)
+        local was = {}
+        for _, d in ipairs(bt_state.devices or {}) do was[d.address] = d.connected end
+        bt_state = state or {}
+        --  The one being worked on is done when its connection changed.
+        if busy_address then
+            for _, d in ipairs(bt_state.devices or {}) do
+                if d.address == busy_address and was[d.address] ~= nil and was[d.address] ~= d.connected then busy_address = nil end
+            end
+        end
+        paint_gadgets()
+    end)
+    every(3000, function()
+        if busy_address and os.time() - busy_since > 20 then
+            busy_address = nil
+            paint_gadgets()
+        end
+    end)
+
+    on("pick_gadget", function(i)
+        local d = bt_rows[i + 1]
+        if d == nil or d.address == nil or busy_address then return end
+        busy_address, busy_since = d.address, os.time()
+        busy_word = d.connected and tr("Disconnecting…") or (d.paired and tr("Connecting…") or tr("Pairing…"))
+        paint_gadgets()
+        local ok, err = pcall(sys.call, d.connected and "bluetooth.disconnect" or "bluetooth.connect", d.address)
+        if not ok then
+            log("bluetooth ·", err)
+            busy_address = nil
+            toast(string.format(tr("«%s» did not answer"), d.name or d.address))
+            paint_gadgets()
+        end
+    end)
+    on("bt_forget", function(i)
+        local d = bt_rows[i + 1]
+        if d == nil or d.address == nil then return end
+        if pcall(sys.call, "bluetooth.forget", d.address) then
+            toast(string.format(tr("Forgot «%s»"), d.name or d.address))
+        end
+    end)
+    on("bt_power", function() pcall(sys.call, "bluetooth.power", true) end)
+    on("bt_scan", function()
+        pcall(sys.call, "bluetooth.scan", not bt_state.discovering)
+    end)
+
+    --  Opening a page asks for a fresh look: the networks around, and the gadgets
+    --  near (it listens while the page is open, and stops when it closes).
+    on("scan", function(k)
+        if k == 1 then pcall(sys.call, "network.scan")
+        elseif k == 2 and bt_state.powered and not bt_state.discovering then pcall(sys.call, "bluetooth.scan", true) end
+    end)
+    on("fact:page", function(p)
+        if p ~= "bluetooth" and bt_state.discovering then pcall(sys.call, "bluetooth.scan", false) end
+        if p ~= "wifi" then
+            stop_asking()
+            if fact["wifi.sharing"] then
+                fact["wifi.sharing"] = false
+                text["wifi.password"] = ""
+                forget_qr()
+            end
+        end
+        if p ~= "sound" then fact["sound.choosing"] = 0 end
+    end)
+
+    -- ── sound: where it plays, where it listens, and what plays ─────
+    --  pleamar says which devices there are —`outputs` and `inputs`— and
+    --  what is playing —`apps`, each stream with its level—; here they are
+    --  only put in lists, the names trimmed (PipeWire's carry the whole card
+    --  model) and each application given the icon the system knows it by.
+    local function shorten(name)
+        local clean = tostring(name):gsub("%s+", " ")
+        if #clean > 42 then clean = clean:sub(1, 41) .. "…" end
+        return clean
+    end
+    local shown_apps = {}
+    local apps_offset = 0
+    --  Its icon: the one it gives, or that of the program it is, found in the
+    --  applications the finder knows.
+    local function icon_of(a)
+        local wanted = { (a.binary or ""):lower(), (a.name or ""):lower(), (a.icon or ""):lower() }
+        for _, e in ipairs(apps) do
+            local keys = { (e.id or ""):lower(), (e.wmclass or ""):lower(), (e.name or ""):lower(),
+                           ((e.exec or ""):match("^%S*") or ""):match("([^/]+)$") or "" }
+            for _, w in ipairs(wanted) do
+                if w ~= "" then
+                    for _, k in ipairs(keys) do
+                        if k ~= "" and (k == w or k:lower() == w) then return e.icon end
+                    end
+                end
+            end
+        end
+        return nil
+    end
+    local function paint_sound()
+        local outputs, mics = {}, {}
+        local out_name, in_name = tr("No output"), tr("No microphone")
+        for _, a in ipairs(audio_state.outputs or {}) do
+            outputs[#outputs + 1] = { name = shorten(a.name), id = a.id, current = a.default == true }
+            if a.default then out_name = shorten(a.name) end
+        end
+        for _, a in ipairs(audio_state.inputs or {}) do
+            mics[#mics + 1] = { name = shorten(a.name), id = a.id, current = a.default == true }
+            if a.default then in_name = shorten(a.name) end
+        end
+        model.outputs = outputs
+        model.mics = mics
+        text["sound.out_name"] = out_name
+        text["sound.in_name"] = in_name
+        local list = audio_state.apps or {}
+        apps_offset = math.clamp(apps_offset, 0, math.max(0, #list - 3))
+        shown_apps = {}
+        local rows = {}
+        for k = apps_offset + 1, math.min(#list, apps_offset + 3) do
+            local a = list[k]
+            shown_apps[#shown_apps + 1] = a
+            local icon = icon_of(a)
+            local title = a.title or ""
+            if title == a.name then title = "" end
+            rows[#rows + 1] = { name = a.name or "?", title = title, icon = icon or "", has_icon = icon ~= nil,
+                                letter = utf8.char(utf8.codepoint((a.name or "?") .. "", 1)):upper(),
+                                volume = math.clamp(a.volume or 0, 0, 1), muted = a.muted == true, playing = a.playing ~= false }
+        end
+        model.sound_apps = rows
+        text["sound.more"] = #list > 3 and string.format(tr("%d of %d"), math.min(#list, apps_offset + 3), #list) or ""
+    end
+    table.insert(hooks.language, paint_sound)
+    sys.watch("audio", function(state)
+        audio_state = state or {}
+        paint_sound()
+    end)
+    on("pick_device", function(i)
+        --  The two lists go together: the first ones are outputs and the rest
+        --  mics, which is how they are seen on the page.
+        local outputs = model.outputs or {}
+        local chosen = outputs[i + 1]
+        if chosen == nil then chosen = (model.mics or {})[i - #outputs + 1] end
+        if chosen ~= nil then pcall(sys.call, "audio.default", chosen.id) end
+    end)
+    on("app_volume", function(v)
+        local a = shown_apps[math.floor(v / 1000) + 1]
+        if a then pcall(sys.call, "audio.app_volume", a.id, (v % 1000) / 100) end
+    end)
+    on("app_mute", function(i)
+        local a = shown_apps[i + 1]
+        if a then pcall(sys.call, "audio.app_mute", a.id) end
+    end)
+    on("sound_scroll", function(w)
+        apps_offset = apps_offset - (w > 0 and 1 or -1)
+        paint_sound()
+    end)
+
+    -- ── focus ───────────────────────────────────────────────────────
+    --  When it would end, said as the hour; and how much of today has
+    --  been spent in it, kept on disk so that it survives a restart.
+    --  And the length last chosen, which is the one offered next time.
+    local focus = { day = "", minutes = 0, last = 25 }
+    do
+        local ok, saved = pcall(sys.ask, "files.read", "focus.json", "json")
+        if ok and type(saved) == "table" then focus = saved end
+    end
+    fact["focus.mins"] = focus.last or 25
+    local started = nil
+    local function paint_focus()
+        local chosen = tonumber(fact["focus.mins"]) or 25
+        local mins = fact.haven and (tonumber(fact.remaining) or 0) or chosen
+        text["focus.until"] = string.format(tr("until %s"), os.date("%H:%M", os.time() + mins * 60))
+        local today = os.date("%Y-%m-%d")
+        local m = focus.day == today and (focus.minutes or 0) or 0
+        if started then m = m + math.floor((os.time() - started) / 60) end
+        text["focus.today"] = m > 0 and string.format(tr("%d min of focus today"), m) or ""
+    end
+    table.insert(hooks.language, paint_focus)
+    on("fact:focus.mins", function(m)
+        paint_focus()
+        if focus.last ~= m then
+            focus.last = m
+            pcall(sys.call, "files.write", "focus.json", focus)
+        end
+    end)
+    on("fact:remaining", paint_focus)
+    on("fact:haven", function(on_now)
+        if on_now then
+            started = started or os.time()
+        elseif started then
+            local today = os.date("%Y-%m-%d")
+            if focus.day ~= today then focus = { day = today, minutes = 0 } end
+            focus.minutes = (focus.minutes or 0) + math.floor((os.time() - started) / 60 + 0.5)
+            started = nil
+            pcall(sys.call, "files.write", "focus.json", focus)
+        end
+        paint_focus()
+    end)
+    every(30000, paint_focus)
+    paint_focus()
+end
+system_pages()
+
 local OWN = {
     { "Calendar", "calendar calendario agenda events eventos evento cita citas reminder recordatorio meeting reunion", 1,
       function() if hooks.calendar then hooks.calendar() end; open_page("calendar")() end },
@@ -300,7 +608,8 @@ local OWN = {
     { "Her wardrobe", "wardrobe armario ropa clothes hat hats sombrero gorro accesorios accessories headphones cascos auriculares", 2, open_page("wardrobe") },
     { "Wi-Fi", "wifi wi-fi red network internet", 1, open_page("wifi") },
     { "Bluetooth", "bluetooth auriculares headphones", 1, open_page("bluetooth") },
-    { "Sound", "sound sonido audio volume volumen output salida microfono microphone", 1, open_page("sound") },
+    { "Sound", "sound sonido audio volume volumen output salida microfono microphone mixer mezclador apps aplicaciones", 1, open_page("sound") },
+    { "Share the Wi-Fi", "share compartir wifi wi-fi password contraseña clave qr", 1, function() open_page("wifi")(); hooks.wifi_share() end },
     { "Focus", "focus concentracion concentración pomodoro haven refugio", 1, open_page("concentration") },
     { "Session", "session sesion sesión apagar power poweroff reiniciar reboot restart logout salir suspend suspender", 1, open_page("session") },
     { "Lock the screen", "lock bloquear bloqueo pantalla screen", 1, function() emit("lock") end },
