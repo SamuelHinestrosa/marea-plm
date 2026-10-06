@@ -19,6 +19,7 @@ menu = 'local function set_menu()' + logic.split('local function set_menu()', 1)
 language = 'local LOCALES = ' + logic.split('local LOCALES = ', 1)[1].split('on("fact:language", function() speak(); save_settings() end)', 1)[0] + 'on("fact:language", function() speak(); save_settings() end)'
 checks = r'''
 local fact, model, handlers, events = {}, {}, {}, {}
+local hooks = {language = {}}
 local settings = {language="spanish"}
 local function on(n, fn) handlers[n] = fn end
 local function emit(n) events[#events+1] = n end

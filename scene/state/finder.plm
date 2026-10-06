@@ -1,0 +1,21 @@
+// Marea's scene, in pieces: the finder. marea.plm includes it.
+part Finder {
+    // ── the finder ───────────────────────────────────────────────
+    //  «Replace the app drawer with a main search for apps, files and folders»
+    //  —review of 31 August—, and the sequence sheet tells it in six beats:
+    //  rests, moves aside, **searches**, finds, opens and folds away. What makes
+    //  it hers and not just any launcher is the third: **her eyes turn into a
+    //  magnifying glass**.
+    fact searching = false
+    event search ->                    // from her menu, or from an outside shortcut
+    event open_result ->               // `emit open_result(2)`: opens the third one
+    text query = ""
+    //  What is found, just as the logic delivers it: apps from the system's
+    //  service, and files and folders from `fd`. The icon travels in the record.
+    model results max 7 { name: text; kind_label: text; icon: image 40, 40; glyph: number; path: text }
+    fact selected = 0
+    prop magnifier = 0 ~320ms          // the face, turning into a magnifying glass
+    prop finder = 0 ~290ms             // the panel's geometry
+    prop finder_content = 0 ~200ms     // and what is read inside
+
+}

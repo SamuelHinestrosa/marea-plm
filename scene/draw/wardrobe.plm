@@ -1,0 +1,69 @@
+// Marea's scene, in pieces: the wardrobe. marea.plm includes it.
+part Wardrobe {
+    // ── the wardrobe ─────────────────────────────────────────────
+    //  The pieces are SVG: they are drawn in an editor, dropped into `wardrobe/`
+    //  and they are ready. Each layer is a real path —not a stamp—, so it is
+    //  tinted, melts and turns on its pivot, and the physics is given by the
+    //  SPOT: the hat rests, the glasses are stuck on, the mug keeps her company.
+    figure hat = file "../../wardrobe/hat.svg"
+    figure glasses = file "../../wardrobe/glasses.svg"
+    figure mug = file "../../wardrobe/mug.svg"
+    figure phones = file "../../wardrobe/phones.svg"
+
+    fact wears.hat = false
+    fact wears.glasses = false
+    fact wears.mug = false
+    fact wears.phones = false
+    //  Putting it on is not switching it on: it falls on top with its spring, and
+    //  on taking it off it leaves the way it came.
+    repeat k in 1..5 {
+        prop worn.$k = 0 ~lively
+    }
+    follow worn.1 = if(wears.hat, 1, 0)
+    follow worn.2 = if(wears.glasses, 1, 0)
+    follow worn.3 = if(wears.mug, 1, 0)
+    follow worn.4 = if(wears.phones, 1, 0)
+    //  The headphones' light: mint at rest, and on air —coral, breathing—
+    //  while the screen is shared.
+    prop on_air = 0 ~180ms
+    follow on_air = if(sharing, 1, 0)
+    prop air_glow = 0
+    wave air_glow = 1 at 0.6
+    //  The sway of what keeps her company: it floats even if she keeps still.
+    prop sway = 0
+    wave sway = 1 at 0.9
+
+    //  On top: it rests on her head, arrives late and tilts from the lag.
+    Perched(cx, cy_actual, gaze.x, worn.1, lift: 30) {
+        figure hat.brim     { at: 0, 0; size: 58, 43 }
+        figure hat.crown    { at: 0, 0; size: 58, 43 }
+        figure hat.pompom   { at: 0, 0; size: 58, 43 }
+    }
+    //  On her face: it chases nothing, it inherits what is hers. What is passed
+    //  to it is **her** turn and squash, with her centre as pivot, and the piece
+    //  is placed inside: that way the squash squashes it as it squashes the
+    //  face, and not around itself.
+    //
+    //  And they go where her eyes are: 2.5 px below her centre, with the same
+    //  gaze as them. Before they were 2 px ABOVE and with half the gaze, so they
+    //  stayed on her forehead and looked the other way.
+    Pinned(cx, cy_actual, tilt + lean, sx, sy, worn.2) {
+        figure glasses { at: face.dx, 2.5 + face.dy + look.y + face.sink; size: 44, 24 }
+    }
+    //  Over her head and round it, stuck on as the glasses are: they squash and
+    //  turn with her. They do not follow her gaze: they are on her head, not on
+    //  her eyes.
+    Pinned(cx, cy_actual, tilt + lean, sx, sy, worn.4) {
+        figure phones.band   { at: 0, 0; size: 64, 64 }
+        figure phones.cups   { at: 0, 0; size: 64, 64 }
+        figure phones.accent { at: 0, 0; size: 64, 64 }
+        figure phones.boom   { at: 0, 0; size: 64, 64 }
+        ellipse { at: -6.8, 21.2; radius: 4.5 + 1.5 * air_glow; color: #ef7a66; opacity: on_air * (22% + 18% * air_glow) }
+        figure phones.led    { at: 0, 0; size: 64, 64; color: mix(#9ed6bd, #ef7a66, on_air) }
+    }
+    //  Beside her: it keeps her company, stays behind and floats.
+    Tagalong(cx, cy_actual, worn.3, sway, apart: 42) {
+        figure mug { at: 0, 0; size: 34, 34 }
+    }
+
+}

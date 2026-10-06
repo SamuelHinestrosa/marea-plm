@@ -50,6 +50,9 @@ with tempfile.TemporaryDirectory(prefix='deriva native ñ ') as temporary:
     document.write_bytes(data)
     result = ingest({'type': 'file', 'paths': [str(document)]})
     assert result['saved'] == 1, result
+    if os.name == 'nt':
+        added = run('get', '--id', result['items'][0]['id'])['item']
+        assert added['source_url'] == document.as_uri(), added['source_url']
     digest = hashlib.sha256(data).hexdigest()
     blob = library / 'blobs' / digest[:2] / digest[2:4] / digest
     assert blob.read_bytes() == data

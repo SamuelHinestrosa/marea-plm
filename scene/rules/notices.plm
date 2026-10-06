@@ -1,0 +1,226 @@
+// Marea's scene, in pieces: the life of a notice, and of the swell. marea.plm includes it.
+part Notices {
+    // ── the life of a notice ─────────────────────────────────────
+    //  A notice brings her out if she is sunk, and then the card waits for her
+    //  to have come out: separating and presenting at the same time buried one
+    //  in the other.
+    //  In the Haven it is kept and that is it: no card, no jump, no opening.
+    //  Only her pearl grows under the waterline.
+    on notice while haven or hush { seq = seq + 1; emit direct }
+    //  Asleep: no card, no jump, no opening. The drop forms, falls, and she
+    //  opens one eye. What raises the count is the `direct` afterwards, on sinking
+    //  in: the drop **is** the notice arriving, so the count goes up when it goes
+    //  in and not when someone sends it.
+    on notice while asleep and not haven and not hush { reading_cat = cat; seq = seq + 1; play trickle }
+    //  And an urgent one does wake her, and opens the tray. It is the only thing
+    //  allowed to do it.
+    on urge while asleep { asleep = false }
+    on notice while not haven and not hush and not asleep and phase == 0 and out > 0.9 { reading_cat = cat; phase = 1; burst = 1; seq = seq + 1; arrival_seq = seq; mark = mark + 1; needed = true; wanted = true; play startle; arrive: 1 ~220ms
+        land: 0 ~16ms; land: 1 ~850ms after 16ms; write: 0 ~16ms; write: 1 ~1100ms after 560ms; read.t: 0 ~16ms
+        sign: 1 ~200ms; sign: 0 ~260ms after 1600ms }
+    on notice while not haven and not hush and not asleep and phase == 0 and out <= 0.9 { reading_cat = cat; phase = 1; burst = 1; seq = seq + 1; arrival_seq = seq; needed = true; wanted = true; play startle; arrive: 1 ~220ms after 560ms
+        land: 0 ~16ms; land: 1 ~850ms after 580ms; write: 0 ~16ms; write: 1 ~1100ms after 1120ms; read.t: 0 ~16ms
+        sign: 1 ~200ms after 560ms; sign: 0 ~260ms after 2160ms }
+    on change out > 0.9 while phase == 1 { mark = mark + 1 }
+    //  And the start **once she can be seen**. Sunk, the gesture happened under
+    //  the water —620 ms of journey— and by the time she peeked out it was over:
+    //  the surprise of a notice arriving is never seen if it arrives while she is
+    //  sunk.
+    on change out > 0.9 while phase == 1 and out > 0.9 { play startle }
+    //  Another one while it is still being read: it stacks, and the reading
+    //  starts over. Not one more jump: the gesture is already on, and a mascot
+    //  that jumps for every message in a group ends up switched off.
+    on notice while not haven and not hush and phase == 1 { seq = seq + 1; burst = burst + 1; mark = mark + 1; read.t: 0 ~16ms; write: 0 ~16ms; write: 1 ~900ms after 60ms }
+    //  With the burst already flying, the one that arrives goes straight to its drop.
+    on notice while not haven and not hush and phase == 2 { seq = seq + 1; emit direct }
+
+    //  3.2 s to read it, which the pointer over it stops: when it leaves, it
+    //  counts again. It is `on still` again: «when it has gone that long without
+    //  anything starting the reading over».
+    zone box notice_zone { at: arrival.x0, cy_actual + 7 + 15 * chips; size: 250, 58 + 30 * chips; corner: 14; cursor: pointer; active: phase == 1 }
+    //  Its chips, on top of it: the press belongs to the zone declared last.
+    //  Where each chip goes: Open and Done first; with a pile, «All» third;
+    //  then its own actions, as many as fit.
+    repeat i in 0..5 {
+        zone box chip.$i { at: f.left + 41 + chip.slot.$i * 58, f.top + 58; size: 54, 22; corner: 11; cursor: pointer
+                           active: chips > 0.8 and phase == 1 and chip.on.$i }
+        on enter chip.$i { chip.glow.$i: 1 }
+        on leave chip.$i { chip.glow.$i: 0 }
+    }
+    //  Open, and its own actions: done with the reading, the pile goes as always.
+    on press chip.0 { emit notice_act(0); phase = 2 }
+    on press chip.2 { emit notice_act(2); phase = 2 }
+    on press chip.3 { emit notice_act(3); phase = 2 }
+    //  Done: only the one in front. With more behind, it vanishes in a puff and
+    //  the next one comes to the front, written again, with its reading anew.
+    //  Alone, the card goes without flying to a count: there is nothing left
+    //  pending.
+    on press chip.1 while burst > 1 { emit notice_act(1); emit notice_puff; burst = burst - 1; read.t: 0 ~16ms; write: 0 ~16ms; write: 1 ~900ms after 140ms }
+    on press chip.1 while burst < 2 { emit notice_act(1); emit notice_gone }
+    //  All: the whole pile done.
+    on press chip.4 { emit notice_act(9); emit notice_gone }
+    //  Later and mute: the one in front leaves like «Done», without history for
+    //  «later» —it comes back— and with it for «mute».
+    zone ellipse later_zone { at: f.left + 208, f.top + 15; radius: 11; cursor: pointer; active: chips > 0.8 and phase == 1 }
+    zone ellipse hush_zone { at: f.left + 232, f.top + 15; radius: 11; cursor: pointer; active: chips > 0.8 and phase == 1 }
+    on enter later_zone { later.glow: 1 }
+    on leave later_zone { later.glow: 0 }
+    on enter hush_zone { hush.glow: 1 }
+    on leave hush_zone { hush.glow: 0 }
+    on press later_zone while burst > 1 { emit notice_act(10); emit notice_puff; burst = burst - 1; read.t: 0 ~16ms; write: 0 ~16ms; write: 1 ~900ms after 140ms }
+    on press later_zone while burst < 2 { emit notice_act(10); emit notice_gone }
+    on press hush_zone while burst > 1 { emit notice_act(11); emit notice_puff; burst = burst - 1; read.t: 0 ~16ms; write: 0 ~16ms; write: 1 ~900ms after 140ms }
+    on press hush_zone while burst < 2 { emit notice_act(11); emit notice_gone }
+    on notice_gone {
+        phase = 0
+        wanted = false
+        hovered = false
+        arrive: 0 ~240ms
+        land: 0 ~16ms after 240ms; write: 0 ~16ms; read.t: 0 ~16ms
+    }
+    on enter notice_zone { hovered = true }
+    on leave notice_zone { hovered = false; mark = mark + 1 }
+    //  And the arriving card itself: pressing it opens the swell.
+    on press notice_zone { filter = 0; emit tray; emit open_tray }
+    //  3.2 s to read one; 4.2 if there are several, which is what the contract
+    //  says. They are two rules because a rule's `for` is a written time and not
+    //  a sum; here it does not get in the way, and said twice it reads well.
+    //  And if the swell opens, the arriving card **goes away**: what it says is
+    //  already inside, and leaving it on top is the same news twice —it is just
+    //  what was seen when an urgent one opened it—. It does not disappear: it
+    //  flies off to its drop, which is the journey it had to make anyway.
+    on change tray_open while tray_open and phase == 1 { phase = 2 }
+    //  The reading ends when its water line runs out: 3.2 s, or 4.2 with
+    //  several; the pointer over the card stops it where it is.
+    on change read.t >= 1 while phase == 1 and read.t >= 1 { phase = 2 }
+    //  And they fly together, each one a little after the previous one.
+    on change phase while phase == 2 {
+        fly.2: 1 ~280ms
+        fly.1: 1 ~280ms after 45ms
+        fly.0: 1 ~280ms after 90ms
+    }
+    on change fly.0 > 0.97 while phase == 2 and fly.0 > 0.97 { emit landed }
+    on landed {
+        phase = 0
+        wanted = false
+        arrive: 0 ~16ms
+        land: 0 ~16ms; write: 0 ~16ms; read.t: 0 ~16ms
+        fly.0: 0 ~16ms after 40ms
+        fly.1: 0 ~16ms after 40ms
+        fly.2: 0 ~16ms after 40ms
+        play gulp
+    }
+
+    // ── opening and closing the swell ────────────────────────────
+    //  Arriving opens nothing: it opens by pressing her, or a drop.
+    on open_tray { tray_open = true }
+    on enter hist_link { hist_link.glow: 1 }
+    on leave hist_link { hist_link.glow: 0 }
+    on press hist_link { emit show_history }
+    on close_tray { tray_open = false }
+    //  And if it opened BY ITSELF —an urgent one— and nobody comes near, it
+    //  closes by itself. The `away` of its grace zone only counts for someone who
+    //  was inside, so a tray nobody got to visit stayed open forever: that is
+    //  what happened at the end of the demo.
+    fact visited = false
+    on enter tray_area { visited = true }
+    on leave tray_area { visited = false }
+    //  Only when it opened by itself —an urgent notice opens it for you—:
+    //  opened by you, it waits for Esc or a click outside like the card.
+    fact tray_by_itself = false
+    on still tray_open for 7s while tray_open and not visited and tray_by_itself { emit close_tray }
+    on change tray_open while not tray_open { tray_by_itself = false }
+    //  Opening: she moves aside and the tray comes out of her, at the same time,
+    //  which is what makes it look like it comes out OF her. Closing, instead, is
+    //  in order: first the tray folds away, and **then** she goes back to her
+    //  place. It is the same as the control center, and for the same reason:
+    //  seeing it in two beats is seeing it.
+    on change tray_open while tray_open { offset: 1 ~290ms; tray: 1 ~240ms }
+    on change tray_open while not tray_open { tray: 0 ~240ms }
+    //  The drops go to the lane as soon as the tray starts coming out.
+    follow lane = if(tray_open, 1, 0)
+    //  And the rows arrive one after another, 35 ms between each. On closing they
+    //  leave the other way round —from bottom to top—, which is how something
+    //  really empties.
+    on change tray_open while tray_open {
+        rise.1: 1 after 60ms
+        rise.2: 1 after 95ms
+        rise.3: 1 after 130ms
+        rise.4: 1 after 165ms
+        rise.5: 1 after 200ms
+    }
+    on change tray_open while not tray_open {
+        rise.5: 0 ~120ms
+        rise.4: 0 ~120ms after 35ms
+        rise.3: 0 ~120ms after 70ms
+        rise.2: 0 ~120ms after 105ms
+        rise.1: 0 ~120ms after 140ms
+    }
+    //  Resolving one: it goes off to the right and releases a drop of its colour
+    //  that flies back to her. On arriving, its drop's number goes down with a
+    //  tap and she gulps. Dismissing sends no drop: what is dismissed does not
+    //  come back.
+    repeat k in 1..6 {
+        //  Dragging it follows it, and on letting go it decides: past the
+        //  threshold it goes the way it was going, and otherwise it comes back by
+        //  itself with its spring.
+        on drag row_zone.$k while alive.$k { pull.$k: drag.dx ~16ms }
+        on release row_zone.$k while alive.$k and pull.$k > 92 {
+            pull.$k: 0 ~16ms
+            flung.$k: 1 ~220ms
+            freed.$k: 1 ~380ms
+            undoable = true
+            resolved_row = k
+            play burn
+            emit resolve(k)
+        }
+        //  Dismissing: it goes off to the left and **sends no drop**.
+        on release row_zone.$k while alive.$k and pull.$k < -92 {
+            pull.$k: 0 ~16ms
+            flung.$k: -1 ~220ms
+            alive.$k = false
+            emit dismiss(k)
+        }
+        //  And if it did not reach the threshold, it comes back by itself. A tap
+        //  —releasing where it was pressed— is opening it, not marking it: `press`
+        //  is no good for this, because dragging starts with pressing and would
+        //  take it as done at the first pixel.
+        on release row_zone.$k while alive.$k and pull.$k > -92 and pull.$k < 92 {
+            pull.$k: 0
+        }
+        on release row_zone.$k while alive.$k and pull.$k > -4 and pull.$k < 4 {
+            emit open_notice(k)
+        }
+        //  When the drop reaches her: the row goes out and she gulps.
+        on still freed.$k for 60ms while freed.$k > 0.97 {
+            alive.$k = false
+            freed.$k: 0 ~16ms
+            flung.$k: 0 ~16ms
+            play gulp
+        }
+        //  And the count of ITS category goes down with a tap. One rule per pair
+        //  of row and category: the `repeat` writes them, not me.
+        repeat c in 1..5 {
+            on still freed.$k for 60ms while freed.$k > 0.97 and row_cat.$k == c and n.$c > 0 {
+                n.$c = n.$c - 1
+                impulse beat.$c 4
+            }
+            //  Dismissing sends no drop, but the count goes down all the same:
+            //  what was dismissed is not pending any more. Without this the
+            //  number stayed beside her for ever.
+            on release row_zone.$k while alive.$k and pull.$k < -92 and row_cat.$k == c and n.$c > 0 {
+                n.$c = n.$c - 1
+            }
+            //  And undoing gives it back: the row goes back to its place rising,
+            //  and its drop's count goes up again with its beat.
+            on press undo_zone while resolved_row == k and row_cat.$k == c {
+                alive.$k = true
+                n.$c = n.$c + 1
+                impulse beat.$c 5
+                undoable = false
+                emit undone(k)
+            }
+        }
+    }
+
+}

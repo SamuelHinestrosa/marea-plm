@@ -1,19 +1,19 @@
 """Check the actual shared chat's login lifecycle without accounts or a desktop."""
 from pathlib import Path
 import argparse
-from logic_test import runner_arguments, run_checks
+from logic_test import runner_arguments, run_checks, shared_logic
 
 parser=argparse.ArgumentParser(description=__doc__)
 runner_arguments(parser)
 args=parser.parse_args()
-source=Path(__file__).resolve().parents[1].joinpath('marea.luau').read_text(encoding='utf-8')
+source=shared_logic()
 start=source.index('local function chat()\n')
 end=source.index('\nchat()',start)+len('\nchat()')
 chat=source[start:end]
 checks=r'''
 local fact, text, model = {['chat.state']='idle',locale='es'}, {}, {}
 local handlers, jobs, writes, runs, wire, timers, kills = {}, {}, {}, {}, {}, {}, {}
-local settings, apps, hooks = {}, {{name='Fixture App',exec='fixture:app',id='fixture'}}, {}
+local settings, apps, hooks = {}, {{name='Fixture App',exec='fixture:app',id='fixture'}}, {language={}}
 local home_dir = 'C:/owned test user'
 local launches = {}
 local chat_desktop = function() return false end

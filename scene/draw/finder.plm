@@ -1,0 +1,74 @@
+// Marea's scene, in pieces: what is seen of the finder. marea.plm includes it.
+part Finder {
+    // ── what is seen of the finder ───────────────────────────────
+    //  It goes here for the same reason as the menu: the card's clip is loose and
+    //  takes with it everything that comes after.
+    let bx0 = finder.x - 300
+    let by0 = finder.y - finder.h / 2
+
+    //  A row. The logic brings the list, so it is a component: each copy with its
+    //  spring and its zone.
+    component ResultRow(h: record, pick: event, cue: number) {
+        size: 600, 44
+        prop glow = 0 ~140ms
+        //  Its turn: the top one comes in earlier, and the last one somewhat later.
+        let arrive = clamp(cue * 8 - h.index, 0, 1)
+        //  Only with the finder open. Closed, these rows are still filled —«At
+        //  hand» is loaded on starting— and below the control center: a click on
+        //  a gap in the panel went through them and launched a terminal.
+        //  A file or a folder can be dragged out of her to any program —into a
+        //  browser to upload it, into a folder to copy it—: it carries its path.
+        zone box touch { from: 0, 0; size: 600, 44; corner: 12; cursor: pointer; active: searching; carries: "{h.path}" }
+        box { from: 0, 0; size: 600, 44; corner: 12; color: #23282b; opacity: glow * 70% * arrive }
+        group {
+            opacity: arrive
+            move: (1 - arrive) * -14, 0
+                //  An image's `at` is its CORNER, not its centre —the opposite of
+            //  a box or a figure—, so centring it in a 44 row is (44 − 30) / 2.
+            //  Placed at the centre it came out 8 px too low.
+            image h.icon { at: 8, 7; size: 30, 30; show: h.glyph < 0.5 }
+            //  What is hers —a page, a trick of hers— is not an application:
+            //  it comes with a little her, with the face of what it does. Waves
+            //  for the agents' water, «^ ^» to celebrate, brows for the rage,
+            //  and her plain eyes for the rest. Under the mouse she hops a
+            //  little and looks at what is written.
+            //  A program not installed yet, from the catalogue: a parcel.
+            group {
+                show: h.glyph > 4.5
+                move: 0, -2.5 * glow
+                box { at: 23, 22; size: 26, 26; corner: 8; color: #2b2f33 }
+                box { at: 23, 24; size: 14, 11; corner: 2; stroke: 1.5; color: #f5f7f5 }
+                line { from: 16, 21; to: 30, 21; width: 1.5; color: #f5f7f5 }
+                line { from: 23, 17; to: 23, 21; width: 1.5; color: #f5f7f5 }
+            }
+            group {
+                show: h.glyph > 0.5 and h.glyph < 4.5
+                move: 0, -2.5 * glow
+                ellipse { at: 23, 22; radius: 14; color: #2b2f33 }
+                ellipse { at: 23, 22; radius: 13.4; stroke: 1.2; color: #ffffff; opacity: 16% + glow * 14% }
+                box { at: 19 + 1.5 * glow, 22; size: 3.4, 6.6; corner: 1.7; color: #f5f7f5; show: h.glyph == 1 or h.glyph == 3 }
+                box { at: 27 + 1.5 * glow, 22; size: 3.4, 6.6; corner: 1.7; color: #f5f7f5; show: h.glyph == 1 or h.glyph == 3 }
+                arc { at: 19, 23.5; radius: 2.8; span: 170deg; width: 1.8; color: #f5f7f5; show: h.glyph == 2 }
+                arc { at: 27, 23.5; radius: 2.8; span: 170deg; width: 1.8; color: #f5f7f5; show: h.glyph == 2 }
+                line { from: 16.5, 16.5; to: 21, 18.5; width: 1.6; color: #f5f7f5; show: h.glyph == 3 }
+                line { from: 29.5, 16.5; to: 25, 18.5; width: 1.6; color: #f5f7f5; show: h.glyph == 3 }
+                repeat e in 0..2 {
+                    arc { at: 17.6 + e * 8, 23; radius: 1.7; span: 170deg; width: 1.5; color: #9ed6bd; show: h.glyph == 4 }
+                    arc { at: 21 + e * 8, 21.4; radius: 1.7; span: 170deg; width: 1.5; rotate: 180deg; color: #9ed6bd; show: h.glyph == 4 }
+                }
+            }
+            text h.name { at: 48, 22; anchor: left center; size: 14; width: 400; lines: 1
+                            color: mix(#dfe1e3, #f6f6f5, glow) }
+            text h.kind_label { at: 592, 22; anchor: right center; size: 11.5; color: #8b8f95 }
+        }
+        on enter touch { glow: 1 }
+        on leave touch { glow: 0 }
+        //  On letting go, not on pressing: a press may be the start of dragging
+        //  it out, and then it is not opened.
+        on release touch { emit pick(h.index) }
+        //  Dragged out, the finder goes: what it is let go on is what is
+        //  underneath, not her catcher.
+        on carry touch { searching = false }
+    }
+
+}

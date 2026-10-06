@@ -24,7 +24,6 @@ on("windows_lock_info", function() notice("El bloqueo utiliza la pantalla segura
 on("fact:page", function(page)
     fact.windows_notice = false
 end)
-install_device_controls(native_sys, notice)
 local brightness = {}
 native_sys.watch("brightness", function(state) brightness = state end)
 local function select_brightness_monitor(k)

@@ -13,7 +13,8 @@ args=parser.parse_args()
 root=Path(__file__).resolve().parents[1]
 out=args.output.resolve()
 out.mkdir(parents=True,exist_ok=False)
-source=(root/'marea.luau').read_text(encoding='utf-8')
+from logic_test import shared_logic
+source=shared_logic()
 start=source.index('    -- ── her memory ──')
 end=source.index('    -- ── the worker ──',start)
 scene=out/'memory-native.plm'
@@ -23,6 +24,7 @@ scene.write_text('''scene MemoryTest {
 }
 ''',encoding='utf-8')
 logic=r'''
+local hooks={language={}}
 local fact,text,model,rows,handlers,replies={},{},{},{},{},{}
 local function tr(value) return value end
 local function first_letters(s,n) local at=utf8.offset(s,n+1);return at and s:sub(1,at-1) or s end

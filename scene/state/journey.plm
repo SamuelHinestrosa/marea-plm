@@ -1,0 +1,223 @@
+// Marea's scene, in pieces: the journey to the other monitor. marea.plm includes it.
+part Journey {
+    // ── the journey to the other monitor ─────────────────────────
+    //  The leap: she gathers herself —squashed, eyes narrowed—, pushes off and
+    //  shoots up through the edge, stretched like a drop. 120 px is more than she needs to be gone even tucked in and
+    //  stretched. `gone` in a frame of its own, as in `retire`: the copy swap
+    //  has to happen when she is no longer seen.
+    gesture leap state {
+        110ms out_quad hold 40ms { eyes: 10.5; sx: 1.14; sy: 0.84; body.y: 5 }
+        70ms out_quad            { eyes: 14.8; sx: 0.92; sy: 1.14; body.y: -6 }
+        180ms in_cubic           { eyes: 13.1; sx: 0.72; sy: 1.40; body.y: -120 }
+        30ms emit gone           { eyes: 13.1; sx: 0.72; sy: 1.40; body.y: -120 }
+    }
+    //  The landing: she squashes on touching, rebounds with her eyes wide open
+    //  —where am I?— and settles.
+    gesture land reflex {
+        70ms out_quad            { eyes: 11; sx: 1.16; sy: 0.82; body.y: 4 }
+        150ms out_back           { eyes: 15.5; sx: 0.95; sy: 1.06; body.y: -2 }
+        140ms in_out_sine        { eyes: 14; sx: 1.02; sy: 0.98 }
+        160ms
+    }
+    //  She is where she should not be: the copy that shows her is not the one
+    //  that hosts her. Not «hosts changed»: the logic sets the two facts one
+    //  after the other, sometimes a hundred milliseconds apart, and each one
+    //  fired its own leap —the second one waited for the first and she fell
+    //  twice—. This fires once, and only when she is not already on her way;
+    //  if the focus moved again mid-journey, on landing she is misplaced again
+    //  and leaves again, cleanly, instead of changing course in the air.
+    //  Whatever she had open is folded away: she cannot carry a card through
+    //  the water.
+    fact travelling = false
+    //  Not while she is in her recording corner: moving the focus mid-recording
+    //  must not pull her out of it. She travels when she comes back.
+    //  Nor in the middle of a photo —framing it, the pointer may well cross to
+    //  the other monitor; leaping then, the click that ends the photo cut her
+    //  leap short, and she stayed with the camera on and never travelled
+    //  again—, nor while she is out riding a window. She travels afterwards.
+    let misplaced = abs(if(hosts.0, 1, 0) - swim.0) + abs(if(hosts.1, 1, 0) - swim.1) > 0.5 and not travelling and not corner and face != camera and purpose != ride
+    on change misplaced while misplaced {
+        purpose = travel
+        travelling = true
+        open = false; page = none; tray_open = false; searching = false; menu_open = false
+        splashing: 1 ~16ms
+        play leap
+    }
+    //  And if she is still where she should not be a moment later —a leap cut
+    //  short by something else, a change that came while she could not go—,
+    //  she goes then: a rule that waits for a change never sees one that
+    //  stays.
+    on still misplaced for 1500ms while misplaced {
+        purpose = travel
+        travelling = true
+        open = false; page = none; tray_open = false; searching = false; menu_open = false
+        splashing: 1 ~16ms
+        play leap
+    }
+    //  Gone. The pose snaps back to its base when the gesture ends, so in the
+    //  same frame she is sent up there, out of sight, in both copies. The one
+    //  she goes to opens now, while she is still above it; the one she left
+    //  stays open a moment longer so the water is seen closing over her. Then
+    //  she falls, with the spring that overshoots a hair: that overshoot is her
+    //  sinking into the landing.
+    on gone while purpose == travel {
+        drop_in: 1 ~16ms
+        impulse bounce -110
+        impulse wobble -90
+        ripple: 0 ~16ms
+        ripple: 1 ~760ms after 30ms
+        swim.0: if(hosts.0, 1, swim.0) ~16ms
+        swim.1: if(hosts.1, 1, swim.1) ~16ms
+        swim.0: if(hosts.0, 1, 0) ~16ms after 60ms
+        swim.1: if(hosts.1, 1, 0) ~16ms after 60ms
+        drop_in: 0 ~homing after 70ms
+        splashing: 0 ~400ms after 1300ms
+    }
+    //  Coming through the edge: the thread breaks, as when she comes out of her
+    //  nook —the surface gives its tug, she shakes round, the ripple runs—.
+    on change drop_in < 0.62 while drop_in < 0.62 and travelling {
+        impulse bounce -150
+        impulse wobble -340
+        ripple: 0 ~16ms
+        ripple: 1 ~900ms after 30ms
+    }
+    //  And touching down.
+    on change drop_in < 0.04 while drop_in < 0.04 and travelling {
+        travelling = false
+        play land
+    }
+    //  A journey takes a second and a half; one that has not landed in four
+    //  was cut short, and it is not a journey any more.
+    on still travelling for 4s while travelling { travelling = false }
+
+    //  Sunk, she peeks out somewhat less than half; separated, she hangs at her
+    //  own height.
+    //  How far she tucks in. The contract says «somewhat less than half», and
+    //  with that the top edge of the eye fell 1.25 px ABOVE the edge of the
+    //  screen: you saw her eye cut off at the bottom. She peeks out 29 of 46,
+    //  which is almost two thirds, and you see her face. It is a deliberate
+    //  deviation from the contract.
+    let rise = if(hidden, (1 - out) * 40, 0)
+    //  And on opening the tray she rises 5 px, which is what the contract says.
+    let cy_actual = cy + body.y - rise - away * 84 - 5 * tray - 96 * drop_in
+    //  The finder: 640 wide —the sheet's 780 times 46/56— and as tall as its list
+    //  asks, which is what makes it grow and shrink while you type instead of
+    //  leaving a black gap waiting.
+    prop finder_h = 150 ~quick
+    prop sel_y = 0 ~quick
+    prop stagger = 0 ~520ms            // the list's staggering
+    fact typing = false
+    event list_ready                   // the logic has left another list
+    //  Each row comes in a little after the one above, with ONE single spring:
+    //  `stagger` goes from 0 to 1 and each one uses it with its index subtracted.
+    //  It is the same thing the tray's swell does, and for the same reason: a
+    //  list that appears whole all at once is a table, not something arriving.
+    on list_ready { stagger: 0 ~16ms; stagger: 1 ~520ms after 30ms }
+    let finder.w = 640 * finder
+    let finder.h = finder_h * finder
+    let finder.x = cx + 6 + finder.w / 2
+    let finder.y = cy_actual + finder.h / 2 - 8
+    //  The chat, from the same side and the same way, a little narrower and
+    //  much taller: a conversation is read downwards.
+    let chat.w = 600 * chat
+    let chat.h = 560 * chat
+    let chat.x = cx + 6 + chat.w / 2
+    let chat.y = cy_actual + chat.h / 2 - 8
+    //  How much panel there is out: the card, the tray or the finder. It is what
+    //  takes her halo from light to shadow.
+    let panel = clamp(max(max(max(card, tray), finder), chat) * 2, 0, 1)
+    //  The capsule, 12 px lower than her: it measures 92 tall and, centred on
+    //  her centre, it stuck out through the top edge.
+    let capsule.y = cy_actual + 12
+    //  And the saved recording's card, a little lower still.
+    let reel.y = cy_actual + 16
+    //  The menu: 163 wide —the sheet's 248 times 46/70— and as tall as whatever
+    //  there is asks. Each entry measures 23 and the first of each group takes
+    //  16 more for the name of whoever brings it.
+    //  It is born from her centre and slides to the right until it sits 9 px
+    //  away, like the time: its half width goes in the sum.
+    let menu.x = cx + (23 + 9 + 82) * menu
+    let menu.w = 163
+    let menu.h = 8 + 115 + 6 + entries.count * 23 + groups * 16
+    //  Its first row at the height of her face, and the rest hanging.
+    let menu.y0 = cy_actual - 15
+    let menu.cy = menu.y0 + menu.h / 2
+
+    //  And she leans towards where she is going. Nobody leads it by the hand: it
+    //  comes from the VELOCITY of her own spring, so she leans on setting off,
+    //  straightens on arriving, and does it the same going as coming back.
+    prop lean = 0 ~quick
+    follow lean = clamp(vel(offset) * -2.6, -8, 8)
+
+    //  The neck: minimal at rest and maximal halfway through the separation,
+    //  which is a bell. At the end nothing is left and the thread breaks by
+    //  itself.
+    let neck = 30 * 4 * out * (1 - out) * if(hidden, 1, 0)
+
+    //  And the water is not a still sheet. While it holds her it stretches
+    //  towards her, and when the thread breaks the surface goes up all at once
+    //  and bounces a couple of times before lying flat. That is what makes it
+    //  read as water and not as a curtain with a hole.
+    //  A spring of its own, with little braking: the water does not keep still
+    //  at the first try. 420 and 13 are a quarter of a second of period and two
+    //  bounces you can see.
+    //  The return to her place: a spring less braked than the card's, which
+    //  arrives overshooting a hair and settles. It is what makes her «come back»
+    //  instead of «appear there again».
+    spring homing = 165, 16
+    spring splash = 420, 13
+    prop bounce = 0 ~splash
+    //  A bell, like the neck: flat when stuck to the edge, most stretched halfway
+    //  through the journey, flat again once it has let her go.
+    let tension = 4 * out * (1 - out)
+    let sag = max((16 * tension + bounce) * wet, 0.3)
+    //  The thread breaks near the end —by then the gap can overcome the neck—,
+    //  and that is when the surface gives the tug.
+    //  And the ripple that goes away: from the place she came out of, two bumps
+    //  come out and run along the sheet, shrinking. The tug is only felt where
+    //  she was; this is what tells that the whole surface is water.
+    prop ripple = 1 ~900ms
+    let ripple.x = 10 + 48 * ripple
+    //  It rises in the first span and fades away: a ripple is seen once it has
+    //  separated from the place where it was born, not on top of it.
+    let ripple.h = 12 * (1 - ripple) * clamp(ripple * 6, 0, 1) * wet
+    //  And the drop that stays: when the thread breaks, a little of her does not
+    //  go with her. It hangs from the edge for a moment and the water swallows it.
+    prop stray_drop = 0 ~520ms
+    //  And SHE is the drop. Hanging from the edge she stretches —the surface pulls
+    //  at her and sharpens her—, and on letting go she shakes until she is round
+    //  again, as a real drop does when it comes loose. This is what is really
+    //  seen: it is 46 px wobbling, not 12 of edge.
+    prop wobble = 0 ~splash
+    let stretch = tension * 0.11 * if(hidden, 1, 0)
+    let droop = stretch + wobble * 0.012
+    let stray_drop.r = 5.5 * stray_drop * if(hidden, 1, 0)
+    on change out > 0.84 while out > 0.84 and hidden {
+        impulse bounce -150
+        impulse wobble -340
+        ripple: 0 ~16ms
+        ripple: 1 ~900ms after 30ms
+        stray_drop: 1 ~16ms
+        stray_drop: 0 ~520ms after 60ms
+    }
+    //  And the other way round: when she comes back, the water grabs her before
+    //  swallowing her. It pulls her upwards —she sharpens— and the surface sinks
+    //  around her.
+    on change out < 0.84 while out < 0.84 and hidden {
+        impulse wobble 190
+        impulse bounce 40
+    }
+    //  And when she has just gone in, the surface **closes over her**: it sinks
+    //  for a moment where she was and from there comes the same ripple that comes
+    //  out when the thread breaks, running along the sheet. Before, coming back
+    //  was the only thing that happened without the water noticing: she came
+    //  out with two bounces, a ripple and a drop, and went in silently. Leaving
+    //  shows too.
+    on change out < 0.06 while out < 0.06 and hidden {
+        impulse bounce -110
+        impulse wobble -90
+        ripple: 0 ~16ms
+        ripple: 1 ~760ms after 30ms
+    }
+
+}

@@ -1,0 +1,69 @@
+// Marea's scene, in pieces: the countdown and recording. marea.plm includes it.
+part Recording {
+    // ── the countdown ────────────────────────────────────────────
+    //  It happens INSIDE the ball and BEFORE the recorder starts, so it does not
+    //  come out in the video. And the number never gets to show zero: zero is not
+    //  a count, it is the moment to start.
+    //  On leaving it goes back to zero, and so entering is ALWAYS a change from 0
+    //  to 3: the three gets its bounce like the two and the one, without a
+    //  separate rule that then fires twice.
+    on change face while face != count { left = 0 }
+    on change face while face == count { left = 3 }
+    every 1s while face == count { left = left - 1 }
+    //  The bounce DECREASES with the count: three blows smaller and smaller so the
+    //  last one lands silently just as the recorder starts. A push to the spring's
+    //  velocity, not an animation up to a size: that is why each blow comes from
+    //  where the previous one was instead of cutting it off, and why the amount can
+    //  depend on the count —which is what pleamar could not do: `impulse` only
+    //  accepted a written number—.
+    on change left while left > 0 { impulse pop left * 2.5 }
+    //  Only if she was really counting: on leaving the countdown `left` goes back
+    //  to zero, and without this stopping halfway through the count sent her to
+    //  record.
+    on change left while left == 0 and face == count { face = rec }
+
+    // ── recording: the corner ────────────────────────────────────
+    //  She travels along the edges: she leaves at the top with the same gesture as
+    //  the photo and comes in at the corner, on another surface. Marea hides one
+    //  window and shows another; here she really leaves and really arrives, and in
+    //  between there is no frame where she is in both places or in neither while
+    //  you watch her.
+    event record
+    event stop ->                      // and the logic asks the recorder to finish
+    event record_toggle                // SUPER+SHIFT+C: starts, or stops whatever there is
+    fact corner = false
+    fact nook_screen = 0               // which monitor's copy holds the corner
+    //  Which of the four. The contract says the one that falls OUTSIDE what is
+    //  recorded is chosen; the one that knows what is being recorded is the logic,
+    //  so here it is only obeyed. Recording the whole screen leaves none and she
+    //  will be in the video, which is the deal of this mode.
+    fact nook: top_right | top_left | bottom_right | bottom_left = top_right
+    //  0 off the screen, 1 tucked into the corner. Lively: she comes in with a
+    //  small bounce against the angle, which is what makes her «snap in».
+    prop tuck = 0 ~lively
+    follow tuck = if(corner, 1, 0)
+
+    //  Filming is not something she does asleep.
+    on record { purpose = nook; asleep = false; play retire }
+    //  «She already counts from the corner she is going to take».
+    on gone while purpose == nook {
+        away: 1 ~16ms
+        nook_screen = if(hosts.1, 1, 0)
+        corner = true
+        face = count
+    }
+    //  The logic starts the recorder on seeing the recording face, and it is the
+    //  logic that says `taping` when it runs FOR REAL. They are two facts on
+    //  purpose: the disc arrives with the face, and the red with the recorder.
+    //  The same key starts and stops. The guards read the previous frame, so the
+    //  two rules do not step on each other.
+    on record_toggle while face == eye { emit record }
+    on record_toggle while face == count or face == rec { emit stop }
+    on stop {
+        taping = false
+        corner = false
+        face = eye
+        away: 0 ~lively after 300ms
+    }
+
+}

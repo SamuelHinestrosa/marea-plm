@@ -13,6 +13,7 @@
   imagemagick,
   libnotify,
   networkmanager,
+  qrencode,
   bluez,
   pulseaudio,
   brightnessctl,
@@ -64,6 +65,7 @@ stdenvNoCC.mkDerivation {
           imagemagick
           libnotify
           networkmanager
+          qrencode
           bluez
           pulseaudio
           brightnessctl

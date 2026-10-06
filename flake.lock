@@ -23,11 +23,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1791227321,
-        "narHash": "sha256-qmQvNKvvTmzJpSDoj04KlzHDDXFAakK7ZbcmIGYXn9c=",
+        "lastModified": 1791298391,
+        "narHash": "sha256-xvkuCQCShnj2ymwixdiosVsDCL77RdDfdVAGnOkeTkc=",
         "owner": "k4ditano",
         "repo": "pleamar",
-        "rev": "6121756f1d9a5dda7b01a18b66669cd25ed7c695",
+        "rev": "0efbcd943a934e180bfb5a2123f05c4d8310eb85",
         "type": "github"
       },
       "original": {

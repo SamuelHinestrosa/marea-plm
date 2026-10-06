@@ -116,9 +116,8 @@ pub fn base64(entrada: &str) -> Option<Vec<u8>> {
     Some(fuera)
 }
 
-//  Codificar solo hace falta en las pruebas —el worker recibe base64, no lo
-//  produce—, pero la ida sin la vuelta no se puede comprobar.
-#[allow(dead_code)]
+//  Encoding: for `call … --preview-file`, which reads a cover from disk and
+//  hands it to `enrich` the way the socket would.
 pub fn a_base64(bytes: &[u8]) -> String {
     const A: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut s = String::with_capacity((bytes.len() + 2) / 3 * 4);
@@ -273,4 +272,34 @@ pub fn plegar(t: &str) -> String {
             otro => otro,
         })
         .collect()
+}
+// Windows canonical paths use a Win32 verbatim prefix, not a URI host. Escape
+// literal #, %, spaces and UTF-8 bytes so ShellExecute and external drops agree.
+pub fn file_url(path: &std::path::Path) -> String {
+    #[cfg(not(windows))]
+    { format!("file://{}", path.display()) }
+    #[cfg(windows)]
+    {
+        let text = path.to_string_lossy();
+        let plain = if let Some(unc) = text.strip_prefix(r"\\?\UNC\") { format!("//{unc}") }
+            else { text.strip_prefix(r"\\?\").unwrap_or(&text).to_owned() }.replace('\\', "/");
+        let escaped: String = plain.bytes().map(|byte| {
+            if byte.is_ascii_alphanumeric() || b"/-._~:".contains(&byte) { (byte as char).to_string() }
+            else { format!("%{byte:02X}") }
+        }).collect();
+        if escaped.starts_with("//") { format!("file:{escaped}") }
+        else { format!("file:///{escaped}") }
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_file_url_tests {
+    use super::file_url;
+    #[test]
+    fn canonical_drive_and_unc_paths_are_valid_uris() {
+        assert_eq!(file_url(std::path::Path::new(r"\\?\C:\Photos ñ\海 #1%.png")),
+            "file:///C:/Photos%20%C3%B1/%E6%B5%B7%20%231%25.png");
+        assert_eq!(file_url(std::path::Path::new(r"\\?\UNC\server\share\a b.txt")), "file://server/share/a%20b.txt");
+        assert_eq!(file_url(std::path::Path::new(r"C:\a\b.txt")), "file:///C:/a/b.txt");
+    }
 }

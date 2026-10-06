@@ -12,10 +12,12 @@ p.add_argument('--binary',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
 a=p.parse_args();out=a.output.resolve();out.mkdir(parents=True,exist_ok=False)
 root=Path(__file__).resolve().parents[1]
-source=(root/'marea.luau').read_text(encoding='utf-8')
+from logic_test import shared_logic
+source=shared_logic()
 start=source.index('    -- ── her memory ──')
 end=source.index('    -- ── the worker ──',start)
 prefix=r'''
+local hooks={language={}}
 local fact,text,model,rows,handlers,replies={},{},{},{},{},{}
 local os=table.clone(os)
 os.date=function() return '20261005-120000' end

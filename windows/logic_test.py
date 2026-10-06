@@ -3,6 +3,12 @@ from pathlib import Path
 import os
 import subprocess
 import tempfile
+import runpy
+
+
+def shared_logic():
+    root = Path(__file__).resolve().parents[1]
+    return runpy.run_path(str(root / 'windows/profile-source.py'))['logic_source'](root)
 
 
 def runner_arguments(parser):

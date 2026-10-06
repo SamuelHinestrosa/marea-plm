@@ -60,7 +60,7 @@ jobs:
         run: python windows/test-agent-sandbox.py --host windows/agent-host/target/debug/marea-agent.exe --node (Get-Command node).Source --child-probe windows/agent-host/target/debug/marea-agent-child-probe.exe
       - name: YouTube preview fetching, cache and failure handling (offline fixtures)
         working-directory: marea
-        run: node --test tools/test-deriva-preview.mjs
+        run: node --test tools/test-deriva-preview.mjs tools/test-deriva-fetch.mjs
       - name: Real Deriva store with bundled SQLite
         working-directory: marea
         run: cargo test --locked --manifest-path deriva/Cargo.toml

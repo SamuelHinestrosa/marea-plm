@@ -1,0 +1,193 @@
+// Marea's scene, in pieces: living rest, celebrating, the adventure, angry. marea.plm includes it.
+part Moods {
+    // ── living rest ──────────────────────────────────────────────
+    //  A brief blink, every 5.2 s. And the gaze, which follows the mouse closely.
+    blink lid every 5.2s for 120ms
+    //  And now and then, with the mouse far from her —over a window, on the
+    //  other monitor—, a glance at where it is, and back. When, the logic says
+    //  (`glancing`): every so often, never on a beat. Asleep, she does not look.
+    fact glancing = false
+    prop mouse.glance = 0 ~gentle
+    follow mouse.glance = if(glancing and not asleep, 1, 0)
+    let mouse.glance.d = max(length(cursor.x - cx, cursor.y - cy), 1)
+    look gaze.x, gaze.y at cx, cy reach 6, 3.5 within 260 rest mouse.glance * 6 * (cursor.x - cx) / mouse.glance.d, mouse.glance * 3.5 * (cursor.y - cy) / mouse.glance.d
+
+    //  Marea's breath. Ambient: any other gesture cuts it off.
+    gesture breathe ambient {
+        //  The eyes look first: it is what makes it look like hers and not a tic.
+        220ms in_out_sine        { look.y: -1.2 }
+        //  The body rises two pixels, not one more.
+        320ms out_quad           { body.y: -2; look.y: -0.6 }
+        //  And she blinks fully while she is up.
+        180ms in_out_sine        { lid: 0; body.y: -2 }
+        200ms in_out_sine        { lid: 1; body.y: -1.4 }
+        //  She settles with a minimal asymmetry, and goes back to neutral.
+        380ms out_back           { tilt: 0.012 }
+    }
+    every 12s..24s { play breathe }
+
+    //  The start: she jumps 8 px without anticipation, with her eyes wide open,
+    //  lands elastically and bounces briefly. Marea's numbers, times 46/56.
+    gesture startle reflex {
+        75ms out_cubic            { eyes: 16.4; sx: 0.90; sy: 1.13; body.y: -2.5 }
+        105ms out_quad hold 90ms  { eyes: 16.4; sx: 0.98; sy: 1.04; body.y: -6.6 }
+        145ms in_quad             { eyes: 14.8; sx: 0.96; sy: 1.06 }
+        100ms out_quad            { eyes: 14.8; sx: 1.10; sy: 0.82; body.y: 3.3 }
+        130ms out_quad            { eyes: 14; sx: 0.98; sy: 1.04; body.y: -2.5; tilt: 0.07 }
+        120ms                     { eyes: 14; sx: 1.02; sy: 0.96; body.y: 0.8; tilt: 0.05 }
+        160ms hold 100ms          { eyes: 14; tilt: 0.05 }
+        200ms
+    }
+
+    // ── celebrating ──────────────────────────────────────────────
+    //  `./marea celebrate`: she comes out, beams —«^ ^»— and hops for joy, and
+    //  seven rockets leave her in a fan and burst around her. It is a test of
+    //  pleamar's particles as much as a party: nothing here is stored per
+    //  spark, every one is worked out on the card.
+    event celebrate
+    fact celebrating = false
+    gesture cheer reflex {
+        90ms out_quad            { sx: 1.10; sy: 0.88; body.y: 3 }
+        160ms out_quad           { sx: 0.94; sy: 1.10; body.y: -9; eyes: 14 }
+        140ms in_quad            { sx: 1.06; sy: 0.92; body.y: 1 }
+        150ms out_quad           { sx: 0.97; sy: 1.05; body.y: -6; tilt: 0.06 }
+        130ms in_quad            { sx: 1.04; sy: 0.95; body.y: 0.5; tilt: -0.04 }
+        180ms out_back
+    }
+    //  Awake first: asleep, her eyes are two thin strokes, and a face made on
+    //  top of them has no eyes.
+    on celebrate { celebrating = true; face = happy; asleep = false; play cheer }
+    on still celebrating for 4.2s while celebrating { celebrating = false; face = eye }
+
+    // ── the adventure ────────────────────────────────────────────
+    //  `./marea adventure`: she lets go of the top edge, falls to the bottom of
+    //  the screen, hops along it, grows wings and flies back up home. Her
+    //  surface only reaches 680 px down, so the journey happens in a surface of
+    //  its own the size of the whole monitor, open only while it lasts; where
+    //  she lives, meanwhile, she is `away`. All of it is ONE gesture: a timeline
+    //  with its curves —the fall speeds up like gravity, each hop slows at the
+    //  top and speeds up coming down—, so it has weight and is written in one
+    //  place.
+    event adventure
+    event adventure_done
+    fact adventuring = false
+    fact adv_screen = 0
+    pose adv.fx = 0                    // across the bottom: −1 left edge, 1 right edge
+    pose adv.fy = 0                    // 0 at home, 1 on the bottom edge
+    //  The hops are not keyframed one by one: `adv.p` runs linearly from one
+    //  hop to the next (1 is the end of the first, 3 of the third) while
+    //  `adv.fx` runs linearly across the floor, and each hop's arc, squash and
+    //  stretch are worked out from where in its hop she is. Keyframed —up
+    //  slowing, down speeding— the curve applied to the sideways movement too,
+    //  so she stopped dead at every top and every landing, and it looked like
+    //  too few frames.
+    pose adv.p = 0                     // which hop and how far into it
+    pose hopping = 0                   // 1 while hopping: arcs, squashes and dust
+    pose hop.amp = 70                  // how high the hops go
+    pose wing = 0                      // 0 none, 1 wings out
+    gesture journey state {
+        //  Letting go: the water holds her, stretching, and lets go.
+        450ms in_out_sine        { adv.fy: 0.02; sx: 0.88; sy: 1.16 }
+        //  The fall, speeding up, stretched.
+        950ms in_quad            { adv.fy: 1; sx: 0.86; sy: 1.2 }
+        //  Splat, back into shape, and a breath.
+        120ms out_quad           { adv.fy: 1; sx: 1.3; sy: 0.72 }
+        450ms out_back           { adv.fy: 1; hop.amp: 70 }
+        300ms                    { adv.fy: 1; hop.amp: 70 }
+        //  Three hops to the right, at an even, unhurried pace.
+        2400ms linear            { adv.fy: 1; adv.p: 3; adv.fx: 0.72; hopping: 1; hop.amp: 70 }
+        //  And a big one to turn back, leaning into it.
+        950ms linear             { adv.fy: 1; adv.p: 4; adv.fx: 0.3; hopping: 1; hop.amp: 130; tilt: -0.14 }
+        250ms out_quad           { adv.fy: 1; adv.p: 4; adv.fx: 0.3 }
+        //  Wings, still on the ground, and a moment to gather herself.
+        550ms out_back           { adv.fy: 1; adv.p: 4; adv.fx: 0.3; wing: 1 }
+        300ms in_out_sine hold 200ms { adv.fy: 1; adv.p: 4; adv.fx: 0.3; wing: 1; sx: 1.12; sy: 0.88 }
+        //  And up, home, gently.
+        2600ms in_out_sine       { adv.fy: 0; adv.fx: 0; wing: 1; sx: 0.95; sy: 1.05 }
+        450ms out_quad           { adv.fy: 0; adv.fx: 0 }
+        30ms emit adventure_done { adv.fy: 0; adv.fx: 0 }
+    }
+    on adventure {
+        //  Its own purpose: `away` for more than 2.5 s with the default one (`shot`)
+        //  is a shot whose frame never came, and it brought her back home —while
+        //  she was still out on her adventure, so there were two of her—.
+        adventuring = true; asleep = false; face = happy; purpose = adventure
+        adv_screen = if(hosts.1, 1, 0)
+        away: 1 ~16ms
+        play journey
+    }
+    on adventure_done { adventuring = false; face = eye; away: 0 ~16ms }
+
+    // ── angry ────────────────────────────────────────────────────
+    //  `./marea rage`: she frowns, reddens, pulls out a pistol and shoots the
+    //  screen five times; the glass cracks where each one lands, and the shards
+    //  bend what is behind it. Then the glass fades, she puts it away and calms
+    //  down. A test of how far a scene can go: angry face, a drawn pistol that
+    //  aims and recoils, muzzle flashes and tracers made of particles, and a
+    //  shader of its own that breaks the screen.
+    event rage
+    fact raging = false
+    pose kick = 0                      // the pistol's recoil
+    gesture recoil reflex {
+        40ms out_quad            { kick: 1; body.y: -2.5; sx: 1.06; sy: 0.95 }
+        170ms out_quad           { kick: 0 }
+        120ms
+    }
+    prop gun = 0 ~lively
+    prop fade = 0 ~900ms               // the broken glass, all of it
+    prop flash = 0 ~16ms
+    //  The gunslinger's part: the spin as it comes out and goes back —two whole
+    //  turns round her finger, slowing into the aim—, the glare before
+    //  shooting, and blowing the smoke off the barrel at the end.
+    prop gun.twirl = 0 ~800ms
+    prop glare = 0 ~200ms
+    prop blow = 0 ~350ms
+    prop calm = 0 ~16ms
+    //  Each shot, a step at its moment; each hole, how far it has cracked.
+    prop shot.1 = 0 ~16ms
+    prop crack.1 = 0 ~300ms
+    prop shot.2 = 0 ~16ms
+    prop crack.2 = 0 ~300ms
+    prop shot.3 = 0 ~16ms
+    prop crack.3 = 0 ~300ms
+    prop shot.4 = 0 ~16ms
+    prop crack.4 = 0 ~300ms
+    prop shot.5 = 0 ~16ms
+    prop crack.5 = 0 ~300ms
+    on rage {
+        raging = true; face = angry; asleep = false
+        fade: 1 ~16ms; calm: 0
+        shot.1: 0; shot.2: 0; shot.3: 0; shot.4: 0; shot.5: 0
+        crack.1: 0 ~16ms; crack.2: 0 ~16ms; crack.3: 0 ~16ms; crack.4: 0 ~16ms; crack.5: 0 ~16ms
+        //  Out, spinning into the aim.
+        gun.twirl: 0 ~16ms; gun.twirl: 1 ~800ms after 200ms
+        gun: 1 ~lively after 200ms
+        //  The glare: looking at you, narrowed, before the first shot.
+        glare: 1 ~220ms after 1050ms
+        glare: 0 ~200ms after 1950ms
+        shot.1: 1 after 2000ms
+        shot.2: 1 after 2450ms
+        shot.3: 1 after 2800ms
+        shot.4: 1 after 3350ms
+        shot.5: 1 after 3700ms
+        //  Blowing the smoke off, and back in, spinning.
+        blow: 1 ~350ms after 4250ms
+        blow: 0 ~300ms after 5500ms
+        gun.twirl: 0 ~700ms after 5650ms
+        gun: 0 ~260ms after 6000ms
+        calm: 1 after 6350ms
+    }
+    on change calm > 0.5 while calm > 0.5 and raging { raging = false; face = eye; fade: 0 ~900ms }
+    //  The gulp, when the drop reaches her shoulder.
+    gesture gulp reflex {
+        90ms out_quad   { sx: 1.06; sy: 0.94; body.y: 1 }
+        180ms out_back
+    }
+
+    //  And with something of hers open she is out, however it was opened.
+    //  Only a press on her set `needed`: a card opened from the finder, a
+    //  shortcut or the logic came out of a ball that was still sunk for the
+    //  face, and her eyes sat 4.5 px low in it.
+    follow out = if(hidden and not needed and not open and not tray_open and not celebrating and not reel_open and not raging and not adventuring, 0, 1)
+
+}

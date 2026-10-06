@@ -1,0 +1,91 @@
+// Marea's scene, in pieces: what is seen of her menu. marea.plm includes it.
+part Menu {
+    // ── what is seen of her menu ─────────────────────────────────
+    //  The drawing goes here and the zones at the very end, and it is not a
+    //  whim: the card's clip is loose and takes with it everything that comes
+    //  after up to the next named surface, so a menu written further down came
+    //  out clipped to a closed card —that is, it did not come out—.
+    //  An add-on's entry. It is a piece and not six copies written by hand
+    //  because the logic brings the list: each copy has its spring and its zone,
+    //  and the row pointed at with the keyboard is passed in from outside.
+    component MenuRow(e: record, marked: number, pick: event) {
+        size: 155, 23 + e.first * 16
+        prop glow = 0 ~110ms
+        let fy = e.first * 16
+        let is_marked = if(marked == e.index, 1, 0)
+        //  The name of whoever brings it, only above the first of its group.
+        text e.group_name { at: 8, 8; anchor: left center; size: 9.5; weight: 600; color: #6f7378
+                       width: 139; lines: 1; show: e.first }
+        //  At rest the row has no background: the box's is hers, since the box is
+        //  hers. The only thing painted is what is pointed at.
+        box { from: 0, fy; size: 155, 23; corner: 7; color: #23282b; opacity: glow }
+        //  The pointer's highlight is filled; the keyboard's is an outline. They
+        //  are two different things and that is why they look different.
+        box { from: 0, fy; size: 155, 23; corner: 7; stroke: 1; color: mint; opacity: is_marked * (1 - glow) }
+        //  Without an icon catalogue, an entry's glyph is its little square.
+        box { at: 13, fy + 11.5; size: 9, 9; corner: 2.5; stroke: 1.4; color: mix(#8b8f95, #f6f6f5, glow) }
+        text e.title { at: 26, fy + 11.5; anchor: left center; size: 12; width: 122; lines: 1
+                        color: mix(#dfe1e3, #f6f6f5, glow) }
+        zone box touch { from: 0, fy; size: 155, 23; corner: 7; cursor: pointer }
+        on enter touch { glow: 1 }
+        on leave touch { glow: 0 }
+        on press touch { emit pick(e.index) }
+    }
+
+    group {
+        opacity: clamp(menu * 4 - 3, 0, 1)
+        move: (1 - menu) * -13, 0
+        let mx0 = menu.x - menu.w / 2 + 4
+        //  The two house ones. They are written out and not in the model because
+        //  they are hers: an add-on cannot add or remove Settings.
+        repeat m in 0..5 {
+            prop own.$m = 0 ~110ms
+            box { at: menu.x, menu.y0 + 15.5 + m * 23; size: 155, 23; corner: 7
+                  color: #23282b; opacity: own.$m }
+            box { at: menu.x, menu.y0 + 15.5 + m * 23; size: 155, 23; corner: 7; stroke: 1; color: mint
+                  opacity: if(menu_selected == m, 1, 0) * (1 - own.$m) }
+        }
+        let ry.search = menu.y0 + 15.5
+        let ry.chat = menu.y0 + 38.5
+        let ry.settings = menu.y0 + 61.5
+        let ry.custom = menu.y0 + 84.5
+        let ry.sleep = menu.y0 + 107.5
+        //  Search goes first because it is what is done most. And its icon is the
+        //  magnifying glass, the same one that appears on her face.
+        arc { at: mx0 + 12, ry.search - 1; radius: 4.6; span: 360deg; width: 1.5; color: mix(#8b8f95, #f6f6f5, own.0) }
+        line { from: mx0 + 15, ry.search + 2; to: mx0 + 18, ry.search + 5; width: 1.6; color: mix(#8b8f95, #f6f6f5, own.0) }
+        text "Search…" { at: mx0 + 26, ry.search; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.0) }
+        //  Talking with her: a little speech bubble.
+        box { at: mx0 + 13, ry.chat - 1; size: 11, 8.5; corner: 3.5; stroke: 1.4; color: mix(#8b8f95, #f6f6f5, own.1) }
+        path { at: mx0 + 10, ry.chat + 3; color: mix(#8b8f95, #f6f6f5, own.1)
+               move 0, 0; line 3.4, 0; line 0, 3.2; close }
+        text "Talk with Marea" { at: mx0 + 26, ry.chat; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.1) }
+        //  The Settings gear, the same one as in the panel's header.
+        arc { at: mx0 + 13, ry.settings; radius: 5; span: 300deg; width: 1.4; color: mix(#8b8f95, #f6f6f5, own.2) }
+        ellipse { at: mx0 + 13, ry.settings; radius: 1.9; color: mix(#8b8f95, #f6f6f5, own.2) }
+        text "Settings" { at: mx0 + 26, ry.settings; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.2) }
+        //  And Customize's sparkle: a four-pointed star, which is a square whose
+        //  sides have been eaten away.
+        path { at: mx0 + 13, ry.custom; color: mix(#8b8f95, #f6f6f5, own.3)
+               move 0, -5.5; curve 5.5, 0 via 1.2, -1.2; curve 0, 5.5 via 1.2, 1.2
+               curve -5.5, 0 via -1.2, 1.2; curve 0, -5.5 via -1.2, -1.2; close }
+        text "Customize" { at: mx0 + 26, ry.custom; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.3) }
+        //  And the third house one: sleep. In Marea these are the control
+        //  center's «zZ»; here the center is the sheet's —three cards, and none of
+        //  them is this one—, so it goes with hers, which is where the things
+        //  SHE does are.
+        text "z" { at: mx0 + 10, ry.sleep - 3; anchor: center; size: 9; weight: 600
+                   color: mix(#8b8f95, #f6f6f5, own.4) }
+        text "z" { at: mx0 + 16, ry.sleep + 3; anchor: center; size: 12; weight: 600
+                   color: mix(#8b8f95, #f6f6f5, own.4) }
+        text "Sleep" { at: mx0 + 26, ry.sleep; anchor: left center; size: 12; color: mix(#dfe1e3, #f6f6f5, own.4) }
+        //  The line, and below it the add-ons' stuff.
+        line { from: mx0 + 8, menu.y0 + 122; to: mx0 + 147, menu.y0 + 122; width: 1; color: #1f2226 }
+        column menu_col {
+            at: mx0, menu.y0 + 125
+            gap: 0
+            for e in entries { MenuRow(e, marked: menu_selected - 5, pick: menu_entry) }
+        }
+    }
+
+}

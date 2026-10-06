@@ -79,7 +79,7 @@ function Test-Package {
     }
     foreach ($required in @('bin/pleamar.exe','bin/pleamar-wm.exe','bin/pleamar-wm-host.exe','bin/licenses/pleamar-wm/LICENSE','bin/deriva-worker.exe','bin/node.exe','bin/marea-agent.exe','bin/dxcompiler.dll','bin/dxil.dll',
         'app/agent/worker.mjs','app/agent/package-lock.json','app/agent/node_modules/@earendil-works/pi-coding-agent/package.json','windows/agent-package.ps1',
-        'bin/vcruntime140.dll','bin/vcruntime140_1.dll','bin/msvcp140.dll','app/marea-desktop.plm','app/marea-desktop.luau','app/assets/marea.ico','app/tools/deriva-preview.mjs','app/tools/startup.ps1','app/tools/software.ps1','app/tools/winget/Microsoft.WinGet.Client.psd1')) {
+        'bin/vcruntime140.dll','bin/vcruntime140_1.dll','bin/msvcp140.dll','app/marea-desktop.plm','app/marea-desktop.luau','app/assets/marea.ico','app/tools/deriva-preview.mjs','app/tools/deriva-fetch.mjs','app/tools/startup.ps1','app/tools/software.ps1','app/tools/winget/Microsoft.WinGet.Client.psd1')) {
         if (-not $manifest.files.PSObject.Properties[$required]) { throw "Missing package manifest entry: $required" }
     }
     if ($manifest.wm_source -notmatch '^[0-9a-f]{40}$') { throw 'Missing window manager source revision.' }

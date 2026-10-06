@@ -742,7 +742,14 @@ pub fn despachar(db: &Connection, p: &Peticion) -> Respuesta {
         "get" => {
             let id = p.params.get("id").and_then(|v| v.as_str()).unwrap_or("");
             match crate::search::una(db, id) {
-                Ok(Some(f)) => Respuesta::bien(&p.id, serde_json::json!({ "item": f })),
+                //  With its whole text: a note is copied whole, not its
+                //  excerpt.
+                Ok(Some(f)) => {
+                    let texto: String = db
+                        .query_row("SELECT content_text FROM captures WHERE id = ?1", [id], |r| r.get(0))
+                        .unwrap_or_default();
+                    Respuesta::bien(&p.id, serde_json::json!({ "item": f, "text": texto }))
+                }
                 Ok(None) => Respuesta::mal(&p.id, "no_existe", "no hay ninguna con ese id"),
                 Err(e) => Respuesta::mal(&p.id, "db", e.to_string()),
             }

@@ -113,7 +113,7 @@ jobs:
       - name: Preview fetching and native enrichment storage
         working-directory: marea
         run: |
-          & .tools/installer-tools/node-v22.23.3-win-x64/node.exe --test tools/test-deriva-preview.mjs
+          & .tools/installer-tools/node-v22.23.3-win-x64/node.exe --test tools/test-deriva-preview.mjs tools/test-deriva-fetch.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Preview tests failed.' }
           python windows/test-deriva-native.py --worker deriva/target/release/deriva-worker.exe
           if ($LASTEXITCODE -ne 0) { throw 'Deriva storage tests failed.' }

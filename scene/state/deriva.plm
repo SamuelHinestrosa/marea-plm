@@ -1,0 +1,84 @@
+// Marea's scene, in pieces: Deriva. marea.plm includes it.
+part Deriva {
+    // ── Deriva: what is dropped on her, kept, and found again ────
+    //  Carry something over her —a link, a file, an image, some text— and a
+    //  pool opens under her, with two more places to leave it; let it go and
+    //  she swallows it. Her library (`deriva-worker`, on disk) keeps it, and its
+    //  page finds it again: six cards with their cover, her folders as chips
+    //  above them, and on each card what can be done with it.
+    //  A card's own colour (`cr cg cb`) is its site's, for the cover drawn
+    //  when there is no picture; `sr sg sb`, its folder's.
+    model drift max 6 {
+        title: text; source: text; date: text; thumb: image 144, 84; has_thumb: bool; link: text
+        fav: bool; glyph: text; excerpt: text; note: bool; cr: number; cg: number; cb: number
+        in_space: bool; sr: number; sg: number; sb: number
+    }
+    //  What can be looked at: everything, today's, the favourites, each folder.
+    model drift_chips max 8 { label: text; chosen: bool; dot: bool; cr: number; cg: number; cb: number }
+    //  The folders a card can be moved to, the last one «none».
+    model drift_spaces max 6 { name: text; here: bool; dot: bool; cr: number; cg: number; cb: number }
+    text drift_q = ""
+    text drift.toast = ""
+    text drift.empty = ""              // what an empty view says, by why it is empty
+    fact drift.result = 0              // 0 none · 1 saved · 2 already there · 3 could not
+    fact drift.kept = 0
+    fact drift.found = 0               // in what is being looked at
+    fact drift.offset = 0              // the first row shown
+    fact drift.trash = false           // looking at the trash
+    fact drift.trashed = 0
+    fact drift.searching = false       // something is written in the search
+    fact drift.moving = -1             // the card whose folder is being chosen
+    //  Her library is not installed: the page says so instead of staying empty.
+    fact drift.missing = false
+    event show_drift
+    event drift_open ->
+    event drift_pick ->
+    event drift_scroll ->
+    event drift_chip ->                // a chip: what to look at
+    event drift_fav ->                 // a card's star
+    event drift_bin ->                 // a card to the trash, or back from it
+    event drift_move ->                // a card's folders, to choose one
+    event drift_to ->                  // the folder chosen (by its place)
+    event drift_bin_view ->            // the trash, or back from it
+    prop bin.glow = 0 ~140ms
+    prop drift.bar = 0 ~220ms
+    follow drift.bar = drift.offset
+    event drift_saved                  // the logic: it is kept (or it already was)
+    prop catch = 0 ~260ms
+    follow catch = if(drag.over, 1, 0)
+    prop pool.t = 0
+    spin pool.t by if(drag.over, 0.9, 0)
+    prop later.hl = 0 ~140ms
+    prop insp.hl = 0 ~140ms
+    prop toast.in = 0 ~220ms
+    on show_drift { menu_open = false; tray_open = false; searching = false; open = true; page = drift; emit drift_open }
+    on drift_saved {
+        toast.in: 1 ~220ms
+        toast.in: 0 ~400ms after 2200ms
+        play gulp
+    }
+    //  The same note, for anything else she wants to say in passing.
+    event say_toast
+    on say_toast {
+        toast.in: 1 ~220ms
+        toast.in: 0 ~400ms after 2200ms
+    }
+    event clear_history ->
+    event history_scroll ->            // the wheel over it: back and forth in time
+    prop hist.wash = 0 ~700ms
+    prop clear.glow = 0 ~140ms
+    prop hist_link.glow = 0 ~140ms
+    prop tide.t = 0
+    spin tide.t by if(page == history, 0.4, 0)
+    on show_history { menu_open = false; tray_open = false; open = true; page = history; emit history_open }
+    event history_open ->
+    event close_tray
+    event resolve ->                   // with which one, as payload: the logic marks it read
+    event dismiss ->                   // and this one is thrown away: it does not come back, nor send a drop
+    event open_notice ->               // a tap: let the logic open it wherever it lives
+    event undone ->                    // changed her mind in time: that row does not close
+    //  «Undo» for 5 s, with a fuse that burns down. Five exact seconds at a
+    //  constant pace are not given by a spring: they are given by a gesture,
+    //  which is a timeline with its curve. `linear` is what makes a fuse look
+    //  like a fuse and not like something that brakes at the end.
+}

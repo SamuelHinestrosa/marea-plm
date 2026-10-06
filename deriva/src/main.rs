@@ -48,6 +48,35 @@ fn main() {
             #[cfg(unix)]
             return;
         }
+        //  The protocol on its input and output: a request per line in, an
+        //  answer per line out, the library open and the model for searching
+        //  by meaning loaded once. Marea keeps one alive while you search —each
+        //  search from the command line loads half a gigabyte again, three
+        //  seconds— and lets it go when you stop. It ends with its input.
+        "stdio" => {
+            use std::io::{BufRead, Write};
+            let db = match db::abrir() {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("deriva-worker: {}", e);
+                    std::process::exit(1);
+                }
+            };
+            let mut salida = std::io::stdout().lock();
+            for linea in std::io::stdin().lock().lines() {
+                let Ok(linea) = linea else { break };
+                if linea.trim().is_empty() {
+                    continue;
+                }
+                let r = match serde_json::from_str::<proto::Peticion>(&linea) {
+                    Ok(p) => proto::despachar(&db, &p),
+                    Err(e) => proto::Respuesta::mal("", "json", e.to_string()),
+                };
+                let _ = writeln!(salida, "{}", serde_json::to_string(&r).unwrap_or_default());
+                let _ = salida.flush();
+            }
+            return;
+        }
         "ingest" => por_metodo("ingest", opcion(&args, "--request")),
         "enrich" => {
             if args.iter().any(|a| a == "--request-stdin") {
@@ -78,6 +107,32 @@ fn main() {
         "list" => {
             let n = opcion(&args, "--limit").unwrap_or_else(|| "50".into());
             por_metodo("list", Some(format!(r#"{{"limit":{}}}"#, n)))
+        }
+        //  Any method of the protocol, with its params as they go on the
+        //  socket. It is how Marea asks for what has no order of its own
+        //  (`trash`, `annotate`, `enrich`, `home` with a filter…) without a
+        //  socket of her own. `--preview-file` reads a picture from disk and
+        //  hands it to `enrich` as its `preview_b64`: a cover is too big to
+        //  travel as an argument.
+        "call" => {
+            let metodo = args.get(1).cloned().unwrap_or_default();
+            let mut params = opcion(&args, "--params").unwrap_or_else(|| "{}".into());
+            if let Some(fichero) = opcion(&args, "--preview-file") {
+                let bytes = match std::fs::read(&fichero) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        println!("{}", serde_json::json!({ "ok": false, "error": e.to_string() }));
+                        std::process::exit(1);
+                    }
+                };
+                let mut v: serde_json::Value =
+                    serde_json::from_str(&params).unwrap_or_else(|_| serde_json::json!({}));
+                if let Some(o) = v.as_object_mut() {
+                    o.insert("preview_b64".into(), serde_json::json!(util::a_base64(&bytes)));
+                }
+                params = v.to_string();
+            }
+            por_metodo(&metodo, Some(params))
         }
         "stats" => por_metodo("stats", None),
         "doctor" => por_metodo("doctor", None),
@@ -230,6 +285,9 @@ fn ayuda() {
   search   --query <texto> [--limit] busca
   get      --id <id>                 una captura entera
   list     [--limit N]               lo último guardado
+  stdio                              the protocol on stdin/stdout, a line each
+  call     <method> [--params <json>] [--preview-file <path>]
+                                     any method of the protocol
   stats                              cuántas cosas hay
   doctor                             versión, esquema, rutas e integridad
   import   --folder <ruta>           una carpeta de ficheros

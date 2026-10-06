@@ -1,15 +1,16 @@
 """Exercise shared memory logic with an isolated in-memory files service."""
 from pathlib import Path
 import argparse
-from logic_test import runner_arguments, run_checks
+from logic_test import runner_arguments, run_checks, shared_logic
 
 parser=argparse.ArgumentParser(description=__doc__)
 runner_arguments(parser)
 args=parser.parse_args()
-source=Path(__file__).resolve().parents[1].joinpath('marea.luau').read_text(encoding='utf-8')
+source=shared_logic()
 start=source.index('    -- ── her memory ──')
 end=source.index('    -- ── the worker ──',start)
 checks=r'''
+local hooks={language={}}
 local store, handlers, timers, replies = {}, {}, {}, {}
 local fact, text, model, rows = {}, {}, {}, {}
 local fail_write, fail_remove, fail_list = nil, nil, false

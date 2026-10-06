@@ -53,6 +53,7 @@ $files = [ordered]@{
     'app/marea-desktop.luau' = (Join-Path $PSScriptRoot 'marea-desktop.luau')
     'app/tools/reservas' = (Join-Path $PSScriptRoot 'tools/reservas')
     'app/tools/deriva-preview.mjs' = (Join-Path $PSScriptRoot 'tools/deriva-preview.mjs')
+    'app/tools/deriva-fetch.mjs' = (Join-Path $PSScriptRoot 'tools/deriva-fetch.mjs')
     'app/tools/startup.ps1' = (Join-Path $PSScriptRoot 'tools/startup.ps1')
     'app/tools/software.ps1' = (Join-Path $PSScriptRoot 'tools/software.ps1')
     'app/tools/windows-overview.plm' = (Join-Path $PSScriptRoot 'tools/windows-overview.plm')

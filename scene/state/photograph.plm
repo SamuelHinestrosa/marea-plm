@@ -1,0 +1,89 @@
+// Marea's scene, in pieces: the photograph. marea.plm includes it.
+part Photograph {
+    // ── the photograph ───────────────────────────────────────────
+    //  She does not switch off all at once before the screen freezes: she
+    //  anticipates for 70 ms, stretches and LEAVES by the top edge in 150. The
+    //  numbers are Marea's, times 46/56; the last one rises more than there
+    //  because this surface does not hide: here it is she who has to end up
+    //  completely outside.
+    event snap                         // someone asks for a photo
+    event gone ->                      // she is no longer in the frame: the logic freezes NOW
+    //  What is photographed. All three come in by keyboard —`pleamar --say marea
+    //  "emit shot_region"`— and do the same until there is a photo: what changes
+    //  is where the crop comes from.
+    fact scope: region | display | active_window = region
+    event shot_region                  // Print · SUPER+C
+    event shot_screen                  // SHIFT+Print
+    event shot_window                  // CTRL+Print
+    event frozen                       // the logic: I have the frame, you can come back
+    event shot_cancelled               // Esc while framing: there is no photo, and it does not fire
+    prop away = 0 ~quick               // 1 while she waits up there, out of sight
+
+    gesture retire state {
+        70ms out_quad           { eyes: 14.8; sx: 0.94; sy: 1.12; body.y: -3.3 }
+        150ms in_cubic          { eyes: 13.1; sx: 0.78; sy: 1.30; body.y: -84 }
+        //  `emit` sounds at the START of its frame, so it goes in one of its own:
+        //  the «I'm no longer here» notice has to arrive when she is no longer
+        //  there.
+        30ms emit gone          { eyes: 13.1; sx: 0.78; sy: 1.30; body.y: -84 }
+    }
+    //  She leaves the same way for two things, and on reaching the top she does
+    //  one or the other.
+    fact purpose: shot | nook | travel | adventure | ride = shot
+    on shot_region { scope = region; emit snap }
+    on shot_screen { scope = display; emit snap }
+    on shot_window { scope = active_window; emit snap }
+    //  And whatever was open is folded away: a half-closed panel in the photo is
+    //  the only thing she can spoil.
+    on snap { purpose = shot; open = false; page = none; tray_open = false; searching = false; menu_open = false; play retire }
+
+    //  The shot. The shutter is a pose and the click a gesture: it closes in 80,
+    //  holds, opens in 170 —Marea's timings— and gives the face back. And a
+    //  minimal recoil of the body on closing, which is not there: a camera that
+    //  fires without moving is an icon, not a camera.
+    event shoot
+    event taken
+    gesture click state {
+        80ms out_quad hold 10ms  { shut: 1; sx: 1.05; sy: 0.95 }
+        170ms out_back           { shut: 0 }
+        120ms
+        10ms emit taken
+    }
+    on shoot while face == camera { play click }
+    //  And whatever happened, the camera does not stay on her face.
+    on still face for 20s while face == camera { face = eye }
+    on taken { face = eye }
+    //  Once out, she stays out —the gesture puts the pose back at its base, and
+    //  without this she would drop back in the same frame— and changes face
+    //  where nobody sees her. 200 ms of margin, which is what the compositor
+    //  takes to remove the layer: they are measured in Marea, with 90 a ghost of
+    //  her came out in the photo.
+    //  And she comes back falling with a lively spring, which bounces a hair on
+    //  landing: she does not «appear» with the camera on, she returns.
+    //
+    //  She comes back when the logic says the frame IS ALREADY frozen, not after
+    //  220 ms of clock: freezing two monitors takes whatever it takes, and coming
+    //  back earlier meant being in the photo. What is framed afterwards is that
+    //  photo —it is cropped from it, not from the live desktop—, so while you
+    //  choose she can already be in front: nothing she does gets into an image
+    //  that already exists.
+    on gone while purpose == shot {
+        away: 1 ~16ms
+        face = camera
+    }
+    on frozen { away: 0 ~lively }
+    on shot_cancelled { away: 0 ~lively; face = eye }
+    //  Riding a window, in pleamar-wm's session: she leaves by the top edge the
+    //  same way, and the window manager, which knows where every window is on
+    //  every frame, draws her on the title bar of the one with the keyboard.
+    //  When she comes back —her window closed, put away, shaken, or she was
+    //  pressed— it says so, and she drops back into her island.
+    event ride_out
+    event ride_back ->
+    on ride_out { purpose = ride; asleep = false; open = false; page = none; tray_open = false; searching = false; menu_open = false; play retire }
+    on gone while purpose == ride { away: 1 ~16ms }
+    on ride_back { away: 0 ~lively; face = eye; purpose = shot }
+    //  And if the logic did not answer, she does not stay up there forever.
+    on still away for 2.5s while away > 0.5 and purpose == shot { away: 0 ~lively; face = eye }
+
+}

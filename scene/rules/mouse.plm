@@ -1,0 +1,132 @@
+// Marea's scene, in pieces: what answers the mouse, her menu, the corner. marea.plm includes it.
+part Mouse {
+    // ── what answers the mouse ───────────────────────────────────
+    //  Below her: the press belongs to the topmost zone.
+    //  In the Haven the time does not come out —the capsule does—, so neither does
+    //  its grace zone: declared after, it kept the click on «End», which lands
+    //  right on top of it. The capsule already has its own.
+    zone box body_zone { at: cx, cy_actual; size: 2 * r, 2 * r + 30; corner: r; cursor: pointer }
+
+    zone ellipse drift_drop { at: pool.x, cy_actual + 44; radius: 84; active: drag.over }
+    zone ellipse drift_later { at: pool.x - 120, pool.y; radius: 34; active: drag.over }
+    zone ellipse drift_insp { at: pool.x + 120, pool.y; radius: 34; active: drag.over }
+    on enter drift_later { later.hl: 1 }
+    on leave drift_later { later.hl: 0 }
+    on enter drift_insp { insp.hl: 1 }
+    on leave drift_insp { insp.hl: 0 }
+    //  Anything that needs her brings her out; and she sinks back after 2.6 s of
+    //  grace, which is what the contract calls grace and here it is said as is.
+    //  And waking up is the first thing that happens when someone looks for her:
+    //  the rest —coming out, the time, the panel— comes after, with her already
+    //  awake.
+    on enter body_zone { needed = true; wanted = true; asleep = false }
+    //  180 ms of waiting before coming out: hovering over her is not asking the
+    //  time. And 300 of grace on leaving, because the gap between her and the note
+    //  is real and must not be lost while crossing it. It goes away if the panel
+    //  opens.
+    zone box notecard_zone { at: notecard.x, cy_actual; size: 104, 56; corner: 13; cursor: pointer; active: notecard > 0.8 }
+    on hover body_zone for 180ms while not open and not menu_open and drag.over < 0.5 { note = true }
+    //  And this does not rule in the Haven: with the zone switched off, «being
+    //  outside» is always true, so it switched the capsule off 300 ms after
+    //  opening it.
+    on away notecard_area for 300ms while fan < 0.01 and not haven { note = false }
+    //  And a net under both: the rules above count only after the pointer has
+    //  been over their zone, and one that fired while its `while` did not hold
+    //  —the fan was out at that moment— was spent, and the time stayed open
+    //  with nobody over her until she was touched again. This one looks at
+    //  the whole: the note open, and the pointer over none of her, 400 ms.
+    fact in.body = false
+    fact in.note = false
+    fact in.fan = false
+    on leave body_zone { in.body = false }
+    on leave notecard_area { in.note = false }
+    on leave fan_area { in.fan = false }
+    on enter body_zone { in.body = true }
+    on enter notecard_area { in.note = true }
+    on enter fan_area { in.fan = true }
+    on still note and not (in.body or in.note or in.fan) for 400ms while note and not (in.body or in.note or in.fan) and not haven { note = false }
+    //  With the fan out, the grace is counted over the whole.
+    on away fan_area for 300ms while not in.note { note = false }
+    //  And opening the card takes the menu with it, as the menu takes the card
+    //  with it: there are no two things of hers open at once.
+    on change open while open { note = false; menu_open = false }
+    //  The time opens the calendar: in her card, on its own page.
+    on press notecard_zone { note = false; open = true; page = calendar; emit calendar }
+    //  A single grace clock for everything that needs her —the pointer, the note,
+    //  the card—: 2.6 s from when the LAST one stops needing her. With one `away`
+    //  per zone, leaving her towards the note already counted, and she sank with
+    //  the time in her hand.
+    fact wanted = false
+    on leave body_zone while not note and not open { wanted = false }
+    on change note while not note { wanted = false }
+    on change open while not open { wanted = false }
+    //  And she does not sink with something of hers open: the tray, the finder or
+    //  her menu need her just like the card. She sank with the swell open —2.6 s
+    //  after letting go of her— and the tray was left hanging from half a ball.
+    on still wanted for 2.6s while not wanted and not note and not open and not tray_open and not searching and not menu_open { needed = false }
+    //  And she falls asleep by herself after 45 s with nobody there: nothing
+    //  needs her and the mouse has not moved anywhere. Only by nothing needing
+    //  her she dozed off while you worked, and now that the mouse wakes her she
+    //  would nod off and wake up every 45 s. Not in the Haven: automatic sleep
+    //  stays suspended while it lasts, which is what the contract says —she is
+    //  concentrating, not absent—.
+    on idle for 45s while not needed and not haven and not open and not tray_open and not corner and not asleep { asleep = true; dozed = true }
+    //  The click opens; brushing past does not. Before, 450 ms of brushing were
+    //  enough for a whole panel to cover what you were reading.
+    on press body_zone { press: 1; toggle open }
+    on release body_zone { press: 0 }
+    // ── her menu ─────────────────────────────────────────────────
+    //  It goes at the end on purpose: its zones have to be the last ones, because
+    //  the press belongs to the topmost zone and the time's one lands on top of it.
+    //  Open, the time, the fan and the capsule fold away: «whatever the pointer
+    //  had brought out there, goes away». Whoever arrives last, wins.
+    on press right body_zone { toggle menu_open }
+    on change menu_open while menu_open { open = false; note = false; menu_selected = -1; searching = false; tray_open = false }
+    //  It closes like the note: after being outside the whole —her and the menu—
+    //  for a while, with Esc, on choosing something, or with another right click.
+    //  And not before it is open: while it grows, its zone is not there yet, and
+    //  «I've been outside for 300 ms» came true without anyone having moved. The
+    //  menu closed by itself 370 ms after opening it if the pointer stayed on her.
+    on key Escape while menu_open { menu_open = false }
+    //  Esc closes whatever is open. The session's confirmation is the only
+    //  thing that goes back a step first: it is the one that cannot be undone.
+    on key Escape while open and not (page == session and confirming != none) and not (page == wifi and (asking >= 0 or wifi.sharing)) and not (page == sound and sound.choosing > 0) { open = false }
+    on key Escape while tray_open { tray_open = false }
+    on key Escape while reel_open { reel_open = false }
+    //  «Escape goes back to the menu without executing; a second Escape closes.»
+    on key Escape while page == session and confirming != none { confirming = none }
+    //  With the keyboard: the arrows move the pointed row and Enter chooses it.
+    //  Enter without having pointed at anything takes the first one, which is
+    //  Settings: what the right button used to do is still one key away.
+    on key Down while menu_open { menu_selected = min(menu_selected + 1, 4 + entries.count) }
+    on key Up while menu_open { menu_selected = max(menu_selected - 1, 0) }
+    on key Return while menu_open and menu_selected < 1 { emit search; menu_open = false }
+    on key Return while menu_open and menu_selected == 1 { emit chat; menu_open = false }
+    on key Return while menu_open and menu_selected == 2 { emit settings; menu_open = false }
+    //  «Settings», from her menu or from outside, opens its page in the control
+    //  center.
+    on settings { open = true; page = settings; section = menu }
+    on key Return while menu_open and menu_selected == 3 { emit customize; menu_open = false; open = true; page = wardrobe }
+    on key Return while menu_open and menu_selected == 4 { emit sleep; menu_open = false }
+    on key Return while menu_open and menu_selected > 4 { emit menu_entry(menu_selected - 5); menu_open = false }
+    on menu_entry { menu_open = false }
+
+    //  The house zones, outside the drawing and after the whole.
+    repeat m in 0..5 {
+        zone box own_zone.$m { at: menu.x, menu.y0 + 4 + 11.5 + m * 23; size: 155, 23
+                                corner: 7; cursor: pointer; active: menu > 0.9 }
+        on enter own_zone.$m { own.$m: 1; menu_selected = -1 }
+        on leave own_zone.$m { own.$m: 0 }
+    }
+    on press own_zone.0 { emit search; menu_open = false }
+    on press own_zone.1 { emit chat; menu_open = false }
+    on press own_zone.2 { emit settings; menu_open = false }
+    on press own_zone.4 { emit sleep; menu_open = false }
+    //  «Customize» opens her wardrobe, which is where this lives.
+    on press own_zone.3 { emit customize; menu_open = false; open = true; page = wardrobe }
+
+    // ── the corner ───────────────────────────────────────────────
+    //  She peeks out 82 %: with a little more than half, the red eye spent the
+    //  time behind the edge, which is exactly the only thing this mode is for.
+    //  46 × 0.82 − 23 = 14.7: that is how far from the angle her centre sits.
+}

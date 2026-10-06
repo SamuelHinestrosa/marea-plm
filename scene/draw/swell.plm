@@ -1,0 +1,204 @@
+// Marea's scene, in pieces: the tray: the swell. marea.plm includes it.
+part Swell {
+    // ── the tray: the swell ──────────────────────────────────────
+    //  Its place and its size. The shape is set by her body, further up; here go
+    //  the measurements and what it has written on it.
+    let tray.w = 520 * tray
+    let tray.h = 460 * tray
+    //  Stuck to her, not beside her: they overlap 17 px, and with that the
+    //  melting makes a real neck. With the 40 gap the other card has there was
+    //  nothing to melt and they stayed as two things side by side.
+    let tray.x = cx + 6 + tray.w / 2
+    let tray.y = cy_actual + tray.h / 2 - 8
+
+    //  The grace zone goes BELOW the rows: the press belongs to the topmost
+    //  zone, and declared at the end it kept every row's click.
+    //  It closes on leaving the whole —her and the tray—, with the same 320 ms
+    //  as the note: the gap between the two is real.
+    zone box tray_area { at: cx + tray.w / 2, cy_actual + tray.h / 2 - 8; size: 2 * r + 40 + tray.w, 2 * r + 40 + tray.h; corner: 30; active: tray_open }
+    //  Like the card: Esc or a click outside, not leaving it.
+
+    group {
+        opacity: clamp(tray * 2.6 - 1.6, 0, 1)
+        let tx0 = tray.x - 232
+        let ty0 = tray.y - 198
+
+        text "SWELL" { at: tx0, ty0; anchor: left center; size: 9.5; weight: 600; color: ink; opacity: 35% }
+        // ── the header, by columns ───────────────────────────────
+        //  The title on the left, the lane of pills in the middle and «View all»
+        //  on the right. The three places come from ONE sum, from the right edge
+        //  inwards, so there is no way they can overlap: by hand, the fourth pill
+        //  landed right on top of the button.
+        let header.right = tray.x + 232
+        let header.button = header.right - 39
+        let header.lane = header.button - 39 - 22
+        //  And what is being shown: «Now» is everything, and with a filter, the
+        //  name of its category. You asked about the blue drop; it answers the
+        //  question you asked.
+        text "Now" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink; show: filter < 0.5 }
+        text "Messages" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink; show: filter == 1 }
+        text "Work" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink; show: filter == 2 }
+        text "Calendar" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink; show: filter == 3 }
+        text "System" { at: tx0, ty0 + 24; anchor: left center; size: 19; weight: 500; color: ink; show: filter == 4 }
+        //  And how to see everything again, or else it is a dead end.
+        box { at: header.button, ty0 + 24; size: 78, 26; corner: 13; color: #202021; opacity: if(filter > 0.5, 1, 0) }
+        text "View all" { at: header.button, ty0 + 24; anchor: center; size: 11.5; color: #8b8f95; show: filter > 0.5 }
+        zone box show_all { at: header.button, ty0 + 24; size: 78, 26; corner: 13; cursor: pointer; active: tray > 0.9 and filter > 0.5 }
+        on press show_all { filter = 0 }
+
+        //  The lane: the drops go from her shoulder to the tray's header, and
+        //  there they stay as pills with their count. The journey is along the
+        //  arc —what is animated is the angle—, so they come out going around
+        //  her and not cutting through.
+        repeat k in 1..5 {
+            let ang = -24 + 26 * slot.$k
+            let gx = cx + 31.7 * cos(ang)
+            let gy = cy_actual + 31.7 * sin(ang)
+            //  Packed to the end of the lane and in their order —the same as on
+            //  her shoulder—, not by their category's number: if one is missing,
+            //  the others close up instead of leaving its gap.
+            let rx = header.lane - slot.$k * 40
+            let ry = ty0 + 24
+            let px = gx + (rx - gx) * lane
+            let py = gy + (ry - gy) * (1 - (1 - lane) * (1 - lane))
+            group {
+                opacity: shown.$k
+                ellipse { at: px, py; radius: 7 + 4 * lane; color: mix(mix(mix(blue, lilac, k > 1.5), green, k > 2.5), amber, k > 3.5) }
+                text number(n.$k, 0) { at: px, py + 0.5; anchor: center; size: 8.5 + 2 * lane; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 1, 0) }
+            }
+        }
+
+        //  The rows. Each one arrives a little after the one above: that is the
+        //  swell, and that is why they do not all come in at once like a list.
+        //
+        //  And they are clipped to the tray itself: dragging one to a side it
+        //  came out of the panel and was seen floating over the desktop, which is
+        //  exactly what a panel does not do. The clip goes inside its group,
+        //  which is where it ends.
+        group {
+        clip inset 3 box { at: tray.x, tray.y; size: tray.w, tray.h; corner: 22 * tray }
+        repeat k in 1..6 {
+            let fy = ty0 + 76 + above.$k * 66 + (1 - rise.$k) * 26
+            //  Where it rests, and where it is now. What is uncovered goes in the
+            //  resting place —the gap it leaves— and not following it, or it
+            //  would stay underneath it and never be seen.
+            let fx0 = tx0 + 232
+            let fx = fx0 + flung.$k * 520 + pull.$k
+            //  How much it is being stretched: how far the finger has dragged it,
+            //  with a cap so the corner does not eat the row.
+            let stretch.$k = clamp(abs(pull.$k) + abs(flung.$k) * 120, 0, 150)
+            //  The colour is that of ITS CATEGORY, not of its place in the list.
+            //  It came from `k` —the row— and with five sample rows, one per
+            //  category and in that order, it did not show: two Telegram notices
+            //  in a row came out in different colours as soon as they arrived for
+            //  real. It is what the demo mode uncovered.
+            //
+            //  And the amber of an urgent one overrides its category's: what
+            //  matters about that row is no longer whose it is, it is that it is
+            //  urgent.
+            let color.$k = mix(mix(mix(mix(blue, lilac, row_cat.$k > 1.5), green, row_cat.$k > 2.5), amber, row_cat.$k > 3.5), #e2b25a, if(row_urgent.$k, 1, 0))
+            group {
+                opacity: rise.$k * (1 - flung.$k)
+                show: visible.$k > 0.5
+                //  What it uncovers when slid, to one side and the other: to the
+                //  right, «Done»; to the left, «Dismiss». And they are two
+                //  different things: what is done sends its drop back, **what is
+                //  dismissed does not**, because what is dismissed does not come
+                //  back.
+                group {
+                    opacity: clamp((pull.$k + flung.$k * 520) / 40, 0, 1)
+                    box { at: fx0 - 160, fy; size: 130, 58; corner: 14; color: #1b2a22 }
+                    text "Done" { at: fx0 - 160, fy; anchor: center; size: 12; weight: 600; color: mint }
+                }
+                group {
+                    opacity: clamp((0 - pull.$k - flung.$k * 520) / 40, 0, 1)
+                    box { at: fx0 + 160, fy; size: 130, 58; corner: 14; color: #2a1b1b }
+                    text "Dismiss" { at: fx0 + 160, fy; anchor: center; size: 12; weight: 600; color: #e0655a }
+                }
+                //  Pulling a row stretches it: it lengthens where you pull, thins a
+                //  little and rounds off, like a drop you are stretching. On
+                //  letting go it comes back by itself with its spring, and the
+                //  stretch undoes itself with it without anyone animating it
+                //  separately.
+                box { at: fx, fy; size: 456 + stretch.$k * 0.12, 58 - stretch.$k * 0.045
+                      corner: 14 + stretch.$k * 0.10
+                      color: mix(mix(#171717, #1d1d1e, touch.$k), #241f16, if(row_urgent.$k, 1, 0)) }
+                //  Its category's bar, on the left: it is where the drop will come
+                //  out of when it is resolved.
+                box { at: fx - 214, fy; size: 4, if(row_urgent.$k, 46, 34); corner: 2; color: color.$k }
+                text row.$k.app { at: fx - 200, fy - 18; anchor: left center; size: 8.5; weight: 700; color: color.$k }
+                text row.$k.title { at: fx - 200, fy - 1; anchor: left center; size: 12.5; weight: 500; width: 300; lines: 1; color: ink }
+                text row.$k.detail { at: fx - 200, fy + 17; anchor: left center; size: 10.5; width: 300; lines: 1; color: #8b8f95 }
+                text row.$k.age { at: fx + 208, fy - 18; anchor: right center; size: 9.5; color: #8b8f95 }
+            }
+            zone box row_zone.$k { at: fx, fy; size: 456, 58; corner: 14; cursor: pointer; active: tray > 0.9 and visible.$k > 0.5 }
+            on enter row_zone.$k { touch.$k: 1 }
+            on leave row_zone.$k { touch.$k: 0 }
+            on press row_zone.$k { emit resolve(k) }
+
+            //  And the drop that comes back. It is born STUCK to its row's colour
+            //  bar —melted with it— and comes loose on leaving: the pinch is not
+            //  drawn, it comes from the distances, like the one at the water's edge.
+            let vx = fx - 214 + (cx + 31.7 * cos(-24) - fx + 214) * freed.$k
+            let vy = fy + (cy_actual + 31.7 * sin(-24) - fy) * (1 - (1 - freed.$k) * (1 - freed.$k))
+            body {
+                color: color.$k
+                opacity: clamp(freed.$k * 8, 0, 1) * (1 - clamp(freed.$k * 8 - 7, 0, 1))
+                box { at: fx - 214, fy; size: 4, 34 * (1 - freed.$k); corner: 2; blend: 14 * 4 * freed.$k * (1 - freed.$k) }
+                ellipse { at: vx, vy; radius: 4 + 3 * freed.$k; blend: 14 * 4 * freed.$k * (1 - freed.$k) }
+            }
+        }
+
+        }
+
+        //  Nothing waiting: said, not an empty box.
+        text "Nothing waiting" { at: tray.x, tray.y - 10; anchor: center; size: 13; color: #8b8f95; show: pending < 0.5 and not undoable }
+
+        //  The footer: what has arrived, and its settings. While it can be undone
+        //  its place belongs to the fuse, which is more urgent than a link.
+        group {
+            show: not undoable
+            text "History" { at: tx0, tray.y + 198; anchor: left center; size: 11.5; color: mix(#8b8f95, ink, hist_link.glow) }
+            zone box hist_link { from: tx0 - 6, tray.y + 186; size: 80, 24; corner: 8; cursor: pointer; active: tray > 0.9 and not undoable }
+            //  All of them out at once, to the history.
+            prop swellclear.glow = 0 ~140ms
+            text "Clear all" { at: tray.x + 232, tray.y + 198; anchor: right center; size: 11.5; color: mix(#8b8f95, #ef7a66, swellclear.glow); show: pending > 0 }
+            zone box clear_all_zone { from: tray.x + 232 - 96, tray.y + 186; size: 102, 24; corner: 8; cursor: pointer; active: tray > 0.9 and not undoable and pending > 0 }
+        }
+        on enter clear_all_zone { swellclear.glow: 1 }
+        on leave clear_all_zone { swellclear.glow: 0 }
+        on press clear_all_zone { emit clear_all }
+
+        // ── undo, with its fuse ──────────────────────────────────
+        //  Five seconds, and you can see how many are left: the fuse burns from
+        //  left to right at a constant pace. Seeing the time go is what makes it
+        //  unnecessary to read «5 s» anywhere.
+        group {
+            show: undoable
+            let undo.y = tray.y + 198
+            prop undo.glow = 0 ~140ms
+            box { at: tray.x, undo.y; size: 456, 40; corner: 12; color: mix(#1b1b1c, #232425, undo.glow) }
+            //  The fuse, stuck to the bottom edge of its pill.
+            box { from: tray.x - 228, undo.y + 16; size: 456 * fuse, 4; corner: 2; color: mint }
+            text "Done. Undo it?" { at: tray.x - 208, undo.y - 3; anchor: left center; size: 11.5; color: #8b8f95 }
+            text "Undo" { at: tray.x + 192, undo.y - 3; anchor: right center; size: 12; weight: 600; color: mint }
+            zone box undo_zone { at: tray.x, undo.y; size: 456, 40; corner: 12; cursor: pointer; active: undoable }
+            on enter undo_zone { undo.glow: 1 }
+            on leave undo_zone { undo.glow: 0 }
+        }
+    }
+
+    //  The panel's grace zone goes BELOW what it holds inside: the press belongs
+    //  to the topmost zone, and declared at the end it kept ALL the card's
+    //  clicks. It is the third time.
+    //  It no longer closes on leaving: a card is closed with Esc, a click
+    //  outside (the catcher) or its ×. Closing on leaving it took away the
+    //  page you were reading as soon as the mouse went to write something.
+    zone box card_area { at: cx + card * 300, cy_actual + card.h / 2 - 8; size: 200 + card.w + 80, 2 * r + 30 + card.h; corner: 30; active: open }
+
+
+    //  And the grace zone —her and the menu— goes BELOW the rows, like all the
+    //  others: declared after, it kept their clicks. That makes five.
+    zone box menu_area { at: cx + 60, menu.cy; size: 300, menu.h + 90; corner: 24; active: menu > 0.01 }
+
+}

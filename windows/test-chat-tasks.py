@@ -1,12 +1,13 @@
 """Shared task scheduling/storage with a deterministic clock and no model/desktop."""
 from pathlib import Path
 import argparse
-from logic_test import runner_arguments, run_checks
+from logic_test import runner_arguments, run_checks, shared_logic
 p=argparse.ArgumentParser(description=__doc__);runner_arguments(p);args=p.parse_args()
-source=Path(__file__).resolve().parents[1].joinpath('marea.luau').read_text(encoding='utf-8')
+source=shared_logic()
 start=source.index('    -- ── her tasks:');end=source.index('    -- ── what the panel asks',start)
 module=source[start:end]
 prefix=r'''
+local hooks={language={}}
 local fact,text,model,handlers,replies,jobs,timers={['chat.state']='idle',['chat.signed_in']=true},{},{},{},{},{},{}
 local task_do,task_days,turn_over,running_task
 local history,rows,asks,live,shown_row,shown,worker,ready={},{ {kind=1,text='Current chat'} },{},nil,nil,0,nil,false

@@ -1,8 +1,81 @@
 # Marea on the Windows desktop
 
 This separate profile uses the native Windows x64/MSVC port of pleamar, with
-Luau, Win32 and DirectComposition/DX12. It keeps the Linux originals unchanged.
+Luau, Win32 and DirectComposition/DX12. Windows adapters remain separate from
+the upstream Linux profile.
 No WSL, Wayland, Unix shell or Linux helper programs are required.
+
+Integration status (2026-10-06): the current modular upstream profile generates
+and compiles with Luau. The sound, radio and Deriva pages have isolated logic
+and native rendering coverage. Whole-profile installed acceptance and the
+remaining capability gaps below still prevent a complete-port claim. The
+installed preview has not been updated by these source changes.
+
+The adapted radio pages retain five visible Wi-Fi rows with scrolling and
+separate Bluetooth paired/nearby lists with pagination. Native commands use
+exact adapter/profile and device identities. Saved profiles can be forgotten;
+explicitly sharing the connected Wi-Fi profile obtains its phone QR/password
+only when Windows permits plaintext access. Closing sharing, navigating away,
+changing connection or retiring the scene clears it. Audio-only Bluetooth
+container IDs never stand in for a physical pairing to remove. Unsupported
+device connection controls show information instead of claiming success.
+
+`python windows/test-device-controls.py --luau-runner PATH` covers duplicate
+names on different adapters, password cleanup, cancellation, late readback,
+stale queries, long catalogs, command errors and language refresh. Native
+DISPLAY2 fixtures at 125% DPI rendered the current pages with mocked catalogs;
+five captures were inspected, with no physical input or device changes and
+unchanged foreground focus. IPC assertions verified password cancellation,
+Lua-driven page navigation and paging. Earlier harness failures were recorded
+separately. These fixtures do not validate physical Wi-Fi connection/sharing,
+Bluetooth pairing/removal or full installed-Marea interaction.
+
+The profile generator now preserves resource paths from nested parts when
+flattening shaders/accessories into the Windows app. `test-profile-source.py`
+covers nested includes, resource paths with spaces/Unicode, recursion and
+explicit module dependency mapping. Two shared upstream issues are corrected:
+sound labels preserve UTF-8 characters, and cancelling a Wi-Fi password prompt
+forwards its event to Lua so the entered password is cleared.
+
+Deriva retains the upstream six-card layout, folder chips, favourites, trash,
+restore and searches. An in-flight search and only the newest queued query share
+one native stdio worker; old responses cannot replace newly typed results. The
+worker releases its optional semantic model after two minutes without a search.
+Only visible covers are converted, one at a time, through the engine's native
+`images.thumbnail` service. No ImageMagick, `mkdir`, `test`, `wl-copy` or shell
+pipeline is needed. This requires the matching engine with `images` permission.
+
+Public YouTube, Open Graph, X and Reddit metadata is fetched outside the offline
+worker, with bounded redirects, time and response sizes and no browser cookies.
+Images are fitted to 800 pixels and then cropped to the card ratio. The helper
+is included in source install, update and Setup. Native image decoding supports
+JPEG, PNG, WebP, BMP, the first GIF frame and self-contained SVG vectors. HEIC,
+AVIF and SVGs with text or embedded/external images currently use the normal
+file card instead of a preview. Download staging is bounded separately from
+the smaller rendered cache. Notes retain Unicode and paragraph spacing; copying
+reports success only after Windows accepts the clipboard write. File addresses
+escape spaces, Unicode, `#` and `%`; captures from older Windows workers remain
+readable. A failed favourite write rolls back its star and count.
+
+Validation for this integration: 88 worker tests, the isolated CLI and real
+Luau-to-SQLite tests, the generated profile checks and all isolated logic suites
+passed. Five actual DISPLAY2 captures at 125% DPI were inspected: six populated
+cards with a fetched YouTube cover and two local images, folder selection,
+favourites, trash and accented-word search. Favourite, folder, trash and restore
+changes persisted in the isolated database. Scene reload preserved the query
+and reloaded its result. Foreground was unchanged; no physical input was sent.
+The saved YouTube URL reached the opening adapter, but the fixture deliberately
+did not launch a browser. Physical card gestures, cross-application drops,
+positive semantic-model search and full installed interaction remain separate
+acceptance. The first native attempt failed because it declared a leaf image
+permission instead of the `images` service; the corrected run above passed.
+
+![Native Windows library with real covers](../docs/windows-deriva/01-six-cards-and-covers.png)
+
+[Folder selection](../docs/windows-deriva/02-choose-folder.png),
+[favourites](../docs/windows-deriva/03-favourites.png),
+[trash](../docs/windows-deriva/04-trash.png), and
+[search](../docs/windows-deriva/05-native-search.png) were captured in the same run.
 
 The upstream refresh uses pleamar 0.2.17. **Control center → Programs** now
 offers native WinGet updates and a catalogue. Search results can also suggest

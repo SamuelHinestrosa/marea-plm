@@ -2,10 +2,14 @@
 from pathlib import Path
 import re
 import json
+import runpy
 
 root = Path(__file__).resolve().parents[1]
-scene = (root / 'marea.plm').read_text(encoding='utf-8')
-logic = (root / 'marea.luau').read_text(encoding='utf-8')
+sources = runpy.run_path(str(root / 'windows/profile-source.py'))
+scene = sources['scene_source'](root / 'marea.plm')
+logic = sources['logic_source'](root)
+scene, logic = runpy.run_path(str(root / 'windows/sound-profile.py'))['apply'](scene, logic, root)
+scene, logic = runpy.run_path(str(root / 'windows/radio-profile.py'))['apply'](scene, logic)
 
 def replace_once(source, old, new):
     assert source.count(old) == 1, f'Upstream changed: {old[:80]}'
@@ -224,10 +228,6 @@ scene = replace_once(scene, 'color: mix(#2a2b2c, mint, lit.$k); show: k < 3', f'
 scene = replace_once(scene, 'color: #ffffff; show: k < 3', f'color: #ffffff; show: {radio}')
 scene = replace_once(scene, 'stroke: 1.6; opacity: 70%; show: k > 2', f'stroke: 1.6; opacity: 70%; show: not {radio}')
 scene = replace_once(scene, 'text bt.sub {', 'text windows_bluetooth_summary {')
-scene = replace_once(scene, 'model gadgets max 8 { name: text; current: bool; paired: bool;', 'model gadgets max 8 { name: text; current: bool; paired: bool; controllable: bool; pairable: bool;')
-# A cached Windows audio endpoint is reconnectable; it is not a newly
-# discovered device offering pairing. Unknown pairing state stays unknown.
-scene = replace_once(scene, 'fresh: not c.paired)', 'fresh: c.pairable)')
 scene = scene.replace('text title.1 = "Wi-Fi"', 'text title.1 = "Red"')
 # A paused session still needs a play button, otherwise it cannot be resumed.
 scene = replace_once(scene, '                show: playback.playing', '                show: windows_media_available')
@@ -249,35 +249,7 @@ for prefix, capability in [
 ]:
     scene = replace_once(scene, prefix, prefix + f' opacity: if(windows_media_can_{capability}, 1, 0.3);')
 scene = replace_once(scene, 'text "Nothing playing" { at: card.x, by;', 'text windows_media_status { at: card.x, by;')
-scene = scene.replace('text "Looking for networks…"', 'text windows_wifi_status')
-scene = replace_once(scene, 'text pick(bt_scanning, "Nothing paired", "Looking around…")', 'text windows_bluetooth_status')
-scene = scene.replace('show: page == wifi\n                for r in networks', 'show: page == wifi and not windows_wifi_join\n                for r in networks')
-scene = scene.replace('column network_list {', 'column network_list {\n                view: 456, 290')
-scene = replace_once(scene, '            //  Its password, asked for in place:', '            on windows_wifi_paged { network_list.scroll: 0 ~0ms }\n            //  Its password, asked for in place:')
-scene = scene.replace('column gadget_list {', 'column gadget_list {\n                view: 456, 290')
-scene = replace_once(scene, '            on press radar_btn { emit bt_scan }', '''            on press radar_btn { emit bt_scan }
-            on windows_bluetooth_paged { gadget_list.scroll: 0 ~0ms }
-            group {
-                show: page == bluetooth
-                text windows_bluetooth_warning { at: card.x, card.top + 470; anchor: center; width: 430; lines: 2; size: 10.5; color: #8b8f95 }
-                group {
-                    show: windows_bluetooth_pages
-                    text windows_bluetooth_page { at: card.x, card.top + 425; anchor: center; size: 11; color: ink }
-                    box windows_bt_previous { at: card.x - 170, card.top + 425; size: 104, 30; corner: 10; color: #30383a; cursor: pointer; show: windows_bluetooth_previous }
-                    text "Anterior" { at: card.x - 170, card.top + 425; anchor: center; size: 11; color: ink; show: windows_bluetooth_previous }
-                    box windows_bt_next { at: card.x + 170, card.top + 425; size: 104, 30; corner: 10; color: #30383a; cursor: pointer; show: windows_bluetooth_next }
-                    text "Siguiente" { at: card.x + 170, card.top + 425; anchor: center; size: 11; color: ink; show: windows_bluetooth_next }
-                    on press windows_bt_previous { emit windows_bluetooth_page(-1) }
-                    on press windows_bt_next { emit windows_bluetooth_page(1) }
-                }
-            }''')
-scene = scene.replace('show: page == wifi and networks.count < 1', 'width: 430; lines: 3; show: page == wifi and networks.count < 1 and not windows_wifi_join')
-# Several virtual endpoints are common on Windows. Both lists must remain
-# reachable instead of extending beyond the bottom of the card.
-scene = scene.replace('column output_list {\n                    at: card.x - 228, card.top + 132', 'column output_list {\n                    view: 456, 126\n                    at: card.x - 228, card.top + 132')
-scene = scene.replace('column mic_list {\n                    at: card.x - 228, card.top + 164 + output_list.height', 'column mic_list {\n                    view: 456, 126\n                    at: card.x - 228, card.top + 306')
-scene = scene.replace('card.top + 150 + output_list.height', 'card.top + 292')
-scene = scene.replace('on press icon.1 {', 'on press icon.0 { emit windows_display_info }\n            on press icon.1 {')
+scene = replace_once(scene, 'on press icon.1 { emit mute_output }', 'on press icon.0 { emit windows_display_info }\n            on press icon.1 { emit mute_output }')
 # A row slot can hold another notice after a native update. Its gesture state
 # belongs to that identity, and pressing must not resolve a row before release.
 scene = replace_once(scene, '        fact alive.$k = true', '        fact alive.$k = true\n        fact windows_row_revision.$k = 0')
@@ -325,12 +297,7 @@ notice = '''    text windows_status = ""
     fact windows_media_can_next = false
     text windows_media_status = ""
     fact windows_wifi_present = false
-    fact windows_wifi_pages = false
-    fact windows_wifi_previous = false
-    fact windows_wifi_next = false
-    text windows_wifi_page = ""
-    event windows_wifi_page ->
-    event windows_wifi_paged
+    fact windows_wifi_strength = 0
     fact windows_bluetooth_present = false
     fact windows_bluetooth_pages = false
     fact windows_bluetooth_previous = false
@@ -338,49 +305,12 @@ notice = '''    text windows_status = ""
     text windows_bluetooth_page = ""
     text windows_bluetooth_warning = ""
     event windows_bluetooth_page ->
-    event windows_bluetooth_paged
     text windows_wifi_status = "Leyendo Wi-Fi…"
     text windows_bluetooth_status = "Leyendo Bluetooth…"
     text windows_bluetooth_summary = "Leyendo dispositivos…"
-    fact windows_wifi_join = false
-    text windows_wifi_name = ""
-    text windows_wifi_password = ""
-    event windows_wifi_submit ->
     event windows_display_info ->
     event windows_lock ->
     event windows_lock_info ->
-    group {
-        show: open and page == wifi and windows_wifi_join
-        text windows_wifi_name { at: card.x, card.top + 134; anchor: center; width: 430; lines: 1; size: 15; color: ink }
-        text "Contrasena de la red" { at: card.x - 208, card.top + 181; anchor: left center; size: 12; color: ink }
-        box { at: card.x, card.top + 220; size: 436, 44; corner: 10; color: #20282a }
-        input windows_wifi_password { at: card.x - 202, card.top + 220; width: 400; size: 16; color: ink; secret: true; placeholder: "Contrasena" }
-        box wifi_join_button { at: card.x + 112, card.top + 290; size: 200, 42; corner: 10; color: mint; cursor: pointer }
-        text "Conectar" { at: card.x + 112, card.top + 290; anchor: center; size: 13; color: #142720 }
-        box wifi_cancel_button { at: card.x - 112, card.top + 290; size: 200, 42; corner: 10; color: #30383a; cursor: pointer }
-        text "Cancelar" { at: card.x - 112, card.top + 290; anchor: center; size: 13; color: ink }
-        on press wifi_join_button { emit windows_wifi_submit }
-        on press wifi_cancel_button { windows_wifi_join = false }
-    }
-    group {
-        show: open and page == wifi and not windows_wifi_join
-        group {
-            show: windows_wifi_pages
-            text windows_wifi_page { at: card.x, card.top + 425; anchor: center; size: 11; color: ink }
-            box windows_wifi_previous_button { at: card.x - 170, card.top + 425; size: 104, 30; corner: 10; color: #30383a; cursor: pointer; show: windows_wifi_previous }
-            text "Anterior" { at: card.x - 170, card.top + 425; anchor: center; size: 11; color: ink; show: windows_wifi_previous }
-            box windows_wifi_next_button { at: card.x + 170, card.top + 425; size: 104, 30; corner: 10; color: #30383a; cursor: pointer; show: windows_wifi_next }
-            text "Siguiente" { at: card.x + 170, card.top + 425; anchor: center; size: 11; color: ink; show: windows_wifi_next }
-            on press windows_wifi_previous_button { emit windows_wifi_page(-1) }
-            on press windows_wifi_next_button { emit windows_wifi_page(1) }
-        }
-        box wifi_refresh { at: card.x, card.top + if(windows_wifi_pages, 470, 425); size: 210, 32; corner: 10; color: #30383a; cursor: pointer; show: windows_wifi_present }
-        text "Buscar redes" { at: card.x, card.top + if(windows_wifi_pages, 470, 425); anchor: center; size: 12; color: ink; show: windows_wifi_present }
-        on press wifi_refresh { emit scan(1) }
-    }
-    on change windows_wifi_join while windows_wifi_join { focus windows_wifi_password }
-    on change page while page != wifi { windows_wifi_join = false }
-    on key Return while windows_wifi_join { emit windows_wifi_submit }
 '''
 scene = replace_once(scene, '    clip inset 2 box { at: card.x, card.y; size: card.w, card.h; corner: card.corner }', notice + '\n    clip inset 2 box { at: card.x, card.y; size: card.w, card.h; corner: card.corner }')
 # Draw notices after the card contents. Earlier placement put media artwork
@@ -417,133 +347,13 @@ scene = replace_once(scene, wall_area + '\n', '')
 scene = replace_once(scene, '                show: page == walls\n                grid {',
                      '                show: page == walls\n' + wall_area + '\n                grid {')
 
-logic = remove_between(logic, '-- ── the three cards', '-- ── sound:')
-# The Linux launcher builds Deriva on demand. Windows installs its binary;
-# keep the real adapter error/retry footer instead of promising a Rust build.
-scene = replace_once(scene, '''                group {
-                    show: drift.missing
-                    text "Deriva needs its library, deriva-worker." { at: card.x, card.y + 20; anchor: center; size: 12.5; weight: 500; color: ink }
-                    text "She builds it herself when she starts, if Rust (cargo) is installed." { at: card.x, card.y + 42; anchor: center; size: 11.5; color: #8b8f95 }
-                }
-''', '')
-# Background scroll zones must precede the clickable cards they cover.
-drift_area = '                zone box drift_area { from: dx0, dy0 + 50; size: 456, 312; active: page == drift and paging > 0.9 and not drift.missing }'
-scene = replace_once(scene, drift_area + '\n', '')
-scene = replace_once(scene, '                let dy0 = card.top + 96\n', '                let dy0 = card.top + 96\n' + drift_area + '\n')
-scene = replace_once(scene, 'show: drift.kept < 1', 'show: windows_deriva_loaded and not windows_deriva_busy and drift.count < 1')
-scene = replace_once(scene, 'text "{drift.kept, 0} kept" {', 'text "{drift.kept, 0} kept" { opacity: if(windows_deriva_loaded, 1, 0);')
-scene = replace_once(scene, 'at: dx0, dy0 + 50; columns: 2; gap: 12; width: 456; row: 150', 'show: windows_deriva_loaded\n                    at: dx0, dy0 + 50; columns: 2; gap: 12; width: 456; row: 150')
-scene = replace_once(scene, '            on scroll drift_area', '''            group {
-                show: page == drift
-                text windows_deriva_status { at: card.x - 228, card.top + 480; anchor: left center; width: 350; lines: 3; size: 10.5; color: #8b8f95 }
-                box windows_deriva_refresh { at: card.x + 179, card.top + 480; size: 98, 30; corner: 10; color: #30383a; cursor: pointer; show: not windows_deriva_busy }
-                text "Actualizar" { at: card.x + 179, card.top + 480; anchor: center; size: 11; color: ink; show: not windows_deriva_busy }
-                on press windows_deriva_refresh { emit drift_open }
-            }
-            on scroll drift_area''')
-logic = remove_between(logic, 'local DRIFT = "deriva-worker"', 'local function host_of', '''local drift_run, drift_file_path = install_deriva_worker(native_run)
-local drift_preview = install_deriva_preview(native_run)
-local drift_items, drift_offset, drift_blobs = {}, 0, nil
-local drift_generation = 0
-model.drift = {}
-fact.windows_deriva_loaded = false
-fact.windows_deriva_busy = false
-text.windows_deriva_status = "Deriva: esperando al servicio de biblioteca."
-
-''')
-logic = replace_once(logic, 'if drift_blobs == nil or type(h) ~= "string" or #h < 4 then return "" end',
-    'if drift_blobs == nil or type(h) ~= "string" or #h < 4 or #h > 128 or not h:match("^%x+$") then return "" end')
-logic = replace_once(logic, 'source = source, kind =', 'source = tostring(source or ""), kind =')
-logic = replace_once(logic, 'math.floor((it.captured_at or 0) / 1000)', 'math.floor((tonumber(it.captured_at) or 0) / 1000)')
-logic = replace_once(logic, 'local function show_drift()\n', 'local show_drift\nshow_drift = function()\n')
-logic = replace_once(logic, '    model.drift = cards\n', '''    model.drift = cards
-    for k = drift_offset + 1, math.min(drift_offset + 4, #drift_items) do
-        drift_preview(drift_items[k], function(item)
-            -- Search/paging can change while the preview is downloading.
-            for index, current in ipairs(drift_items) do
-                if current.id == item.id then
-                    drift_items[index] = item
-                    show_drift()
-                    break
-                end
-            end
-        end)
-    end
-''')
-logic = remove_between(logic, 'local function drift_load()\n', '--  Typing searches, a moment after the last key.', '''local function drift_load()
-    drift_generation += 1
-    local mine = drift_generation
-    fact.windows_deriva_busy = true
-    text.windows_deriva_status = "Leyendo Deriva…"
-    local q = text.drift_q or ""
-    local args = q == "" and {"list", "--limit", "60"} or {"search", "--query", q, "--limit", "60"}
-    local function load()
-        drift_run(args, function(r, error)
-            if mine ~= drift_generation then return end
-            fact.windows_deriva_busy = false
-            if not r then fact["drift.missing"] = not fact.windows_deriva_loaded; text.windows_deriva_status = error; return end
-            fact["drift.missing"] = false
-            fact.windows_deriva_loaded = true
-            text.windows_deriva_status = #r.items == 0 and (q == "" and "Biblioteca vacía." or "Sin resultados para esta búsqueda.") or ""
-            drift_items, drift_offset = r.items, 0
-            if q == "" then fact["drift.kept"] = #drift_items end
-            show_drift()
-        end)
-    end
-    if drift_blobs then load(); return end
-    drift_run({"where"}, function(r, error)
-        if mine ~= drift_generation then return end
-        if not r then
-            fact["drift.missing"] = true
-            fact.windows_deriva_busy = false
-            text.windows_deriva_status = error
-            return
-        end
-        drift_blobs = r.blobs
-        load()
-    end)
-end
-on("drift_open", drift_load)
-''')
-logic = replace_once(logic, '    drift_typed = drift_typed + 1', '''    drift_generation += 1 -- Invalidate in-flight replies before the debounce ends.
-    drift_typed = drift_typed + 1''')
-logic = replace_once(logic, '        if l:match("^file://") then\n            local p = url_decode(l:gsub("^file://[^/]*", ""))', '''        if l:lower():match("^file://") then
-            local p = drift_file_path(l)
-            if not p then
-                invalid += 1
-                continue
-            end''')
-logic = replace_once(logic, '    local urls, groups, words = {}, {}, {}', '''    local urls, groups, words = {}, {}, {}
-    local invalid = 0
-    local raw, preserve_text = tostring(data or ""), false
-    if mime ~= "text/uri-list" then
-        for line in raw:gmatch("[^\\r\\n]+") do
-            local l = line:match("^%s*(.-)%s*$")
-            if l ~= "" and not l:lower():match("^file://") and not l:match("^https?://%S+$") then preserve_text = true end
-        end
-    end''')
-logic = replace_once(logic, '    if #requests == 0 then return end', '''    -- Plain prose keeps its indentation, blank lines, headings and embedded URLs.
-    if preserve_text then requests = {{type = "text", text = raw}}; invalid = 0 end
-    if #requests == 0 and invalid == 0 then return end''')
-logic = replace_once(logic, '            words[#words + 1] = l', '            if mime == "text/uri-list" then invalid += 1 else words[#words + 1] = l end')
-logic = replace_once(logic, 'local saved, duplicates, failed, left = 0, 0, 0, #requests', 'local saved, duplicates, failed, left = 0, 0, invalid, #requests')
-logic = replace_once(logic, '''    local function finished()
-        if saved > 0 then''', '''    local function finished()
-        if failed > 0 then
-            fact["drift.result"] = 3
-            text["drift.toast"] = string.format("Guardados: %d · Ya estaban: %d · Fallidos: %d", saved, duplicates, failed)
-        elseif saved > 0 then''')
-logic = replace_once(logic, '    for _, req in ipairs(requests) do', '    if left == 0 then finished(); return end\n    for _, req in ipairs(requests) do')
-logic = replace_once(logic, 'duplicates = duplicates + (r.duplicates or 0)', 'duplicates = duplicates + (r.duplicates or 0)\n                failed = failed + (r.failed or 0)')
-logic = replace_once(logic, 'failed = failed + 1', 'failed = failed + (req.paths and #req.paths or 1)')
-logic = replace_once(logic, 'hooks.keep_copied = keep_copied', 'hooks.keep_copied = keep_copied\nif fact.page == "drift" then drift_load() end')
+scene, logic = runpy.run_path(str(root / 'windows/deriva-profile.py'))['apply'](scene, logic, root)
 logic = remove_between(logic, '-- ── the system tray', '-- ── the photograph',
     (root / 'windows/tray.luau').read_text(encoding='utf-8') + '\n\n')
 logic = remove_between(logic, '--  In the pictures folder', '-- ── the recording',
     (root / 'windows/screenshots.luau').read_text(encoding='utf-8') + '\n\n')
 logic = remove_between(logic, '-- ── the recording', '-- ── the desktop wallpaper',
     (root / 'windows/recording.luau').read_text(encoding='utf-8') + '\n\n')
-logic = remove_between(logic, '-- ── the pages', '-- ── the finder')
 logic = remove_between(logic, '-- ── the stones:', 'if not sys.watch("window",',
     (root / 'windows/window-shelf.luau').read_text(encoding='utf-8') + '\n\n')
 logic = replace_once(logic, 'function() if hooks.wm_restore then hooks.wm_restore() end end, "wm"',
@@ -674,8 +484,6 @@ adapter = 'local install_shortcuts = (function()\n' + (root / 'windows/shortcuts
 adapter = 'local install_weather = (function()\n' + (root / 'windows/weather.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_media_controls = (function()\n' + (root / 'windows/media-controls.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_media_volume = (function()\n' + (root / 'windows/media-volume.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
-adapter = 'local install_deriva_worker = (function()\n' + (root / 'windows/deriva-worker.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
-adapter = 'local install_deriva_preview = (function()\n' + (root / 'windows/deriva-preview.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_calendar_reminders = (function()\n' + (root / 'windows/calendar-reminders.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_agent_reader = (function()\n' + (root / 'windows/agent-reader.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 levels = (root / 'windows/level-controls.luau').read_text(encoding='utf-8')

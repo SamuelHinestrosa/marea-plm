@@ -85,10 +85,11 @@ def main():
     for dll in crt.glob('*.dll'):
         x64(dll)
         copy(dll, 'bin/' + dll.name)
-    for relative in ['marea.plm','marea.luau','marea-desktop.plm','marea-desktop.luau','LICENSE','common','lang','wardrobe','shaders','assets']:
+    for relative in ['marea.plm','marea.luau','marea-desktop.plm','marea-desktop.luau','LICENSE','scene','logic','common','lang','wardrobe','shaders','assets']:
         copy(ROOT / relative, 'app/' + relative)
     copy(ROOT / 'tools/reservas', 'app/tools/reservas')
     copy(ROOT / 'tools/deriva-preview.mjs', 'app/tools/deriva-preview.mjs')
+    copy(ROOT / 'tools/deriva-fetch.mjs', 'app/tools/deriva-fetch.mjs')
     copy(ROOT / 'tools/startup.ps1', 'app/tools/startup.ps1')
     copy(ROOT / 'tools/software.ps1', 'app/tools/software.ps1')
     for name in ['windows-overview.plm', 'windows-overview.luau']:

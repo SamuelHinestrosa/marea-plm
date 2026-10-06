@@ -166,7 +166,7 @@ fn una_de_fichero(db: &Connection, p: &Peticion, ruta: &str) -> Result<Resultado
         db,
         Nueva {
             tipo: &p.tipo,
-            source_url: Some(&format!("file://{}", real.display())),
+            source_url: Some(&crate::util::file_url(&real)),
             canonical: None,
             title: &titulo,
             author: p.author.as_deref().unwrap_or(""),

@@ -46,6 +46,19 @@ Métodos: `ping`, `ingest`, `search`, `list`, `get`, `stats`, `integrity_check`,
 órdenes usa **el mismo despachador**: dos caminos hacia la misma base es como se
 acaba teniendo dos comportamientos y una prueba que cubre uno.
 
+Marea (pleamar) has no socket of her own, so she uses the same protocol two
+other ways:
+
+- `deriva-worker call <method> --params '<json>'` runs any method once
+  (`home` with a filter, `annotate`, `trash`, `enrich`…). `--preview-file
+  <path>` reads a cover from disk and hands it to `enrich` as its
+  `preview_b64`.
+- `deriva-worker stdio` reads a request per line on its input and answers a
+  line each on its output, with the library open and the search model loaded
+  once. She keeps one alive while you search (from the command line each
+  search loads the model again, about three seconds) and closes its input two
+  minutes after the last search.
+
 ## Lo que no hace
 
 - **No sale a la red.** Ni una conexión, y no la va a abrir. Sí hay
