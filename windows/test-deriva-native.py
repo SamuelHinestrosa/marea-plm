@@ -52,7 +52,9 @@ with tempfile.TemporaryDirectory(prefix='deriva native ñ ') as temporary:
     assert result['saved'] == 1, result
     if os.name == 'nt':
         added = run('get', '--id', result['items'][0]['id'])['item']
-        assert added['source_url'] == document.as_uri(), added['source_url']
+        # The worker canonicalizes paths; CI's TEMP can use a DOS 8.3 alias.
+        expected_uri = document.resolve(strict=True).as_uri()
+        assert added['source_url'] == expected_uri, (added['source_url'], expected_uri)
     digest = hashlib.sha256(data).hexdigest()
     blob = library / 'blobs' / digest[:2] / digest[2:4] / digest
     assert blob.read_bytes() == data
