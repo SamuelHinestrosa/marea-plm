@@ -132,3 +132,27 @@ The installed package is still `0.2.15-preview.13`; this work is not installed
 and is not a claim of complete parity. See [the current evidence](../AGENT.md).
 
 Developed with Codex.
+
+## Repeated permission setup (October 6, 2026)
+
+The host still validates each writable object through its locked, non-reparse
+handle. It now compares the complete current/requested ACL and integrity label
+before writing them. Unchanged descriptors require no writes; new files or
+changed access still receive the required permissions. File labels omit the
+inheritance flags that Windows already discards on files. No sandbox rights are
+expanded and no recursive permission operation is introduced.
+
+Three native unit tests and the real LPAC isolation suite pass, including zero
+security writes after adopting newly created state, read/write denials, child
+creation denial, owner-exit cleanup and link rejection without outside ACL
+changes. This run did not test network access or a signed-in model.
+
+An alternating five-sample comparison on an owned 500-file state tree measured
+median warm preparation of 0.208 s before and 0.114 s after; the latter made zero
+security writes. This measures only permission setup, not UI startup, full SDK
+preparation, steady-state memory, or model response time. The previously observed
+cold SDK preparation/timeout remains a separate issue. Reproduce with:
+
+```powershell
+python windows/measure-agent-permissions.py --before <old-marea-agent.exe> --after <new-marea-agent.exe> --node <node.exe> --output <new-directory>
+```

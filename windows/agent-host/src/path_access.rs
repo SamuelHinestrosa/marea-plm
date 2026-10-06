@@ -63,7 +63,21 @@ fn collect(path: &Path, entries: &mut Vec<Entry>) -> Result<()> {
     Ok(())
 }
 
-fn grant(entry: &Entry, sid: PSID, rights: u32, writable: bool) -> Result<()> {
+// Both ACLs belong to live descriptors returned by the Windows security APIs.
+// Compare the complete lists, including order/flags; matching rights alone is
+// insufficient when inherited or deny entries are present.
+unsafe fn same_acl(left: *const ACL, right: *const ACL) -> bool {
+    if left.is_null() || right.is_null() {
+        return left == right;
+    }
+    unsafe {
+        (*left).AclSize == (*right).AclSize
+            && std::slice::from_raw_parts(left.cast::<u8>(), (*left).AclSize as usize)
+                == std::slice::from_raw_parts(right.cast::<u8>(), (*right).AclSize as usize)
+    }
+}
+
+fn grant(entry: &Entry, sid: PSID, rights: u32, writable: bool) -> Result<usize> {
     let (mut acl, mut descriptor) = (null_mut(), null_mut());
     status(
         unsafe {
@@ -106,26 +120,35 @@ fn grant(entry: &Entry, sid: PSID, rights: u32, writable: bool) -> Result<()> {
         "add container ACL",
     )?;
     let _updated = Local(updated.cast());
-    status(
-        unsafe {
-            SetSecurityInfo(
-                entry.handle.0,
-                SE_FILE_OBJECT,
-                DACL_SECURITY_INFORMATION,
-                null_mut(),
-                null_mut(),
-                updated,
-                null(),
-            )
-        },
-        "apply container ACL",
-    )?;
+    let mut writes = 0;
+    if !unsafe { same_acl(acl, updated) } {
+        status(
+            unsafe {
+                SetSecurityInfo(
+                    entry.handle.0,
+                    SE_FILE_OBJECT,
+                    DACL_SECURITY_INFORMATION,
+                    null_mut(),
+                    null_mut(),
+                    updated,
+                    null(),
+                )
+            },
+            "apply container ACL",
+        )?;
+        writes += 1;
+    }
     if writable {
         let mut descriptor = null_mut();
         ok(
             unsafe {
                 ConvertStringSecurityDescriptorToSecurityDescriptorW(
-                    wide("S:(ML;OICI;NW;;;LW)").as_ptr(),
+                    wide(if entry.directory {
+                        "S:(ML;OICI;NW;;;LW)"
+                    } else {
+                        "S:(ML;;NW;;;LW)"
+                    })
+                    .as_ptr(),
                     1,
                     &mut descriptor,
                     null_mut(),
@@ -141,22 +164,42 @@ fn grant(entry: &Entry, sid: PSID, rights: u32, writable: bool) -> Result<()> {
             },
             "read state integrity label",
         )?;
+        let (mut current, mut current_descriptor) = (null_mut(), null_mut());
         status(
             unsafe {
-                SetSecurityInfo(
+                GetSecurityInfo(
                     entry.handle.0,
                     SE_FILE_OBJECT,
                     LABEL_SECURITY_INFORMATION,
                     null_mut(),
                     null_mut(),
-                    null(),
-                    sacl,
+                    null_mut(),
+                    &mut current,
+                    &mut current_descriptor,
                 )
             },
-            "apply state integrity label",
+            "read state integrity label",
         )?;
+        let _current_descriptor = Local(current_descriptor);
+        if !unsafe { same_acl(current, sacl) } {
+            status(
+                unsafe {
+                    SetSecurityInfo(
+                        entry.handle.0,
+                        SE_FILE_OBJECT,
+                        LABEL_SECURITY_INFORMATION,
+                        null_mut(),
+                        null_mut(),
+                        null(),
+                        sacl,
+                    )
+                },
+                "apply state integrity label",
+            )?;
+            writes += 1;
+        }
     }
-    Ok(())
+    Ok(writes)
 }
 
 fn cache_key(bin: &Path, node: &Path, code: &Path, sid: PSID) -> Result<String> {
@@ -239,22 +282,29 @@ pub(super) fn prepare(
     collect(state, &mut writable)?;
     mark("state paths checked", writable.len());
     // Every ACL update addresses one validated handle, never a recursive tree.
+    let mut security_writes = 0;
     if !already_prepared {
         let read = FILE_GENERIC_READ | FILE_GENERIC_EXECUTE;
         for (index, entry) in readonly.iter().enumerate() {
-            grant(entry, sid, read, false)?;
+            security_writes += grant(entry, sid, read, false)?;
             if index % 1024 == 0 {
                 mark("permissions prepared", index + 1);
             }
         }
     }
     for entry in &writable {
-        grant(
+        security_writes += grant(
             entry,
             sid,
             FILE_GENERIC_READ | FILE_GENERIC_WRITE | FILE_GENERIC_EXECUTE | DELETE,
             true,
         )?;
+    }
+    if tracing {
+        eprintln!(
+            "marea-agent · security updates ({security_writes} writes): {} ms",
+            began.elapsed().as_millis()
+        );
     }
     // This marker is in read-only bin, never in agent-controlled state. Package
     // replacement invalidates it; new code files inherit the package ACL.
@@ -276,6 +326,85 @@ pub(super) fn prepare(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn repeated_preparation_keeps_real_acl_and_label_without_rewriting() {
+        use windows_sys::Win32::Security::Isolation::DeriveAppContainerSidFromAppContainerName;
+        let root =
+            std::env::temp_dir().join(format!("marea-agent-acl-test-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        let path = root.join("owned.txt");
+        std::fs::write(&path, "fixture").unwrap();
+        struct Cleanup(PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_file(self.0.join("owned.txt"));
+                let _ = std::fs::remove_dir(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(root.clone());
+        let mut sid = null_mut();
+        assert_eq!(
+            unsafe {
+                DeriveAppContainerSidFromAppContainerName(
+                    wide(format!("Pleamar.Marea.AclTest.{}", std::process::id())).as_ptr(),
+                    &mut sid,
+                )
+            },
+            0
+        );
+        struct Free(PSID);
+        impl Drop for Free {
+            fn drop(&mut self) {
+                unsafe {
+                    FreeSid(self.0);
+                }
+            }
+        }
+        let sid = Free(sid);
+        let entry = open(&path).unwrap();
+        let read = FILE_GENERIC_READ | FILE_GENERIC_EXECUTE;
+        assert!(grant(&entry, sid.0, read, false).unwrap() > 0);
+        assert_eq!(grant(&entry, sid.0, read, false).unwrap(), 0);
+        let write = read | FILE_GENERIC_WRITE | DELETE;
+        assert!(grant(&entry, sid.0, write, true).unwrap() > 0);
+        assert_eq!(grant(&entry, sid.0, write, true).unwrap(), 0);
+        let directory = open(&root).unwrap();
+        assert!(grant(&directory, sid.0, write, true).unwrap() > 0);
+        assert_eq!(grant(&directory, sid.0, write, true).unwrap(), 0);
+        // Read Windows' resulting descriptor, not the requested access structure.
+        let (mut acl, mut descriptor) = (null_mut(), null_mut());
+        status(
+            unsafe {
+                GetSecurityInfo(
+                    entry.handle.0,
+                    SE_FILE_OBJECT,
+                    DACL_SECURITY_INFORMATION,
+                    null_mut(),
+                    null_mut(),
+                    &mut acl,
+                    null_mut(),
+                    &mut descriptor,
+                )
+            },
+            "read test ACL",
+        )
+        .unwrap();
+        let _descriptor = Local(descriptor);
+        let trustee = TRUSTEE_W {
+            pMultipleTrustee: null_mut(),
+            MultipleTrusteeOperation: NO_MULTIPLE_TRUSTEE,
+            TrusteeForm: TRUSTEE_IS_SID,
+            TrusteeType: TRUSTEE_IS_UNKNOWN,
+            ptstrName: sid.0.cast(),
+        };
+        let mut rights = 0;
+        status(
+            unsafe { GetEffectiveRightsFromAclW(acl, &trustee, &mut rights) },
+            "read test rights",
+        )
+        .unwrap();
+        assert_eq!(rights & write, write);
+    }
     #[test]
     fn rejects_hard_links_before_touching_security() {
         let root =

@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import queue
+import re
 import shutil
 import subprocess
 import tempfile
@@ -33,7 +34,7 @@ private = bundle/'private.txt'; private.write_text('Owned external fixture, not 
 request = {'privateFile':str(private), 'outsideWrite':str(bundle/'forbidden.txt'), 'network':args.network}
 flags = subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS
 command = [str(host),'--probe','--state',str(bundle/'state')]
-env = dict(os.environ, MAREA_TEST_SECRET='fixture-secret-not-inherited', NODE_OPTIONS='--trace-warnings')
+env = dict(os.environ, MAREA_TEST_SECRET='fixture-secret-not-inherited', NODE_OPTIONS='--trace-warnings', MAREA_AGENT_TRACE='1')
 report = {'network_requested':args.network, 'checks':{}}
 kernel = c.WinDLL('kernel32', use_last_error=True)
 kernel.OpenProcess.argtypes=[w.DWORD,w.BOOL,w.DWORD];kernel.OpenProcess.restype=w.HANDLE
@@ -61,6 +62,16 @@ try:
         report['checks'][name]=True
     assert not (bundle/'forbidden.txt').exists()
     report['node_memory_bytes']=data['memory']['rss']
+
+    # The first repeat adopts the worker's newly created files. Thereafter the
+    # real LPAC worker keeps its permissions without rewriting identical ACLs.
+    for repeat in range(2):
+        result=run();assert result.returncode==0,result.stderr
+        repeated=json.loads(result.stdout)
+        assert all(repeated.get(name) is True for name in names),repeated
+    writes=re.search(r'security updates \((\d+) writes\)',result.stderr)
+    assert writes and int(writes[1])==0,result.stderr
+    report['checks']['unchangedStateNeedsNoSecurityWrites']=True
 
     # A persistent, idle worker must die when its owner disappears.
     child=subprocess.Popen(command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,encoding='utf-8',env=env,creationflags=flags)
