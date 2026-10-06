@@ -11,6 +11,12 @@ and native rendering coverage. Whole-profile installed acceptance and the
 remaining capability gaps below still prevent a complete-port claim. The
 installed preview has not been updated by these source changes.
 
+The mixer binds each press to a native session identity and keeps its row order
+until release. Reordering or ending streams cannot transfer a volume gesture
+to a different application. The generated-logic regression covers delayed
+presses, replacement sessions, release and continued movement during reordering;
+physical dragging with real applications remains an acceptance check.
+
 The adapted radio pages retain five visible Wi-Fi rows with scrolling and
 separate Bluetooth paired/nearby lists with pagination. Native commands use
 exact adapter/profile and device identities. Saved profiles can be forgotten;
@@ -77,7 +83,8 @@ permission instead of the `images` service; the corrected run above passed.
 [trash](../docs/windows-deriva/04-trash.png), and
 [search](../docs/windows-deriva/05-native-search.png) were captured in the same run.
 
-The upstream refresh uses pleamar 0.2.17. **Control center → Programs** now
+The current profile requires the Windows engine with `images.thumbnail`
+(validated at pleamar 0.2.24, commit `8851092`). **Control center → Programs** now
 offers native WinGet updates and a catalogue. Search results can also suggest
 programs to install. Select the updates, review the confirmation and press
 **Confirm**; Marea never asks for an administrator password. Windows handles
@@ -241,7 +248,7 @@ Logs are in the installation's `logs` folder. Local calendar/settings live under
 | Calendar reminders | Native Windows toasts while Marea runs. Delivery is confirmed in the publisher's own history before the event is marked sent; stable tags prevent duplicate retries. Disabled/error states are reported without changing Windows settings |
 | Tray | Live Explorer icons, native activation and application menus; tested from Marea. Three icons plus “…” keep the heading clear; “…” reaches all catalog entries in pages. Enumeration of protected/system icons and animated icon freshness remain limited |
 | Agent quotas | Packaged Node reader runs natively without a console window. Codex's actual local quota was displayed; Claude cache/error paths are tested, but live Claude usage still needs an authenticated-provider validation |
-| Deriva library | Native Rust/SQLite ingestion, FTS, deduplication, backup and export/import. Empty model slots no longer draw or catch input; a native GPU-window rehearsal verifies card clicks and scrolling. YouTube cards fetch and cache public thumbnails/titles asynchronously. Cross-application drag/drop and a complete browser-opening walkthrough on this revision remain unverified; semantic model optional and untested |
+| Deriva library | Six-card library with native Rust/SQLite ingestion, FTS, folders, favourites, trash/restore, deduplication, backup and export/import. Native DISPLAY2 captures verify populated cards, local images, a real YouTube cover and search after reload. Generic public link metadata and previews are bounded and cached. Physical card gestures, cross-application drag/drop and browser opening on this revision remain unverified; the semantic model is optional and untested |
 | Calendar weather | Native Windows curl.exe queries Open-Meteo. Choose a city in the calendar; no guessed location from Windows time-zone IDs. Transport logic and real geocoding/forecast response contracts pass; current visual review remains pending |
 | Compositor rain/snow/window effects shown in the reference video | Unavailable: these depend on pleamar-wm. This includes upstream's new rain-intensity slider; Windows keeps the three native brightness/volume/microphone controls |
 
