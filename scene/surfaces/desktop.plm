@@ -1,0 +1,297 @@
+// Marea's scene, in pieces: the adventure's stage, the catcher, the tide, the stage and the nook. marea.plm includes it.
+part Desktop {
+    // ── the adventure's stage ────────────────────────────────────
+    //  The whole monitor, only while it lasts. It catches no clicks: a surface
+    //  only takes the pointer where it has zones, and this one has none.
+    //  The catcher: while something of hers is open, a transparent surface over
+    //  the whole of every monitor, just under her. It draws nothing; it only
+    //  catches the press that lands outside her, and that closes whatever is
+    //  open. On Wayland a surface does not hear clicks on other windows, and
+    //  losing the keyboard is no help when the finder holds it exclusively:
+    //  this is what any menu of a desktop does.
+    surface catcher {
+        size: full, full
+        anchor: top_left
+        level: top
+        screens: each max 2
+        open: open or tray_open or menu_open or reel_open or searching or chatting
+        //  And the zone says it again: a full-screen zone that stays on by
+        //  mistake is the whole desktop taken. It happened.
+        zone box outside { from: 0, 0; size: catcher.width, catcher.height; active: open or tray_open or menu_open or reel_open }
+        on press outside { open = false; tray_open = false; menu_open = false; reel_open = false }
+        //  The finder stays in her own layer —moving it up as it opens left
+        //  it without the keyboard—, so here the catcher would be over it:
+        //  around it instead, three strips —left, right and below— and the
+        //  finder and Marea herself in the hole. (Her surface is centred at
+        //  the top: `ox` is where it starts on this one.)
+        let ox = (catcher.width - 820) / 2
+        let hole.x0 = ox + cx - r - 12
+        //  (The chat the same: whichever of the two is out.)
+        let hole.x1 = ox + max(finder.x + finder.w / 2, chat.x + chat.w / 2) + 8
+        let hole.y1 = max(finder.y + finder.h / 2, chat.y + chat.h / 2) + 8
+        zone box outside_left { from: 0, 0; size: hole.x0, catcher.height; active: searching or chatting }
+        zone box outside_right { from: hole.x1, 0; size: catcher.width - hole.x1, catcher.height; active: searching or chatting }
+        zone box outside_below { from: hole.x0, hole.y1; size: hole.x1 - hole.x0, catcher.height - hole.y1; active: searching or chatting }
+        on press outside_left { searching = false; chatting = false }
+        on press outside_right { searching = false; chatting = false }
+        on press outside_below { searching = false; chatting = false }
+    }
+
+    // ── the tide, under the windows ──────────────────────────────
+    //  Where a new wallpaper arrives: over the one `swaybg` paints and below
+    //  every window (`level: bottom`), on each monitor, with nothing that
+    //  catches the mouse. The drop falls on the monitor she lives on; on the
+    //  others the wave comes in from the side, a moment later.
+    shader tides = file "../../shaders/tide.wgsl"
+    surface tide {
+        size: full, full
+        anchor: top_left
+        level: bottom
+        screens: each max 2
+        open: tide.on
+        let here = screen.index == tide.home
+        let tw = tide.width
+        let th = tide.height
+        let t.ox = if(here, tw / 2, if(screen.index > tide.home, -240, tw + 240))
+        let t.oy = th * 0.55
+        let t.p = clamp(tide.p * 1.3 - if(here, 0, 0.3), 0, 1)
+        group {
+            opacity: tide.fade
+            for t in tidepics {
+                group {
+                    shader: tides, t.p, t.ox, t.oy, tide.settle
+                    image t.pic { at: 0, 0; size: tw, th }
+                }
+            }
+            //  The drop, from her to where it lands: long as it falls, round when it lands.
+            let fall = tide.fall * tide.fall
+            let dx = tw / 2 - 50 + (tw / 2 - (tw / 2 - 50)) * tide.fall
+            let dy = 30 + (t.oy - 30) * fall
+            let stretch = clamp(vel(tide.fall) * 0.25, 0, 1.2)
+            body {
+                show: here and tide.fall > 0.01 and tide.p < 0.02
+                color: #151616
+                rim: 30%
+                shadow: 0, 6, 14, 40%
+                ellipse { at: dx, dy; radius: 11; scale: 1 - stretch * 0.25, 1 + stretch }
+            }
+            ellipse { at: dx - 3, dy - 4 - stretch * 5; radius: 2.6; color: #fff; opacity: 70%; show: here and tide.fall > 0.01 and tide.p < 0.02 }
+            //  And the splash: drops thrown up and out, falling back.
+            particles {
+                at: tw / 2, t.oy; area: 20, 4; count: 140
+                life: 0.5s .. 1.1s; speed: 180 .. 520
+                direction: -90deg; spread: 150deg; gravity: 0, 900
+                size: 5, 1.5; colors: #e8f6ff, #9ed6bd; opacity: 95%, 0%
+                shape: dot; burst: splash
+            }
+        }
+    }
+
+    surface stage {
+        size: full, full
+        anchor: top_left
+        level: overlay
+        screens: each max 2
+        open: adventuring and screen.index == adv_screen
+        //  Where she is: across the bottom and between home and the floor.
+        //  Home is where she lives: 50 px left of the middle, at her height.
+        let home.x = stage.width / 2 - 50
+        let home.y = cy - rise
+        let floor.y = stage.height - 26
+        let ax = home.x + adv.fx * (stage.width / 2 - 80)
+        //  Where in its hop she is (0 taking off, 1 landing), the arc's height,
+        //  how close to the ground —for the squash— and how fast she goes up or
+        //  down —for the stretch—.
+        let hop.f = fract(adv.p)
+        let hop.h = 4 * hop.f * (1 - hop.f) * hop.amp * hopping
+        let hop.ground = (1 - smooth(0, 0.14, min(hop.f, 1 - hop.f))) * hopping
+        let hop.speed = abs(1 - 2 * hop.f) * (1 - hop.ground) * hopping
+        let ay = home.y + adv.fy * (floor.y - home.y) - hop.h + 5 * hop.ground
+        //  The wings, flapping while they are out.
+        prop flap = 0
+        //  Slow, broad strokes: fast ones looked like a hummingbird.
+        wave flap = 1 at 11
+        repeat w in 0..2 {
+            let s.w = w * 2 - 1
+            group {
+                pivot: ax + 16 * s.w, ay - 6
+                rotate: s.w * (0.55 + 0.5 * flap) * wing
+                scale: wing, wing
+                body {
+                    color: #eef3f6
+                    rim: 20%
+                    ellipse { at: ax + 34 * s.w, ay - 14; radius: 16; scale: 1.5, 0.6; rotate: s.w * -0.4 }
+                    ellipse { at: ax + 46 * s.w, ay - 8; radius: 10; scale: 1.4, 0.5; rotate: s.w * -0.15; blend: 6 }
+                    ellipse { at: ax + 50 * s.w, ay; radius: 8; scale: 1.4, 0.45; rotate: s.w * 0.15; blend: 6 }
+                }
+            }
+        }
+        //  Her, melted with the water at the top while she lets go.
+        body {
+            color: skin
+            rim: 14%
+            ellipse { at: home.x, -30; radius: 40 * clamp(1 - adv.fy * 6, 0, 1); blend: 18 * clamp(1 - adv.fy * 8, 0, 1) }
+            ellipse { at: ax, ay; radius: 23; rotate: tilt; blend: 18 * clamp(1 - adv.fy * 8, 0, 1)
+                      scale: sx * (1 + 0.2 * hop.ground - 0.07 * hop.speed), sy * (1 - 0.24 * hop.ground + 0.1 * hop.speed) }
+        }
+        Face(ax, ay, gaze.x * 0.5, gaze.y * 0.5, 0)
+        //  A little dust where she lands and hops.
+        particles { at: ax, floor.y + 18; area: 30, 0; count: 40; life: 0.3s .. 0.6s; speed: 20 .. 70; direction: -90deg; spread: 120deg
+                    gravity: 0, 200; size: 3, 0; colors: #cfd3d8; opacity: 50%, 0%; emit: adventuring and adv.fy > 0.98 and (hop.ground > 0.6 or sx > 1.1) }
+    }
+
+    surface nook {
+        //  Wide for the panel that comes out of her when you come near, with its
+        //  shadow.
+        size: 260, 120
+        //  The edge is decided by a fact, and it changes on the fly: layer-shell
+        //  lets a live surface move corner without creating it again. Before, this
+        //  needed four surfaces —it was pleamar's limitation S13—.
+        anchor: nook
+        level: overlay
+        //  One per monitor, and only the one she was on when the recording began
+        //  is open —with «follow me», the one with the focus, which is the one
+        //  being recorded—. It used to say `screens: "DP-3"`, from when she only
+        //  lived there, and with her on the other monitor the corner came out on
+        //  the wrong one.
+        screens: each max 2
+        //  Open while anything of her is left inside: that way she slides out
+        //  instead of disappearing with the window.
+        open: tuck > 0.01 and screen.index == nook_screen
+
+        //  Where she falls inside her surface, depending on which angle she is
+        //  stuck to. She leaves by the same angle she came in by: what hides her is
+        //  the corner, not a fixed direction.
+        let wing.r = if(nook == top_right or nook == bottom_right, 1, 0)
+        let wing.b = if(nook == bottom_right or nook == bottom_left, 1, 0)
+        let rx = 14.7 + wing.r * (260 - 29.4) + (1 - tuck) * 44 * (wing.r * 2 - 1)
+        let ry = 14.7 + wing.b * (120 - 29.4) + (1 - tuck) * 44 * (wing.b * 2 - 1)
+
+        //  The gaze, folded onto her visible side: looking towards her own hidden
+        //  half is looking nowhere. Stuck to the right she only looks inwards, and
+        //  at the top only downwards.
+        prop rgaze.x = 0 ~gentle
+        prop rgaze.y = 0 ~gentle
+        look rgaze.x, rgaze.y at rx, ry reach 6, 3.5 within 260
+        prop cam.hold = 0 ~lively
+        let cam.sx = 1 - 2 * wing.r
+        let cam.sy = 1 - 2 * wing.b
+        let cam.dx = nook.cursor.x - rx
+        let cam.dy = nook.cursor.y - ry
+        let cam.base = atan2(cam.sy, cam.sx)
+        prop cam.rel = 0 ~gentle
+        follow cam.rel = clamp(atan2(cam.sx * cam.dy - cam.sy * cam.dx, cam.sx * cam.dx + cam.sy * cam.dy), -100, 100)
+        let cam.aim = cam.base + cam.rel
+        let cam.flip = if(cos(cam.aim) < 0, -1, 1)
+        //  Filming, she looks where the camera points.
+        let aim.x = mix(if(wing.r, min(rgaze.x, 0), max(rgaze.x, 0)), 5 * cos(cam.aim), cam.hold)
+        let aim.y = mix(if(wing.b, min(rgaze.y, 0), max(rgaze.y, 0)), 3 * sin(cam.aim), cam.hold)
+
+        //  The clock and «Stop», which come out OF her when you come near. It is
+        //  not a panel that appears beside her: it is the same body, stretching
+        //  into the screen like a drop and separating —with its neck halfway—
+        //  until it sits 8 px away. Marea fades it in 150 ms; here it is born.
+        fact nearby = false
+        prop near = 0 ~lively
+        follow near = if(nearby and tuck > 0.9, 1, 0)
+        follow cam.hold = if(face == rec and corner, 1, 0) * (1 - clamp(near * 2, 0, 1))
+        let p.w = 124 * near
+        //  And the panel comes out on the inner side of the screen, not always to
+        //  the left.
+        let p.x = rx + (23 + 8 + 62) * near * (1 - wing.r * 2)
+        let p.y = ry
+        //  How long it has been going. The renderer counts it: a second is a
+        //  second even if the logic is busy starting a recorder.
+        fact secs = 0
+        on change taping while taping { secs = 0 }
+        every 1s while taping { secs = secs + 1 }
+
+        //  The grace zone goes BELOW everything else: the press belongs to the
+        //  topmost zone, and declared at the end it kept the click on «Stop» and
+        //  the one on her.
+        zone box around { at: (p.x + rx) / 2, ry; size: abs(rx - p.x) + 140, 100; active: nearby }
+
+        body {
+            color: coal
+            rim: 6%
+            //  The same halo as on the other surface: it is her, and she separates
+            //  from the desktop with light, not by darkening it. And when the time
+            //  panel comes out of her, it becomes a shadow again.
+            shadow: 0, 0, 13, 45%, mix(ink, #05070a, clamp(near * 2, 0, 1))
+            box { at: p.x, p.y; size: p.w, 42 * clamp(near * 3, 0, 1); corner: 13 }
+            ellipse her { at: rx, ry; radius: 23; scale: sx + press * 0.04, sy - press * 0.05; blend: 16 * 4 * near * (1 - near) }
+        }
+        group {
+            //  It comes in late: until the panel has come loose from her, the
+            //  button would sit below her face.
+            opacity: clamp(near * 5 - 4, 0, 1)
+            move: (1 - near) * 14, 0
+            text "{secs, time}" { at: p.x - 46, p.y; anchor: left center; size: 13; weight: 600; color: ink }
+            prop hot = 0 ~140ms
+            box { at: p.x + 22, p.y; size: 64, 26; corner: 8; color: mix(#e0655a, #f0796a, hot) }
+            text "Stop" { at: p.x + 22, p.y; anchor: center; size: 12; weight: 600; color: #060000 }
+            zone box stop_btn { at: p.x + 22, p.y; size: 64, 26; corner: 8; cursor: pointer; active: near > 0.8 }
+            on enter stop_btn { hot: 1 }
+            on leave stop_btn { hot: 0 }
+            on press stop_btn { emit stop }
+        }
+        //  The face goes a little inwards, so the disc stays in sight.
+        Face(rx - 5 * (wing.r * 2 - 1), ry + 4 * (1 - wing.b * 2), aim.x, aim.y)
+
+        //  The camera. Recording, she holds one out on her inner side and points
+        //  it at the mouse wherever it is —`nook.cursor`, the mouse in this
+        //  surface's own coordinates—. The angle is measured from the direction
+        //  that goes into the screen from her corner, so it never wraps round at
+        //  180° and the spring does not spin it the long way. Pointing left, the
+        //  camera flips so its viewfinder stays on top. When you come near for
+        //  «Stop», she puts it away: the panel comes out of that same side.
+        //  Held to one eye, like somebody looking through the viewfinder: the
+        //  eye on the side it points to, which the eyepiece covers. The same
+        //  place the Face puts that eye —its centre, 6.5 to the side, and where
+        //  it is looking—, so camera and eye move as one.
+        let cam.ex = rx - 5 * (wing.r * 2 - 1) + 6.5 * cam.flip + aim.x
+        let cam.ey = ry + 4 * (1 - wing.b * 2) + aim.y
+        group {
+            show: cam.hold > 0.01
+            pivot: cam.ex, cam.ey
+            rotate: cam.aim * 1deg
+            scale: cam.hold, cam.hold * cam.flip
+            //  What it sees: a faint cone of light from the lens, fading out.
+            group {
+                mask: radial cam.ex + 28.5, cam.ey radius 6 to 90
+                path { at: 0, 0; color: #ffffff; opacity: 7%
+                       move cam.ex + 28.5, cam.ey - 2.5; line cam.ex + 125, cam.ey - 30; line cam.ex + 125, cam.ey + 30; line cam.ex + 28.5, cam.ey + 2.5; close }
+            }
+            //  The camera: eyepiece (on her eye), body, viewfinder and lens hood.
+            //  Boxes with nearly square corners, joined without melting: a
+            //  camera is a box, and melted with rounded corners it read as an
+            //  egg. The eyepiece is a square 16 across, which covers the eye —13
+            //  tall, turning with the aim— at any angle.
+            body {
+                color: #2c3035
+                rim: 14%
+                box { at: cam.ex, cam.ey; size: 16, 16; corner: 2 }
+                box { at: cam.ex + 13, cam.ey + 0.5; size: 16, 14; corner: 1.5 }
+                box { at: cam.ex + 10, cam.ey - 8.5; size: 9, 5; corner: 1 }
+                box { at: cam.ex + 22.5, cam.ey + 0.5; size: 5, 11; corner: 1 }
+            }
+            //  The lens, with its glint.
+            ellipse { at: cam.ex + 25.5, cam.ey + 0.5; radius: 3.8; color: #1d3f63 }
+            ellipse { at: cam.ex + 25.5, cam.ey + 0.5; radius: 3.8; stroke: 1.1; color: #6f7a85 }
+            ellipse { at: cam.ex + 24.5, cam.ey - 0.8; radius: 1.2; color: #ffffff; opacity: 75% }
+            //  REC: blinking once a second while the recorder really runs.
+            ellipse { at: cam.ex + 14.5, cam.ey - 3; radius: 1.8; color: #ff4b3e; opacity: if(taping, if(mod(secs, 2) < 1, 1, 0.2), 0.2) }
+        }
+
+        //  Pressing her stops it.
+        zone box her_zone { at: rx, ry; size: 46, 46; corner: 23; cursor: pointer }
+        on press her_zone { press: 1; emit stop }
+        on release her_zone { press: 0 }
+        //  Coming near brings it out; and it folds away with 320 ms of grace,
+        //  because the gap between her and the panel is real and must not be lost
+        //  while crossing it.
+        on enter her_zone { nearby = true }
+        on away around for 320ms { nearby = false }
+        on stop { nearby = false }
+    }
+}

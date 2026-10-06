@@ -1,0 +1,50 @@
+// Marea's scene, in pieces: the notice while she sleeps, the «z», the sweat drop. marea.plm includes it.
+part Signs {
+    // ── the notice that arrives while she sleeps ─────────────────
+    //  The drop forms hanging from the top edge —from the same place she hangs
+    //  from when she is sunk, because it is the same water—, lets go and sinks
+    //  into her. And from where it has fallen a ripple of its colour spreads.
+    let drip.t = clamp(droplet, 0, 1)
+    let drip.fall = clamp(droplet - 1, 0, 1)
+    let drip.y = 5 + drip.fall * (cy_actual - 5)
+    let drip.r = 4.6 * drip.t
+    //  A real drop: the tip up while it hangs, round as it falls.
+    path { at: cx, drip.y; color: hue; opacity: drip.t * (1 - drip.fall * drip.fall)
+           move 0, -6 + drip.fall * 2.4; curve 4.2, 1.8 via 4.2, -2.4; curve 0, 5.8 via 4.2, 4.8
+           curve -4.2, 1.8 via -4.2, 4.8; curve 0, -6 + drip.fall * 2.4 via -4.2, -2.4; close }
+    //  And the ripple: a ring of its colour that comes out of her and dissolves.
+    arc { at: cx, cy_actual; radius: 21 + ripple.drip * 26; span: 360deg; width: 2.4 * (1 - ripple.drip)
+          color: hue; opacity: (1 - ripple.drip) * 70% * clamp(ripple.drip * 8, 0, 1) }
+
+    // ── the asleep «z» ───────────────────────────────────────────
+    //  A single one, discreet: it rises, opens a little and dissolves. No three
+    //  z's in a row, which is what turns a mascot into a sticker.
+    //  And it goes beside her, not on top: up there is the edge of the screen,
+    //  which is the same reason the drops go down her shoulder. Over her head the
+    //  «z» came out half cut off and could not be seen.
+    text "z" { at: cx + 26 + zee * 7, cy_actual - 6 - zee * 15; anchor: center
+               size: 10 + zee * 7; weight: 600; color: #dfe6e2
+               opacity: drowsy * clamp(zee * 6, 0, 1) * (1 - zee * 0.9) * 95% }
+
+    // ── the sweat drop ───────────────────────────────────────────
+    //  «On her, an exclamation mark on the face, a drop of sweat and a short
+    //  jump.» It appears with the exclamation mark, slips a little and goes: it
+    //  is a reaction, not a state, and that is why it does not last as long as
+    //  the urgency —that is what the amber drop on her shoulder does—. It goes on
+    //  her left because the tray comes out on her right, which is what the
+    //  urgent one has just opened.
+    prop sweat = 0 ~180ms
+    prop slip = 0 ~900ms
+    on change face == alert while face == alert {
+        sweat: 1
+        slip: 0 ~16ms
+        slip: 1 ~900ms after 60ms
+        sweat: 0 ~300ms after 1100ms
+    }
+    //  A real drop: the tip up and the fat body down, which is what makes it
+    //  read as a drop and not as an oval.
+    path { at: cx - 19, cy_actual - 18 + slip * 9; color: #bfe6f2; opacity: sweat * 88%
+           move 0, -5.5; curve 3.6, 1.6 via 3.6, -2.2; curve 0, 5.4 via 3.6, 4.4
+           curve -3.6, 1.6 via -3.6, 4.4; curve 0, -5.5 via -3.6, -2.2; close }
+
+}

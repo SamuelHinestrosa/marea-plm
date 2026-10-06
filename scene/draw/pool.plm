@@ -1,0 +1,62 @@
+// Marea's scene, in pieces: Deriva's pool. marea.plm includes it.
+part Pool {
+    // ── Deriva's pool: something carried over her ────────────────
+    //  The water opens under her while something from another program is
+    //  carried over: rings that spread, «Drop it in Deriva», and on each side
+    //  a drop to leave it somewhere of its own —read later, inspiration—.
+    //  Let go on her or on the pool, it goes in the inbox.
+    let pool.x = cx
+    let pool.y = cy_actual + 82
+    group {
+        show: catch > 0.01
+        opacity: catch
+        body {
+            color: #10201c
+            rim: 12%
+            shadow: 0, 10, 26, 40%
+            ellipse { at: pool.x, pool.y; radius: 64 * catch; scale: 1, 0.42 }
+        }
+        repeat w in 0..3 {
+            let t = fract(pool.t + w / 3)
+            ellipse { at: pool.x, pool.y; radius: 10 + 50 * t; scale: 1, 0.42; stroke: 1.4; color: mint; opacity: (1 - t) * 60% }
+        }
+        text "Drop it in Deriva" { at: pool.x, pool.y + 42; anchor: center; size: 11.5; weight: 600; color: mint }
+        //  Its two places, drops that swell under the pointer.
+        body {
+            gradient: radial pool.x - 124, pool.y - 6 radius 30, #e8f3ff, blue 55%, #3d6f9c
+            rim: 30%
+            ellipse { at: pool.x - 120, pool.y; radius: (20 + 6 * later.hl) * catch }
+        }
+        body {
+            gradient: radial pool.x + 116, pool.y - 6 radius 30, #fff1dd, amber 55%, #9c6a2f
+            rim: 30%
+            ellipse { at: pool.x + 120, pool.y; radius: (20 + 6 * insp.hl) * catch }
+        }
+        //  A book, and a spark.
+        path { at: pool.x - 128, pool.y - 6; color: #0c0f12; stroke: 1.6
+               move 0, 0; line 7, 2; line 16, 0; line 16, 11; line 7, 13; line 0, 11; close }
+        line { from: pool.x - 121, pool.y - 4; to: pool.x - 121, pool.y + 7; width: 1.6; color: #0c0f12 }
+        path { at: pool.x + 113, pool.y - 8; color: #0c0f12
+               move 7, 0; line 9, 6; line 15, 8; line 9, 10; line 7, 16; line 5, 10; line 0, 8; line 5, 6; close }
+        text "Read later" { at: pool.x - 120, pool.y + 36; anchor: center; size: 10.5; color: ink; opacity: 60% + 40% * later.hl }
+        text "Inspiration" { at: pool.x + 120, pool.y + 36; anchor: center; size: 10.5; color: ink; opacity: 60% + 40% * insp.hl }
+    }
+    //  Sharing the screen: the ring that breathes around her.
+    ellipse { at: cx, cy_actual; radius: r + 6 + 1.5 * sin(share.breath * 360); stroke: 1.8; color: #ef7a66
+              opacity: share.lit * (0.45 + 0.3 * sin(share.breath * 360)); show: share.lit > 0.01 }
+    //  And what it became: «Kept in Deriva», «It was already there».
+    group {
+        show: toast.in > 0.01
+        opacity: toast.in
+        move: 0, (1 - toast.in) * -6
+        body {
+            color: #0c0f12
+            rim: 6%
+            shadow: 0, 6, 16, 35%
+            box { at: cx, cy_actual + 62; size: 190, 30; corner: 15 }
+        }
+        ellipse { at: cx - 78, cy_actual + 62; radius: 4; color: mix(mint, amber, drift.result == 2) }
+        text drift.toast { at: cx + 6, cy_actual + 62; anchor: center; size: 11.5; weight: 500; color: ink; width: 160; lines: 1 }
+    }
+
+}

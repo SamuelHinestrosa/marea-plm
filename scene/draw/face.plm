@@ -1,0 +1,409 @@
+// Marea's scene, in pieces: the face. marea.plm includes it.
+part Face {
+    // ── the face ─────────────────────────────────────────────────
+    //  Clipped to the body: whatever sticks out of the ball does not exist. It is
+    //  what lets the eyes turn into something else without leaving her.
+    //
+    //  Everything that follows is ONE chain: the usual eye, and each state
+    //  pulling at it. It is written like this and not with loose weights because
+    //  each line says what that state does, and because two springs halfway
+    //  never add up to one. The face is not swapped for another: it bends until
+    //  it is something else.
+    //
+    //  The measurements come from Marea's sheet, which draws the face in a space
+    //  of 56; here the ball measures 46, so everything goes times 46/56.
+
+    //  It is a component because she can be in two places: at the top, and
+    //  tucked into the corner while recording. The same face, the same springs;
+    //  the only thing that changes is where she is and where she can look.
+    component Face(x: number, y: number, gx: number, gy: number, sink: number = 0) {
+        //  When something else is in charge, the eyelid stops counting: a camera
+        //  does not blink and neither does a number.
+        let override = clamp(meter + num + cam + dot, 0, 1)
+        let eyelid = lid + (1 - lid) * override
+
+        //  1. The eye, and the level laying it down. (Measured in «The level on the
+        //  face».)
+        let o.w = 5 + 8 * meter
+        let o.h = eyes * eyelid * (1 - meter) + 5 * meter
+        let o.sep = 6.5 - 4 * meter
+
+        //  2. The countdown. The two eyes go to the centre and round off until
+        //  they are ONE drop —they really melt together, that is what they are a
+        //  body for—, and then the drop **opens like a diaphragm**: it grows while
+        //  its centre is eaten away, it stays as a ring, and inside was the number.
+        //  It is not that the eyes hide and a number appears on top; it is that the
+        //  number was behind them and the eyes open to show it.
+        let merge = clamp(num * 2, 0, 1)
+        let aperture = clamp(num * 2 - 1, 0, 1)
+        let c.w = o.w + (9 - o.w) * merge
+        let c.h = o.h + (9 - o.h) * merge
+        let c.sep = o.sep * (1 - merge)
+        //  18 and not 30: the ring stays at a little more than half a ball. With
+        //  30 it almost filled it, and in 260 ms that is not a diaphragm, it is a
+        //  flash.
+        let g.w = c.w + 18 * aperture
+        let g.h = c.h + 18 * aperture
+
+        //  3. The camera. The left one opens into the lens and the right one
+        //  stretches around it until it is the body; both at the centre of the
+        //  face. The lens measures 13 on the sheet, and 5 with the shutter closed.
+        let eye.l = 10.7 - 5.4 * shut
+        let l.w = g.w + (eye.l - g.w) * cam
+        let l.h = g.h + (eye.l - g.h) * cam
+        let r.w = g.w + (24.6 - g.w) * cam
+        let r.h = g.h + (17.3 - g.h) * cam
+        //  Searching, both go to the centre: the ring stays there and the handle
+        //  comes out of its edge, not from where an eye was.
+        //  Padlock, circular arrow and power symbol are ONE figure made with two
+        //  eyes, so both go to the centre. The eyelids and the door do not: there
+        //  they are still two things, one on each side.
+        let sep = c.sep * (1 - cam) * (1 - alarm) * (1 - magnifier) * (1 - padlock) * (1 - turn) * (1 - power)
+
+        //  4. The record disc: the left eye, and only that one. The right one is
+        //  still an eye and still follows the pointer, which is what keeps her
+        //  alive while it lasts. The disc stays where the eye was, it does not
+        //  centre itself.
+        let d.w = l.w + (9 - l.w) * dot
+        let d.h = l.h + (9 - l.h) * dot
+
+        //  5. The exclamation mark: the stick is the left eye and the dot the
+        //  right one, both centred, because an off-centre «!» is not a «!». They
+        //  go to the middle, and one stretches while the other becomes a dot.
+        let a.w = d.w + (4.1 - d.w) * alarm
+        let a.h = d.h + (12.3 - d.h) * alarm
+        let a.rw = r.w + (4.1 - r.w) * alarm
+        let a.rh = r.h + (4.1 - r.h) * alarm
+
+        //  6. In the Haven the eyes drop to two relaxed strokes. They do not close:
+        //  she is still here, attentive. Closing them would be sleeping, which is
+        //  something else.
+        let z.w = a.w + (7.4 - a.w) * calmness
+        let z.h = a.h + (2.5 - a.h) * calmness
+        let z.rw = a.rw + (7.4 - a.rw) * calmness
+        let z.rh = a.rh + (2.5 - a.rh) * calmness
+        //  And the one beside the pearl opens round to look at it. Only that one:
+        //  the other stays in its stroke, because nothing else has happened.
+        let z.rw2 = z.rw + (9.5 - z.rw) * glance
+        let z.rh2 = z.rh + (9.5 - z.rh) * glance
+
+        //  8. Searching: the eyes turn into **a magnifying glass**. The left one
+        //  opens into the ring —a disc whose centre is eaten by another one the
+        //  colour of the body, just like the countdown's diaphragm— and the right
+        //  one stretches into the handle, down to the right and diagonally. It is
+        //  the same chain: the face is not swapped for another, it bends until it
+        //  is something else.
+
+        //  7. Asleep: two little lines. It is not the Haven's stroke —there she is
+        //  still looking, here there is nobody—: they are thinner and droop a
+        //  little, like an eyelid that has already given up.
+        let s.w = z.w + (7.8 - z.w) * drowsy
+        let s.h = z.h + (1.5 - z.h) * drowsy
+        let s.rw = z.rw2 + (7.8 - z.rw2) * drowsy
+        let s.rh = z.rh2 + (1.5 - z.rh2) * drowsy
+        //  And asleep she opens ONLY the right one towards the drop that has sunk
+        //  into her: 280 ms, open 700, and back to sleep. The left one does not
+        //  even notice, which is what keeps it from looking as if she has woken up.
+        let s.rw2 = s.rw + (8.6 - s.rw) * eye.r
+        let s.rh2 = s.rh + (8.6 - s.rh) * eye.r
+        //  And the magnifying glass, at the end of the chain: the ring and the
+        //  handle.
+        let u.w = s.w + (17.4 - s.w) * magnifier
+        let u.h = s.h + (17.4 - s.h) * magnifier
+        let u.rw = s.rw2 + (4.4 - s.rw2) * magnifier
+        let u.rh = s.rh2 + (11.6 - s.rh2) * magnifier
+
+        //  9. And the session's gestures, which are five and follow the sheet to
+        //  the letter: «one capsule forms the padlock's shackle and the other its
+        //  body», «the eyes narrow and end up as two curved eyelids», «one eye
+        //  draws a door frame and the other an arrow going out», «the two curved
+        //  strokes join into a circular arrow», «one eye forms the open ring and
+        //  the other the vertical stroke». Five more links of the same chain: the
+        //  face does not change, it bends.
+        let k.w = u.w + (12.6 - u.w) * padlock
+        let k.h = u.h + (12.6 - u.h) * padlock
+        let k.rw = u.rw + (15.5 - u.rw) * padlock
+        let k.rh = u.rh + (11.5 - u.rh) * padlock
+        let p.w = k.w + (8.8 - k.w) * lids
+        let p.h = k.h + (2.6 - k.h) * lids
+        let p.rw = k.rw + (8.8 - k.rw) * lids
+        let p.rh = k.rh + (2.6 - k.rh) * lids
+        let q.w = p.w + (12.6 - p.w) * door
+        let q.h = p.h + (16.4 - p.h) * door
+        let q.rw = p.rw + (8.4 - p.rw) * door
+        let q.rh = p.rh + (2.4 - p.rh) * door
+        //  Reboot leaves the right one at nothing: the arrow's tip is a path of
+        //  its own, because a tip is a triangle and not a capsule.
+        let j.w = q.w + (16.4 - q.w) * turn
+        let j.h = q.h + (16.4 - q.h) * turn
+        let j.rw = q.rw + (0.1 - q.rw) * turn
+        let j.rh = q.rh + (0.1 - q.rh) * turn
+        let w.w = j.w + (17 - j.w) * power
+        let w.h = j.h + (17 - j.h) * power
+        let w.rw = j.rw + (2.8 - j.rw) * power
+        let w.rh = j.rh + (11 - j.rh) * power
+        //  And the ending, which is the only gesture in the whole scene made AFTER
+        //  deciding: «the symbol may contract down to a small point of light and
+        //  disappear». It shrinks whole, gaps included, or the hole would eat the
+        //  ring before the ring goes.
+        let shrink = 1 - powerdown
+        let v.w = w.w * shrink
+        let v.h = w.h * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - clamp(hands, 0, 1)) * (1 - clamp(sign, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
+        let v.rw = w.rw * shrink
+        let v.rh = w.rh * shrink * (1 - joy) * (1 - clamp(eyewave, 0, 1)) * (1 - clamp(hands, 0, 1)) * (1 - clamp(sign, 0, 1)) * (1 - 0.35 * fury - 0.25 * glare)
+
+        //  The magnifying glass is centred as a whole, not by its ring: the ring
+        //  sat where the eyes do and the handle hung off it down to the right,
+        //  so the glass as a figure was 3 px right and 5 low. Its box runs from
+        //  the ring's edge (−8.7) to the handle's tip (+14.5) on both axes.
+        //  At her centre: the eyes and whatever figure they turn into. They used
+        //  to sit 2.5 below it, which on two pills reads as a face but every
+        //  symbol —the count, the padlock, the arrows— inherited it and came out
+        //  low in the ball. Measured against a circle fitted to her edge.
+        //  The camera carries its viewfinder on top, so its body goes a little
+        //  lower for the camera as a whole to be centred.
+        let eye.y = y + drowsy * 1.4 - 2.9 * magnifier + 2.4 * cam
+        let l.x = x - sep - 1.9 * magnifier
+        let r.x = x + sep - 1.9 * magnifier
+        //  Round when it is round: half of the short side gives a standing pill,
+        //  a lying pill, drop, lens and disc without saying it five times. The
+        //  camera's body is the only one that departs from it, because it has a
+        //  corner of its own.
+        let l.corner = min(v.w, v.h) / 2
+        let r.corner = min(v.rw, v.rh) / 2 + (4.9 - min(v.rw, v.rh) / 2) * cam
+        //  And the bridge between the two: a bell, like the meniscus one. Maximum
+        //  just when they touch —halfway through the level's journey, and on
+        //  joining into the drop— and nothing at the ends.
+        let eye.fusion = 6 * 4 * meter * (1 - meter) + 7 * merge * (1 - cam)
+
+        group {
+            clip inset 1 ellipse { at: x, y; radius: 23 }
+            //  A symbol does not look around: turned into the magnifying glass,
+            //  the gaze no longer carries it off the centre.
+            move: gx * (1 - magnifier), gy * (1 - magnifier) + look.y + sink
+
+            //  The eyes, which here are everything: the level's track, the
+            //  countdown's drop, the camera's lens and body, and the red disc's
+            //  place. They darken when lying down because a white track with mint
+            //  on top does not read as a level; and they go away when the drop
+            //  opens.
+            body {
+                color: mix(ink, #34373a, meter)
+                box { at: l.x, eye.y - 2.8 * alarm - 5.2 * padlock; size: v.w, v.h; corner: l.corner; blend: eye.fusion }
+                box { at: r.x + 8.8 * magnifier, eye.y + 6.2 * alarm + 8.8 * magnifier + 5.4 * padlock - 3.4 * power
+                      size: v.rw, v.rh; corner: r.corner; rotate: 45deg * magnifier; blend: eye.fusion }
+            }
+            //  Happy: the pills flatten into nothing and two arches rise in their
+            //  place —«^ ^»—. The same eyes, bent once more; the arch grows from a
+            //  point as the pill goes, so there is never a face with none.
+            arc { at: l.x, eye.y + 2; radius: 4.2; span: 170deg * joy; width: 2.4; color: ink; opacity: min(joy * 3, 1) }
+            arc { at: r.x, eye.y + 2; radius: 4.2; span: 170deg * joy; width: 2.4; color: ink; opacity: min(joy * 3, 1) }
+            //  The clock: the pills flatten and two hands grow from her centre,
+            //  the hour's short and thick, the minute's long.
+            line { from: x, eye.y; to: x + 5.5 * sin(hand.h) * hands, eye.y - 5.5 * cos(hand.h) * hands; width: 2.8; color: ink; opacity: min(hands * 3, 1) }
+            line { from: x, eye.y; to: x + 9 * sin(hand.m) * hands, eye.y - 9 * cos(hand.m) * hands; width: 2; color: ink; opacity: min(hands * 3, 1) }
+            ellipse { at: x, eye.y; radius: 1.9 * hands; color: ink; opacity: min(hands * 3, 1) }
+            //  What has just arrived, in her eyes for a moment: the pills flatten
+            //  and the symbol of its kind grows in their place. A speech bubble
+            //  for messages, an envelope for work, a calendar page, a gear for
+            //  the system.
+            group {
+                opacity: min(sign * 3, 1)
+                pivot: x, eye.y
+                scale: sign, sign
+                group {
+                    show: reading_cat == 1
+                    box { at: x, eye.y - 1; size: 17, 12; corner: 4.5; stroke: 1.9; color: ink }
+                    path { at: x - 4, eye.y + 4.5; color: ink; move 0, 0; line 5, 0; line -1.5, 4.5; close }
+                }
+                group {
+                    show: reading_cat == 2
+                    box { at: x, eye.y; size: 18, 12; corner: 1.8; stroke: 1.8; color: ink }
+                    line { from: x - 8, eye.y - 5; to: x, eye.y + 1; width: 1.6; color: ink }
+                    line { from: x + 8, eye.y - 5; to: x, eye.y + 1; width: 1.6; color: ink }
+                }
+                group {
+                    show: reading_cat == 3
+                    box { at: x, eye.y + 0.5; size: 15, 13; corner: 2; stroke: 1.8; color: ink }
+                    box { at: x, eye.y - 4; size: 15, 4; corner: 1; color: ink }
+                    line { from: x - 3.5, eye.y - 8.5; to: x - 3.5, eye.y - 5; width: 1.6; color: ink }
+                    line { from: x + 3.5, eye.y - 8.5; to: x + 3.5, eye.y - 5; width: 1.6; color: ink }
+                }
+                group {
+                    show: reading_cat == 4
+                    ellipse { at: x, eye.y; radius: 5; stroke: 2.2; color: ink }
+                    repeat t in 0..6 {
+                        box { at: x + 7 * cos(t * 60), eye.y + 7 * sin(t * 60); size: 3.2, 3.2; corner: 0.8; rotate: t * 60deg; color: ink }
+                    }
+                }
+            }
+            //  Reading water: the pills flatten the same way and a little wave
+            //  grows in each place, a ∩ and a ∪ side by side, rocking.
+            repeat e in 0..2 {
+                let ex = if(e == 0, l.x, r.x)
+                let bob = 1.2 * sin(eyewave.phase * 360 + e * 120)
+                let tw = clamp(eyewave, 0, 1)
+                arc { at: ex - 3.1, eye.y + bob; radius: 3.1; span: 180deg * tw; width: 2.4; color: ink; opacity: min(tw * 3, 1) }
+                arc { at: ex + 3.1, eye.y + bob; radius: 3.1; span: 180deg * tw; width: 2.4; rotate: 180deg; color: ink; opacity: min(tw * 3, 1) }
+            }
+            //  Angry: two brows sloping down to the middle, «\ /», and the eyes
+            //  narrowed under them.
+            line { from: l.x - 5.5, eye.y - 11 + 2 * (1 - fury); to: l.x + 4, eye.y - 6.5; width: 2.2; color: ink; opacity: fury }
+            line { from: r.x + 5.5, eye.y - 11 + 2 * (1 - fury); to: r.x - 4, eye.y - 6.5; width: 2.2; color: ink; opacity: fury }
+            //  Blowing: a little «o» of a mouth.
+            ellipse { at: x + 6 * side, eye.y + 10; radius: 2.6 * blow; stroke: 1.5; color: ink; opacity: blow }
+
+            //  The level's filled part is **the same track**, painted again and
+            //  clipped from the left. That way the mint has the exact shape of the
+            //  bar —with its tips— without drawing a single extra geometry. In its
+            //  own group: a clip reaches to the end of the group where it lives.
+            group {
+                clip inset 0 box { from: x - 9, eye.y - 4; size: 18 * vol_level, 8 }
+                body {
+                    color: mix(mint, #6b7280, sound.muted)
+                    opacity: meter
+                    box { at: l.x, eye.y - 2.8 * alarm - 5.2 * padlock; size: v.w, v.h; corner: l.corner; blend: eye.fusion }
+                    box { at: r.x + 8.8 * magnifier, eye.y + 6.2 * alarm + 8.8 * magnifier + 5.4 * padlock - 3.4 * power
+                      size: v.rw, v.rh; corner: r.corner; rotate: 45deg * magnifier; blend: eye.fusion }
+                }
+            }
+
+            //  The hole of the magnifying glass's ring, the colour of the body:
+            //  here everything is distances, so a hole is one more shape. It is
+            //  the same trick as the diaphragm down here.
+            body {
+                color: skin
+                ellipse { at: l.x, eye.y; radius: 6.4 * magnifier * shrink }
+                //  The padlock's shackle: a ring whose lower half is covered,
+                //  which is where the body fits.
+                ellipse { at: l.x, eye.y - 5.2 * padlock; radius: 4.1 * padlock * shrink }
+                box { at: l.x, eye.y - 1 * padlock; size: 13 * padlock * shrink, 7 * padlock * shrink }
+                //  The door frame, hollow inside.
+                box { at: l.x - 1.1 * door, eye.y; size: 8 * door * shrink, 12 * door * shrink; corner: 1 }
+                //  The two rings, the reboot one and the power-off one, with their
+                //  opening.
+                ellipse { at: l.x, eye.y; radius: 5.6 * turn * shrink }
+                box { at: l.x + 5.6 * turn, eye.y - 5.6 * turn; size: 7 * turn * shrink, 7 * turn * shrink; rotate: 45deg }
+                ellipse { at: l.x, eye.y; radius: 5.7 * power * shrink }
+                box { at: l.x, eye.y - 8.5 * power; size: 5.4 * power * shrink, 6 * power * shrink }
+            }
+            //  The power symbol's stroke, again on top: the ring's hollow and its
+            //  opening were cut after it and ate it whole, so the power-off face
+            //  was a ring alone.
+            box { at: l.x, eye.y - 4.3 * power; size: 2.6 * power * shrink, 9.6 * power * shrink; corner: 1.3; color: ink; opacity: min(power * 3, 1) }
+            //  And what is not a bent capsule: the door's handle, the arrow going
+            //  out through it and the tip of the circular arrow. The turn is a
+            //  single one —«do not spin endlessly for decoration»— and is made
+            //  whole every time you point at it.
+            group {
+                opacity: door * shrink
+                ellipse { at: l.x + 1.6, eye.y + 1.4; radius: 1.1; color: mint }
+                path { at: r.x + 5.2, eye.y; color: ink; stroke: 1.7
+                       move 0, -3.1; line 3.1, 0; line 0, 3.1 }
+            }
+            group {
+                opacity: turn * shrink
+                pivot: l.x, eye.y
+                rotate: twirl * 360deg
+                path { at: l.x + 7.4, eye.y - 7.4; color: ink
+                       move -3.4, -2.2; line 3.4, 0.4; line -1.4, 3.6; close }
+            }
+
+            //  The diaphragm. The drop does not fade: its centre is eaten by a
+            //  shape the colour of the ball, so what is left is a ring that grows
+            //  until there is no ring any more. A white number on a white drop
+            //  that fades comes out grey and murky; this comes out clean, and it is
+            //  also the same sum as always: here everything is distances, and a
+            //  hole is one more shape.
+            body {
+                color: skin
+                ellipse { at: x, eye.y; radius: g.w / 2 * aperture * 1.25 }
+            }
+
+            //  The camera's hollow. The body is not drawn with an outline: its
+            //  centre is eaten by a shape the colour of the ball, which is how a
+            //  hole is made when everything is distances. It grows from nothing, so
+            //  the eye empties instead of being swapped for a frame.
+            body {
+                color: skin
+                box { at: x, eye.y; size: 21.3 * cam, 14 * cam; corner: 3.3 }
+            }
+
+            //  And the lens on top of the hollow, which is the only thing the
+            //  hollow took with it. Same shape and same place as the eye below, so
+            //  no crossing is seen: you see an eye emptying around it.
+            body {
+                color: ink
+                opacity: cam
+                ellipse { at: x, eye.y; radius: eye.l / 2 }
+            }
+
+            //  The viewfinder. This one cannot be an eye —both have been used— so
+            //  it is a separate mark, detached from the outline so they do not join
+            //  in a seam, and it comes and goes with the rest.
+            box {
+                at: x - 6.2, eye.y - 11.6
+                size: 5.7 * cam, 2.9 * cam
+                corner: 1.2
+                color: ink
+            }
+
+            //  The record disc, right on top of the left eye and its size: it is
+            //  not a shape that arrives, it is the eye turning red. And the red
+            //  lights up with `taping`, not with the press: the disc says the
+            //  recorder IS running, not that it has been asked to.
+            body {
+                color: mix(#34373a, #fc6753, red)
+                opacity: dot
+                ellipse { at: l.x, eye.y; radius: d.w / 2 }
+            }
+
+            //  The level's percentage, on the forehead. It rises the last three
+            //  pixels while it appears: it comes in with the bar instead of
+            //  switching on on top.
+            text number(sound.volume * 100, 0, " %") {
+                at: x, y - 9 + (1 - meter) * 3
+                anchor: center
+                size: 9
+                weight: 600
+                color: ink
+                opacity: meter
+            }
+
+            //  The countdown's number, where her eyes were. Big so it can be read
+            //  from the other side of the desk, which is the whole reason it is
+            //  here and not on a separate label: what is about to start, she does.
+            group {
+                pivot: x, eye.y
+                scale: 1 + pop, 1 + pop
+                text number(max(left, 1), 0) {
+                    //  A digit's ink sits lower than its line's middle: raised so
+                    //  the number is centred, not its box.
+                    at: x, eye.y - 1.8
+                    anchor: center
+                    size: 24.6
+                    weight: 300
+                    color: ink
+                    //  It comes in before the ring is completely gone: by the time
+                    //  the hole shows it, it is already there. If it came in later,
+                    //  the diaphragm would open over nothing.
+                    opacity: clamp(aperture * 1.7, 0, 1)
+                }
+            }
+        }
+    }
+
+    //  Sunk into the edge, her centre falls almost on the water's surface, so
+    //  eyes centred on it come out with the crown cut off by the edge of the
+    //  screen: you saw two little lines. Lowering them inside the face shows them
+    //  whole without having to show more of her. They are Marea's 7 of 56, times
+    //  46/56, and somewhat less now that she peeks out more.
+    //  Where her face is, said ONCE: the face and whatever sticks to it use it.
+    //  Written twice, a pair of glasses stays looking the other way as soon as
+    //  someone touches one of the two places.
+    let face.dx = (gaze.x + (4 - gaze.x) * attentive) * (1 - glare)
+    let face.dy = gaze.y * (1 - attentive) * (1 - glare)
+    let face.sink = (1 - out) * 4.5 * if(hidden, 1, 0)
+    Face(cx, cy_actual, face.dx, face.dy, face.sink)
+
+}

@@ -1,0 +1,142 @@
+// Marea's scene, in pieces: the Haven's capsule and membrane, the saved recording's card. marea.plm includes it.
+part Haven {
+    // ── the Haven's capsule ──────────────────────────────────────
+    //  The whole —her and the capsule—, for the grace on leaving. And it goes
+    //  BELOW what it holds inside, like the panel's: the press belongs to the
+    //  topmost zone, and declared at the end it kept the click on «End». It is
+    //  the fourth time this happens; it is no longer a slip, it is a shape of
+    //  the scene, and that is why it is written here and not only there.
+    zone box capsule_area { at: cx + 70, cy_actual + 8; size: 260, 136; corner: 30; active: capsule > 0.01 }
+    on away capsule_area for 300ms { note = false }
+
+    //  On hovering, what needs to be known: what she is in, how long she has
+    //  left, how many she has kept, and how to get out. Nothing more: if you had
+    //  to open something to find out, it would be of no use.
+    let capsule.reveal = clamp(capsule * 2.2 - 1.2, 0, 1)
+    group {
+        opacity: capsule.reveal
+        move: (1 - capsule.reveal) * -8, 0
+        arc { at: capsule.x - 76, capsule.y - 22; radius: 7.5; span: 210deg; width: 5; rotate: 145deg; color: #8fa2e8 }
+        text "Do not disturb · {remaining, 0} min" { at: capsule.x - 60, capsule.y - 26; anchor: left center; size: 12; weight: 500; color: ink }
+        text "{pending, 0} notices kept" { at: capsule.x - 60, capsule.y - 9; anchor: left center; size: 10.5; color: #8b8f95 }
+        prop end_haven.glow = 0 ~140ms
+        prop rules.glow = 0 ~140ms
+        box { at: capsule.x - 52, capsule.y + 22; size: 96, 30; corner: 10; color: mix(#2a1b1b, #3a2424, end_haven.glow) }
+        box { at: capsule.x - 84, capsule.y + 22; size: 11, 11; corner: 3; color: #e0655a }
+        text "End" { at: capsule.x - 44, capsule.y + 22; anchor: center; size: 11.5; weight: 500; color: ink }
+        box { at: capsule.x + 52, capsule.y + 22; size: 96, 30; corner: 10; color: mix(#1b1b1c, #232425, rules.glow) }
+        text "View rules" { at: capsule.x + 52, capsule.y + 22; anchor: center; size: 11.5; color: #8b8f95 }
+        zone box end_haven { at: capsule.x - 52, capsule.y + 22; size: 96, 30; corner: 10; cursor: pointer; active: capsule > 0.8 }
+        zone box rules { at: capsule.x + 52, capsule.y + 22; size: 96, 30; corner: 10; cursor: pointer; active: capsule > 0.8 }
+        on enter end_haven { end_haven.glow: 1 }
+        on leave end_haven { end_haven.glow: 0 }
+        on enter rules { rules.glow: 1 }
+        on leave rules { rules.glow: 0 }
+        on press end_haven { emit leave_haven }
+        on press rules { emit view_rules }
+    }
+    // ── the saved recording's card ───────────────────────────────
+    //  Its grace zone first, below what it holds: the press belongs to the
+    //  zone declared last.
+    zone box reel_area { at: reel.x - 20, reel.y; size: 350, 120; corner: 24; active: reel > 0.01 }
+    on enter reel_area { reel_hovered = true }
+    on leave reel_area { reel_hovered = false; reel_clock: if(reel_hovered, 0, 1) after 6s }
+    let reel.reveal = clamp(reel * 2.2 - 1.2, 0, 1)
+    group {
+        opacity: reel.reveal
+        move: (1 - reel.reveal) * -8, 0
+        //  A mint tick: done, and kept.
+        ellipse { at: reel.x - 130, reel.y - 26; radius: 8; color: mint; opacity: 18% }
+        path { at: reel.x - 134, reel.y - 27; color: mint; stroke: 1.8
+               move 0, 0; line 3, 3; line 8, -3 }
+        text "Recording saved" { at: reel.x - 116, reel.y - 29; anchor: left center; size: 12; weight: 500; color: ink }
+        text reel.name { at: reel.x - 116, reel.y - 13; anchor: left center; size: 10.5; width: 230; lines: 1; color: #8b8f95 }
+        prop reel_x.glow = 0 ~140ms
+        line { from: reel.x + 126, reel.y - 33; to: reel.x + 134, reel.y - 25; width: 1.6; color: ink; opacity: 45% + reel_x.glow * 55% }
+        line { from: reel.x + 134, reel.y - 33; to: reel.x + 126, reel.y - 25; width: 1.6; color: ink; opacity: 45% + reel_x.glow * 55% }
+        zone box reel_close { at: reel.x + 130, reel.y - 29; size: 26, 26; corner: 13; cursor: pointer; active: reel > 0.8 }
+        on enter reel_close { reel_x.glow: 1 }
+        on leave reel_close { reel_x.glow: 0 }
+        on press reel_close { reel_open = false }
+        //  Three choices, the first one lit: watching it is what one wants most.
+        repeat b in 0..3 {
+            let bx = reel.x - 94 + b * 94
+            prop reel_b.glow.$b = 0 ~140ms
+            box { at: bx, reel.y + 22; size: 88, 30; corner: 10
+                  color: mix(mix(#1b1b1c, #242526, reel_b.glow.$b), mix(#1f3a34, #25483f, reel_b.glow.$b), b == 0) }
+            text "Watch" { at: bx, reel.y + 22; anchor: center; size: 11.5; weight: 500; color: mint; show: b == 0 }
+            text "Folder" { at: bx, reel.y + 22; anchor: center; size: 11.5; color: ink; show: b == 1 }
+            text "Copy path" { at: bx, reel.y + 22; anchor: center; size: 11.5; color: ink; show: b == 2 }
+            zone box reel_b.$b { at: bx, reel.y + 22; size: 88, 30; corner: 10; cursor: pointer; active: reel > 0.8 }
+            on enter reel_b.$b { reel_b.glow.$b: 1 }
+            on leave reel_b.$b { reel_b.glow.$b: 0 }
+        }
+        on press reel_b.0 { emit reel_watch; reel_open = false }
+        on press reel_b.1 { emit reel_folder; reel_open = false }
+        on press reel_b.2 { emit reel_copy; reel_open = false }
+    }
+
+    //  On coming back, a single summary. The normal drops stay hidden while it is
+    //  there: releasing the whole queue at once would be the opposite of what
+    //  the Haven came to do.
+    let summary.reveal = clamp(summary * 2 - 1, 0, 1)
+    group {
+        opacity: summary.reveal
+        move: (1 - summary.reveal) * -10, 0
+        ellipse { at: summary.x - 78, cy_actual; radius: 8; color: blue }
+        text "{pending, 0} important updates" { at: summary.x - 62, cy_actual; anchor: left center; size: 11.5; color: ink }
+        path { at: summary.x + 86, cy_actual - 5; color: #8b8f95; stroke: 1.6; move 0, 0; line 5, 5; line 0, 10 }
+    }
+
+    // ── the Haven's membrane ─────────────────────────────────────
+    //  All of this lives INSIDE her silhouette: going into the Haven does not
+    //  enlarge her. The water is drawn clipped to the ball, so the line is cut
+    //  where she ends and there is no need to compute where.
+    let water.y = cy_actual + 7
+    let water.tilt = tide * 0.10
+    group {
+        clip inset 0 ellipse { at: cx, cy_actual; radius: r }
+        opacity: calmness
+        //  What is below the waterline: a little lighter than her, like water
+        //  seen from outside.
+        box { at: cx, water.y + 22; size: 70, 44; color: #1d2b2c; rotate: water.tilt }
+        //  And the line, which is the only thing that moves: the tide changes its
+        //  slope slowly, without moving the body or the pearls.
+        box { at: cx, water.y; size: 70, 1.4; color: #7fd6c4; rotate: water.tilt; opacity: 75% }
+        //  The pearls: one per category, kept under the water. They appear when
+        //  the first one is kept, grow a little with what keeps being kept —up
+        //  to three, and there it stays: a pearl that grows without limit is a
+        //  count, and the count is already in the capsule— and they beat when
+        //  another one falls. That is all that happens in here, and it happens
+        //  slowly.
+        repeat k in 1..5 {
+            let px = cx - 13.5 + (k - 1) * 9
+            let pearl.r = (2.8 + 0.6 * min(n.$k, 3)) * (1 + beat.$k * 0.5)
+            ellipse { at: px, water.y + 9; radius: pearl.r * pearl.$k
+                      color: mix(mix(mix(blue, lilac, k > 1.5), green, k > 2.5), amber, k > 3.5)
+                      opacity: pearl.$k * 85% }
+        }
+    }
+    //  The amber pearl of an allowed urgency: over the membrane, not under the
+    //  water. What is kept goes below; what happens, above.
+    //  At three o'clock on her membrane, far from the moon: together they read
+    //  as one single strange thing on the edge.
+    ellipse { at: cx + 20, cy_actual - 11.5; radius: 4.2; color: #e2b25a; opacity: glance }
+
+    //  The membrane, of the same diameter as her. It is drawn by a wave that
+    //  runs around it once on entering: the arc grows from nothing to whole.
+    arc { at: cx, cy_actual; radius: r; span: 360deg * drawing; width: 1.3; color: #7fd6c4; opacity: calmness * 85% }
+
+    //  The moon, in the upper right quadrant and outside her. It is a path of two
+    //  curves —the outer edge and the inner one—, which is how a crescent is
+    //  drawn when you cannot subtract one shape from another.
+    let moon.x = cx + 22
+    let moon.y = cy_actual - 31
+    //  A crescent is a fat arc, so that is what it is: 210° of 5.5 thickness,
+    //  rotated so it opens downwards and to the left. With two curves it came
+    //  out as a hook; this is what the shape really is.
+    arc { at: moon.x, moon.y; radius: 7.5; span: 210deg; width: 5.5; rotate: 145deg; color: #8fa2e8; opacity: calmness }
+
+
+
+}

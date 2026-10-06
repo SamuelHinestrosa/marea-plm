@@ -1,0 +1,70 @@
+// Marea's scene, in pieces: the lock screen. marea.plm includes it.
+part Lock {
+    // ── the lock screen ──────────────────────────────────────────
+    //  «A lock screen has a job and a half. The job is to let in whoever knows the
+    //  password and nobody else. The half is not to be scary»: it appears all at
+    //  once, covers what you were doing and has no cancel button. That is why she
+    //  is there, with the padlock on her face —the same one she put on when
+    //  pointing at «Lock» a second ago—, so that what covers the desktop is the
+    //  same thing as the card you have just used and not a stranger asking for
+    //  the password.
+    //
+    //  The background is almost black and still: not the desktop photo, which
+    //  would show whoever walks by what you were doing, nor anything that moves.
+    on lock { locked = true }
+    on change locked while locked { hint = lock; focus password; lock.glow: 1 }
+    on change locked while not locked { hint = none; lock.glow: 0 }
+    //  Closing the panel takes her padlock face away; while it lasts, it is put
+    //  back on.
+    on change hint while locked and hint != lock { hint = lock }
+    on wrong_password { impulse headshake 22 }
+    //  The emergency exit of the first locks. It is said on screen: one that
+    //  opens with Esc without saying so is not a lock screen, it is a poster.
+    on key Escape while locked and with_exit { locked = false }
+    //  And the second seatbelt of those first locks: if the keyboard did not
+    //  arrive —and then neither would Esc—, it opens by itself after a minute. A
+    //  locker that stays shut without being able to open has no stand-in on this
+    //  machine, so while it is a test one it does not trust a single exit.
+    on still locked for 60s while locked and with_exit { locked = false }
+
+    surface lockscreen {
+        kind: lock
+        size: 640, 440
+        open: locked
+
+        box { from: -4000, -4000; size: 8640, 8440; color: #07080a }
+        //  Almost black, but not quite in the centre: she is a very dark grey and
+        //  on pure black she would get lost.
+        body {
+            gradient: radial 320, 236 radius 260, #14171a, #07080a
+            ellipse { at: 320, 236; radius: 260 }
+        }
+
+        text now.time { at: 320, 58; anchor: center; size: 68; weight: 300; color: #f6f6f5 }
+        text "{upper(now.date)}" { at: 320, 112; anchor: center; size: 12; weight: 600; color: #8b8f95 }
+
+        //  Her, at a size that can be seen from the door.
+        group {
+            pivot: 320, 214
+            scale: 2.1, 2.1
+            move: headshake, 0
+            body {
+                color: coal
+                rim: 14%
+                ellipse { at: 320, 214; radius: 23 }
+            }
+            Face(320, 214, 0, 0)
+        }
+
+        //  The box. It has the whole keyboard —it is `kind: lock`—, so there is
+        //  no need to press it: you just type.
+        box { at: 320, 346; size: 300, 46; corner: 14; color: mix(#15171a, #1b1e22, lock.glow) }
+        box { at: 320, 346; size: 300, 46; corner: 14; stroke: 1.2; color: mix(mint, #e0655a, clamp(abs(headshake) / 6, 0, 1)); opacity: 35% + lock.glow * 40% }
+        input password { at: 188, 335; width: 264; size: 16; color: #f6f6f5; placeholder: "Password"; secret: true }
+
+        text "Checking…" { at: 320, 392; anchor: center; size: 11.5; color: #8b8f95; show: checking }
+        text "Enter to unlock" { at: 320, 392; anchor: center; size: 11.5; color: #8b8f95; opacity: 60%; show: not checking and lock.held > 0.5 }
+        text "Esc to exit · test lock" { at: 320, 420; anchor: center; size: 11; color: mint; opacity: 80%; show: with_exit }
+    }
+
+}

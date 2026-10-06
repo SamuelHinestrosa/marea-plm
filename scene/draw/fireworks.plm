@@ -1,0 +1,98 @@
+// Marea's scene, in pieces: the fireworks. marea.plm includes it.
+part Fireworks {
+    // ── the fireworks ────────────────────────────────────────────
+    //  Seven rockets, one after another. Each one is a spring from her to
+    //  where it bursts —critically damped, so it slows as it arrives, like a
+    //  rocket at the top of its climb—, with a slight bow sideways so it does
+    //  not fly like a ruler. While it flies it leaves a trail of sparks; on
+    //  arriving, its event lets out the burst. She lives against the top
+    //  edge, so they fan out downwards and to the sides.
+    //  Here and not further down: after the card's loose clip everything is
+    //  the card's, and with the card closed they did not show at all.
+    event boom.1
+    event boom.2
+    event boom.3
+    event boom.4
+    event boom.5
+    event boom.6
+    event boom.7
+    on celebrate {
+        fw.rise.1: 0 ~16ms; fw.rise.1: 1 ~700ms after 120ms
+        fw.rise.2: 0 ~16ms; fw.rise.2: 1 ~700ms after 330ms
+        fw.rise.3: 0 ~16ms; fw.rise.3: 1 ~700ms after 520ms
+        fw.rise.4: 0 ~16ms; fw.rise.4: 1 ~700ms after 740ms
+        fw.rise.5: 0 ~16ms; fw.rise.5: 1 ~700ms after 960ms
+        fw.rise.6: 0 ~16ms; fw.rise.6: 1 ~700ms after 1250ms
+        fw.rise.7: 0 ~16ms; fw.rise.7: 1 ~700ms after 1500ms
+    }
+    group {
+        glow: 10, 110%
+        mode: add
+        repeat k in 1..8 {
+            prop fw.rise.$k = 0 ~700ms
+            //  Where it bursts, from her: a fan from left to right, alternating
+            //  near and far so two neighbours do not burst on top of each other.
+            let fw.ang = 200 - (k - 1) * 36.6
+            let fw.far = if(k == 2 or k == 4 or k == 6, 115, 175)
+            let fw.tx = cx + cos(fw.ang - 180) * fw.far * -1
+            let fw.ty = cy_actual + 40 + abs(sin(fw.ang - 180)) * fw.far * 0.8 + 30
+            let fw.color = mix(mix(mix(mix(mix(mix(amber, mint, k > 1.5), lilac, k > 2.5), blue, k > 3.5), #ff6f91, k > 4.5), green, k > 5.5), #ffd166, k > 6.5)
+            //  The rocket: from her centre to its point, bowed a little.
+            let fw.bow = 4 * fw.rise.$k * (1 - fw.rise.$k) * 18 * if(k < 4, -1, 1)
+            let fw.x = cx + (fw.tx - cx) * fw.rise.$k + fw.bow
+            let fw.y = cy_actual + (fw.ty - cy_actual) * fw.rise.$k
+            let flying = fw.rise.$k > 0.03 and fw.rise.$k < 0.95 and celebrating
+            particles { at: fw.x, fw.y; count: 90; life: 0.25s .. 0.6s; speed: 4 .. 30; size: 2.6, 0
+                        colors: fw.color, #fff3d6; opacity: 90%, 0%; emit: flying }
+            ellipse { at: fw.x, fw.y; radius: 2.6; color: #fff3d6; opacity: if(flying, 1, 0) }
+            on change fw.rise.$k > 0.95 while fw.rise.$k > 0.95 and celebrating { emit boom.$k }
+            //  The burst: a ring of streaks that the air brakes and gravity bends,
+            //  and a few slower sparks that linger as it falls apart.
+            particles { at: fw.tx, fw.ty; count: 160; life: 0.9s .. 1.5s; speed: 90 .. 200; drag: 1.8
+                        gravity: 0, 70; size: 3, 0.6; colors: fw.color, #ffffff; opacity: 100%, 0%
+                        shape: spark; burst: boom.$k }
+            particles { at: fw.tx, fw.ty; count: 60; life: 1.2s .. 2s; speed: 20 .. 70; drag: 1.2
+                        gravity: 0, 40; size: 2.2, 0; colors: #ffffff, fw.color; opacity: 90%, 0%; burst: boom.$k }
+        }
+    }
+
+    //  The clip goes INSIDE a group, and with it everything of its own: loose it
+    //  would take with it whatever came after —the menu— up to the next named
+    //  surface, which is what happened right after writing it. A clip ends where
+    //  its group ends, and that is what is wanted here.
+    group {
+    clip inset 2 box { at: finder.x, finder.y; size: finder.w, finder.h; corner: 22 * finder }
+    group {
+        opacity: finder_content
+        move: 0, (1 - finder_content) * 10
+        text "MAREA" { at: bx0, by0 + 22; anchor: left center; size: 9; weight: 600; color: mint; opacity: 80% }
+        //  The field's magnifying glass: the same one she wears on her face.
+        arc { at: bx0 + 14, by0 + 54; radius: 8; span: 360deg; width: 2.2; color: ink; opacity: 75% }
+        line { from: bx0 + 20, by0 + 60; to: bx0 + 26, by0 + 66; width: 2.4; color: ink; opacity: 75% }
+        input query { at: bx0 + 40, by0 + 54; width: 470; size: 21; color: ink
+                         placeholder: "What do you want to find?"; selection: #2f5f52 }
+        box { at: bx0 + 570, by0 + 54; size: 44, 26; corner: 8; color: #202021 }
+        text "Esc" { at: bx0 + 570, by0 + 54; anchor: center; size: 11.5; color: #8b8f95 }
+        text "Apps, windows, files and folders" { at: bx0 + 40, by0 + 86; anchor: left center; size: 11.5; color: #8b8f95 }
+        line { from: bx0, by0 + 108; to: bx0 + 600, by0 + 108; width: 1; color: ink; opacity: 10% }
+        text "At hand" { at: bx0 + 8, by0 + 126; anchor: left center; size: 11; weight: 600; color: #8b8f95
+                        show: not typing }
+        text "Results" { at: bx0 + 8, by0 + 126; anchor: left center; size: 11; weight: 600; color: #8b8f95
+                            show: typing }
+        //  The selection is ONE single one that travels between rows with its
+        //  spring, not one per row lighting up and going out. It is what makes
+        //  choosing with the arrows read as moving something and not as blinking.
+        box { at: finder.x - 2, sel_y; size: 600, 44; corner: 12; color: mint; opacity: 16% * clamp(results.count, 0, 1) }
+        box { at: bx0 + 2, sel_y; size: 3, 24; corner: 1.5; color: mint; opacity: clamp(results.count, 0, 1) }
+        column result_list {
+            at: bx0, by0 + 140
+            gap: 2
+            for h in results { ResultRow(h, pick: open_result, cue: stagger) }
+        }
+        text "↑↓ choose · Enter open" { at: finder.x, by0 + finder_h - 20; anchor: center; size: 11; color: #8b8f95; opacity: 70% }
+        text "Nothing here" { at: finder.x, by0 + 164; anchor: center; size: 12.5; color: #8b8f95
+                               show: results.count < 1 }
+    }
+    }
+
+}

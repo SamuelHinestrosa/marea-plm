@@ -1,0 +1,100 @@
+// Marea's scene, in pieces: the chat. marea.plm includes it.
+part Chat {
+    // ── the chat: talking to her, and her hands on the desktop ───
+    //  Her AI (the Pi SDK, in its sandbox: `agent/`) talks here, and can use
+    //  the desktop with pleamar-wm's agent hands —a pointer and a keyboard of
+    //  her own—. It proposes; the logic asks you when it has to, and does.
+    //  The panel comes out of her like the finder: one more drop of her water.
+    fact chatting = false
+    //  Let her use the computer: no cards (Settings). Off unless chosen.
+    fact chat.free = false
+    //  Her account and her model (Settings › Talking with her).
+    event chat_login                   // sign in: the browser opens
+    event chat_login_cancel
+    event chat_pick ->                 // `emit chat_pick(2)`: the third model
+    event flip_chat_free
+    on flip_chat_free { toggle chat.free }
+    fact chat.signed_in = true         // until her engine says otherwise
+    fact chat.signing = false          // the browser is open to sign in
+    text chat.account = ""
+    model chat.models max 8 { name: text; on: number }
+    event chat ->                      // `marea chat`, Super+Shift+A, her menu, the finder
+    text chat.input = ""
+    event chat_send ->
+    event chat_stop ->
+    event chat_new ->
+    event chat_allow ->                // (i): that card's action, yes
+    event chat_deny ->                 // (i): no
+    event chat_scroll ->
+    //  idle · starting · thinking (the model) · acting (something being done) ·
+    //  awaiting (a card waits for you) · offline (no engine: why in chat.status)
+    fact chat.state: idle | starting | thinking | acting | awaiting | offline = idle
+    text chat.model = ""
+    text chat.status = ""
+    //  The thread, as the logic paints it: 1 you, 2 her, 3 a tool she used,
+    //  4 a card that asks you, 5 a note (an error, a stop). `state`: 0 going,
+    //  1 done, 2 failed, 3 denied.
+    model chat.rows max 24 { kind: number; text: text; detail: text; state: number }
+    //  Her answer arriving: which row and how many of its letters are shown
+    //  (the logic lets them out at a reading pace); `reveal` smooths the
+    //  steps, and the last dozen rise out of the water, fading in.
+    fact chat.live = -1
+    fact chat.letters = 0
+    prop chat.reveal = 0 ~150ms
+    follow chat.reveal = chat.letters
+    prop chat = 0 ~300ms               // the panel's geometry
+    prop chat_content = 0 ~200ms       // and what is read in it
+    prop chat.t = 0                    // what turns and ripples while she works
+    spin chat.t by if(chat.state == thinking or chat.state == acting or chat.state == starting, 1, 0.15)
+    prop chat.length = 0 ~0ms
+    prop chat.from_end = 0 ~0ms
+    fact chat.stuck = true             // following the end of the thread
+    prop chat.ask = 0 ~lively          // a card that waits beats
+    //  What arrives in the thread falls into it like a drop: the newest row
+    //  drops from a little above, squashes and settles, and a ring runs from
+    //  where it lands. (The logic says something arrived.)
+    event chat_landed
+    prop chat.drop = 1 ~spring(240, 13)
+    on chat_landed { chat.drop: 0 ~0ms; chat.drop: 1 after 16ms }
+    //  How much water moves in the panel: while she thinks or does, the
+    //  caustics brighten; still, they rest.
+    prop chat.stir = 0 ~900ms
+    follow chat.stir = if(chat.state == thinking or chat.state == acting or chat.state == starting, 1, if(chat.state == awaiting, 0.45, 0))
+    shader chat_tide = file "../../shaders/chat_tide.wgsl"
+    //  Her face while she talks: little waves for eyes while she thinks, the
+    //  finder's magnifying glass while she looks at a window, a start when she
+    //  needs you, and a hop when she is done.
+    fact chat.looking = false
+    on change chat.state while chat.state == thinking and chatting { face = reading }
+    on change chat.state while chat.state == awaiting { face = alert; impulse bounce -60 }
+    on change chat.state while chat.state == idle and face == reading { face = eye; play happy }
+    on change chat.looking while chat.looking { magnifier: 1 ~320ms }
+    on change chat.looking while not chat.looking and not searching { magnifier: 0 ~280ms }
+    follow chat.ask = if(chat.state == awaiting, 1, 0)
+    //  Her memory (Settings › What she remembers): what she knows about you
+    //  (kind 1) and her notes on how to do things (2, with when they apply),
+    //  newest first; and the conversations she can look back on.
+    model mem.items max 24 { kind: number; text: text; detail: text }
+    text mem.talks = ""
+    text mem.summary = ""
+    //  Her tasks (Settings › Her tasks): what she does on her own at a time.
+    //  `state`: 0 not done yet, 1 done last time, 2 not done, 3 doing it now.
+    model tasks.rows max 12 { when: text; days: text; what: text; last: text; state: number; on: number }
+    text tasks.summary = ""
+    //  The passwords saved for her tasks, by name (the passwords themselves
+    //  are in your keyring); the field to save another.
+    model keys.rows max 12 { name: text }
+    text keys.name = ""
+    text keys.value = ""
+    text keys.status = ""
+    event keys_keep ->
+    event keys_drop ->
+    event task_flip ->                 // `emit task_flip(0)`: the first one on or off
+    event task_drop ->
+    event task_now ->
+    fact mem.kept = 0                  // how many conversations are kept
+    event mem_forget ->                // `emit mem_forget(3)`: the fourth one goes
+    event mem_clear_talks ->           // the first press asks to be sure (mem.sure)
+    fact mem.sure = false
+
+}

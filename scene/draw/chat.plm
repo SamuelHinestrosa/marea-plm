@@ -1,0 +1,192 @@
+// Marea's scene, in pieces: what is seen of the chat. marea.plm includes it.
+part Chat {
+    // ── what is seen of the chat ─────────────────────────────────
+    //  A row of the thread. Yours, a bubble on the right, as wide as it says;
+    //  hers, loose on the water, the letters of the one arriving rising out of
+    //  it as they come; what she used, a small line with its mark; and a card
+    //  that asks you, in amber, beating, with its two answers.
+    component ChatRow(r: record) {
+        measure said
+        measure hers
+        measure asked
+        size: 556, if(r.kind == 1, said.height + 18, if(r.kind == 2, hers.height + 6, if(r.kind == 4, asked.height + 74, 26)))
+        prop allow.glow = 0 ~140ms
+        prop deny.glow = 0 ~140ms
+        let arriving = r.index == chat.live
+        //  The newest falls in (see `chat.drop`).
+        let fresh = if(r.index == chat.rows.count - 1, clamp(chat.drop, 0, 1.2), 1)
+        group {
+        opacity: clamp(fresh * 1.6, 0, 1)
+        move: 0, (1 - min(fresh, 1)) * -18
+        pivot: 278, 12
+        scale: 1 + (fresh - 1) * 0.35, 1 - (fresh - 1) * 0.5
+        //  The ring where it lands: something she used, or a card.
+        ellipse { at: if(r.kind == 4, 16, 10), 13; radius: 5 + 22 * min(fresh, 1); stroke: 1.4; color: if(r.kind == 4, amber, mint)
+                  opacity: 60% * (1 - min(fresh, 1)); show: r.kind == 3 or r.kind == 4 }
+        //  1 · yours
+        group {
+            show: r.kind == 1
+            body {
+                color: #1d2b27
+                rim: 10%
+                box { from: 556 - said.width - 26, 0; size: said.width + 26, said.height + 14; corner: 14 }
+            }
+            text r.text { at: 556 - 13, 7; anchor: right top; width: 420; size: 13; color: ink; align: right; measure: said; selectable: true; selection: #3d6b5e }
+        }
+        //  2 · hers: as each letter arrives it fades in and rises the last
+        //  few pixels, a ripple running along the newest ones.
+        text r.text { at: 2, 2; anchor: left top; width: 520; size: 13.5; line_height: 1.4; color: ink; measure: hers; show: r.kind == 2
+                      selectable: true; selection: #2f5a50
+                      letter_opacity: if(arriving, clamp((chat.reveal - letter) / 12, 0, 1), 1)
+                      letter_move: 0, if(arriving, (1 - clamp((chat.reveal - letter) / 12, 0, 1)) * 7, 0) }
+        //  3 · something she used: a drop that fills while it goes, a tick, a
+        //  cross or a dash after.
+        group {
+            show: r.kind == 3
+            ellipse { at: 10, 13; radius: 5.5; stroke: 1.4; color: mix(mix(mint, #ef7a66, r.state == 2), #8b8f95, r.state == 3) }
+            arc { at: 10, 13; radius: 5.5; span: 110deg; width: 1.6; rotate: chat.t * 360deg; color: mint; show: r.state == 0 }
+            ellipse { at: 10, 13; radius: 3; color: mint; show: r.state == 1 }
+            text r.text { at: 24, 13; anchor: left center; size: 11.5; color: #b9bcc0; width: 440; lines: 1 }
+            text r.detail { at: 552, 13; anchor: right center; size: 10.5; color: #8b8f95; width: 120; lines: 1; align: right }
+        }
+        //  4 · it asks you
+        group {
+            show: r.kind == 4
+            body {
+                color: #24211a
+                rim: 8%
+                box { from: 0, 0; size: 556, asked.height + 66; corner: 14 }
+            }
+            box { from: 0, 0; size: 556, asked.height + 66; corner: 14; stroke: 1 + 1.2 * chat.ask * (r.state == 0); color: amber
+                  opacity: if(r.state == 0, 45% + 35% * (0.5 + 0.5 * sin(chat.t * 220)), 25%) }
+            text r.detail { at: 16, 16; anchor: left center; size: 9.5; weight: 700; color: amber; width: 400; lines: 1 }
+            text r.text { at: 16, 30; anchor: left top; width: 520; size: 12.5; color: ink; measure: asked; selectable: true; selection: #5a4a2a }
+            group {
+                show: r.state == 0
+                box { from: 316, asked.height + 34; size: 110, 28; corner: 9; color: #2a2b2c; opacity: 80% + 20% * deny.glow }
+                text "Not this" { at: 371, asked.height + 48; anchor: center; size: 11.5; weight: 600; color: ink }
+                box { from: 432, asked.height + 34; size: 110, 28; corner: 9; color: amber; opacity: 85% + 15% * allow.glow }
+                text "Allow" { at: 487, asked.height + 48; anchor: center; size: 11.5; weight: 700; color: #0c0f12 }
+                zone box deny_zone { from: 316, asked.height + 34; size: 110, 28; corner: 9; cursor: pointer; active: chatting }
+                zone box allow_zone { from: 432, asked.height + 34; size: 110, 28; corner: 9; cursor: pointer; active: chatting }
+            }
+            text pick(r.state == 3, "Not allowed", "Allowed") { at: 540, asked.height + 48; anchor: right center; size: 11; color: #8b8f95; show: r.state != 0 }
+        }
+        //  5 · a note: what failed, what was stopped.
+        text r.text { at: 2, 13; anchor: left center; size: 11.5; color: #ef7a66; width: 540; lines: 2; show: r.kind == 5; selectable: true; selection: #5a3a34 }
+        }
+        on enter allow_zone { allow.glow: 1 }
+        on leave allow_zone { allow.glow: 0 }
+        on enter deny_zone { deny.glow: 1 }
+        on leave deny_zone { deny.glow: 0 }
+        on press allow_zone { emit chat_allow(r.index) }
+        on press deny_zone { emit chat_deny(r.index) }
+    }
+
+    group {
+    clip inset 2 box { at: chat.x, chat.y; size: chat.w, chat.h; corner: 24 * chat }
+    group {
+        opacity: chat_content
+        move: 0, (1 - chat_content) * 10
+        let kx0 = chat.x - 278
+        let ky0 = chat.y - chat.h / 2
+        //  The head: who she is, and with what.
+        text "MAREA" { at: kx0, ky0 + 24; anchor: left center; size: 9; weight: 600; color: mint; opacity: 80% }
+        text chat.model { at: kx0 + 48, ky0 + 24; anchor: left center; size: 9.5; color: #8b8f95; width: 300; lines: 1 }
+        prop new.glow = 0 ~140ms
+        group {
+            opacity: 55% + 45% * new.glow
+            line { from: kx0 + 512, ky0 + 24; to: kx0 + 524, ky0 + 24; width: 1.6; color: ink }
+            line { from: kx0 + 518, ky0 + 18; to: kx0 + 518, ky0 + 30; width: 1.6; color: ink }
+        }
+        zone box new_chat { at: kx0 + 518, ky0 + 24; size: 28, 28; corner: 14; cursor: pointer; active: chatting }
+        box { at: kx0 + 548, ky0 + 24; size: 36, 22; corner: 7; color: #202021 }
+        text "Esc" { at: kx0 + 548, ky0 + 24; anchor: center; size: 10.5; color: #8b8f95 }
+        line { from: kx0, ky0 + 44; to: kx0 + 556, ky0 + 44; width: 1; color: ink; opacity: 8% }
+        //  The water under the thread, moving while she works.
+        shader chat_tide { at: chat.x, ky0 + 45 + (chat.h - 45) / 2; size: chat.w, chat.h - 45; values: chat.stir; colors: mint }
+        //  The thread. It scrolls with the wheel and by dragging, and follows
+        //  what arrives while you are at the bottom of it.
+        column chat_list ~quick {
+            at: kx0, ky0 + 56
+            view: 556, 404
+            gap: 12
+            for r in chat.rows { ChatRow(r) }
+        }
+        //  (Its length, in a property a rule can read: a layout's own names
+        //  are only known by the drawing of its group.)
+        follow chat.length = chat_list.content
+        follow chat.from_end = chat_list.content - chat_list.scroll
+        //  Following the end: while you are at the bottom, whatever grows the
+        //  thread (a row, a letter, a measure that arrives a frame later) keeps
+        //  it there. Only you let go of it —the wheel up, or dragging the
+        //  thread down—, never a jump of the thread's own; back at the bottom,
+        //  it follows again. Sending something goes back to the end.
+        on scroll chat_area while wheel > 0 { chat.stuck = false }
+        on drag chat_area while drag.dy > 12 { chat.stuck = false }
+        on change chat_list.scroll while chat_list.content - chat_list.scroll < 420 { chat.stuck = true }
+        on change chat.length while chat.stuck { chat_list.scroll: max(0, chat.length - 404) ~0ms }
+        on change chat.rows.count while chat.rows.count == 0 { chat.stuck = true }
+        on chat_send { chat.stuck = true; chat_list.scroll: max(0, chat.length - 404) ~0ms }
+        //  Nothing said yet: a few words of hers and what she can do.
+        group {
+            show: chat.rows.count < 1 and chat.signed_in
+            text "Ask me anything" { at: chat.x, ky0 + 200; anchor: center; size: 20; weight: 500; color: ink; opacity: 85% }
+            text "I can also use your desktop: open the browser, look something up, fill a form. I will ask before each step." { at: chat.x, ky0 + 238; anchor: center; size: 12; color: #8b8f95; width: 420; lines: 3; align: center }
+        }
+        //  Not signed in: the way to, right here.
+        prop chat.login.glow = 0 ~140ms
+        group {
+            show: not chat.signed_in
+            text "To talk, she needs an account" { at: chat.x, ky0 + 186; anchor: center; size: 18; weight: 500; color: ink; opacity: 85% }
+            text pick(if(chat.signing, 1, 0), "Your ChatGPT account: the browser opens to sign in, and she remembers it.", "Finish signing in, in your browser") { at: chat.x, ky0 + 220; anchor: center; size: 12; color: #8b8f95; width: 420; lines: 2; align: center }
+            box { at: chat.x, ky0 + 272; size: 168, 38; corner: 19; color: mix(mix(#3d6b5c, #4a8270, chat.login.glow), #2a2d30, chat.signing) }
+            text pick(if(chat.signing, 1, 0), "Sign in", "Cancel") { at: chat.x, ky0 + 272; anchor: center; size: 13; weight: 600; color: ink }
+        }
+        zone box chat_login_btn { at: chat.x, ky0 + 272; size: 168, 38; corner: 19; cursor: pointer; active: chatting and not chat.signed_in }
+        on enter chat_login_btn { chat.login.glow: 1 }
+        on leave chat_login_btn { chat.login.glow: 0 }
+        on press chat_login_btn while chat.signing { emit chat_login_cancel }
+        on press chat_login_btn while not chat.signing { emit chat_login }
+        //  Working: the water at the foot of the thread breathes —three waves,
+        //  out of phase— and says what she is on.
+        group {
+            show: chat.state == thinking or chat.state == acting or chat.state == starting
+            repeat w in 0..3 {
+                path { at: kx0, ky0 + 468; color: mix(mint, #c9b3f2, w / 2); stroke: 1.6; opacity: 55% - 15% * w
+                       move 0, 0
+                       curve 140, 4 * sin(chat.t * 120 + w * 70) via 70, -6 * sin(chat.t * 90 + w * 60)
+                       curve 280, 0 via 210, 6 * sin(chat.t * 150 + w * 50)
+                       curve 420, -4 * sin(chat.t * 110 + w * 80) via 350, -6 * sin(chat.t * 130 + w * 40)
+                       curve 556, 0 via 490, 5 * sin(chat.t * 100 + w * 90) }
+            }
+            text chat.status { at: kx0 + 2, ky0 + 480; anchor: left center; size: 10.5; color: #8b8f95; width: 480; lines: 1 }
+        }
+        text chat.status { at: kx0 + 2, ky0 + 480; anchor: left center; size: 10.5; color: #ef7a66; width: 540; lines: 1; show: chat.state == offline }
+        //  What you write. Enter sends; while she works, Stop.
+        box { from: kx0, ky0 + 496; size: 556, 44; corner: 14; color: #141415 }
+        box { from: kx0, ky0 + 496; size: 556, 44; corner: 14; stroke: 1; color: mint; opacity: 18% }
+        //  (An input's `at` is the top of its line: 14 px × 1.3, centred on 518.)
+        input chat.input { at: kx0 + 16, ky0 + 509; width: 470; size: 14; color: ink; placeholder: "Ask Marea…"; selection: #2f5f52 }
+        prop send.glow = 0 ~140ms
+        let busy = chat.state == thinking or chat.state == acting or chat.state == awaiting or chat.state == starting
+        ellipse { at: kx0 + 532, ky0 + 518; radius: 15; color: mix(mint, #ef7a66, busy); opacity: 80% + 20% * send.glow }
+        path { at: kx0 + 526, ky0 + 511; color: #0c0f12; stroke: 2; show: not busy
+               move 6, 13; line 6, 1 }
+        path { at: kx0 + 526, ky0 + 511; color: #0c0f12; stroke: 2; show: not busy
+               move 1, 6; line 6, 1; line 11, 6 }
+        box { at: kx0 + 532, ky0 + 518; size: 10, 10; corner: 2; color: #0c0f12; show: busy }
+        zone ellipse send_btn { at: kx0 + 532, ky0 + 518; radius: 16; cursor: pointer; active: chatting }
+        zone box chat_area { from: kx0, ky0 + 56; size: 556, 404; active: chatting }
+    }
+    }
+    on enter new_chat { new.glow: 1 }
+    on leave new_chat { new.glow: 0 }
+    on press new_chat { emit chat_new }
+    on enter send_btn { send.glow: 1 }
+    on leave send_btn { send.glow: 0 }
+    on press send_btn while chat.state == thinking or chat.state == acting or chat.state == awaiting or chat.state == starting { emit chat_stop }
+    on press send_btn while not (chat.state == thinking or chat.state == acting or chat.state == awaiting or chat.state == starting) { emit chat_send }
+    on submit chat.input { emit chat_send }
+
+}

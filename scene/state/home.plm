@@ -1,0 +1,99 @@
+// Marea's scene, in pieces: where she lives, and what moves her. marea.plm includes it.
+part Home {
+    // ── where she lives ──────────────────────────────────────────
+    //  At rest she lives at the top and centred; on opening she moves aside to
+    //  the left to present the card, which is how it is on the control center's
+    //  sheet.
+    //  Where SHE is. It is no longer «how open the card is»: on closing, the
+    //  card folds away first and she comes back afterwards, which is what makes
+    //  the journey show instead of the two things happening on top of each other.
+    prop offset = 0 ~290ms
+    // ── her home: which monitor she lives on ─────────────────────
+    //  `home` is the number of the monitor she lives on, and `following` sets
+    //  her to go wherever the focus is. Who shows is decided by the LOGIC: it is
+    //  the one that finds out which monitor the active window is on —a surface
+    //  only receives the pointer while it is over it, so it has to be asked—,
+    //  the one that knows which monitors there are and in what order, and the
+    //  one that saves her home by its name in `settings.json`. Two facts arrive
+    //  here already chewed: `hosts.0` and `hosts.1`, whether she is on that
+    //  monitor.
+    fact home = 0
+    fact following = false
+    //  Whether windows leave her the strip at the top (the compositor keeps
+    //  it for her) or go under her, all of the screen theirs.
+    fact taking_room = false
+    //  pleamar-wm says which monitor the mouse is on, by its number: «follow
+    //  me» there goes where the mouse is, even onto a monitor with no window.
+    event pointer_monitor ->
+    fact hosts.0 = true
+    fact hosts.1 = false
+    //  And the journey. She does not switch off and on: she lives hanging from
+    //  the water at the top edge, so she goes the way water lets her. She
+    //  LEAPS UP into it on the monitor she leaves —a crouch, a push, and she
+    //  shoots through the edge stretched like a drop, the surface closing over
+    //  her— and she FALLS OUT of it on the other one: the water there stirs,
+    //  she drops through the edge, the thread breaks with its tug and she lands
+    //  squashing and bouncing a hair. One after the other, never both at once:
+    //  there is only one of her.
+    //  `swim.K` is only whether copy K is up at all: a closed surface is not
+    //  painted and costs nothing. It changes by rules, not by `follow`, because
+    //  who is shown changes at `gone` —when she has already left—, not when the
+    //  logic says so. And the destination of a delayed rule is computed when it
+    //  lands, so every one says `if(hosts.K, …)`: if the focus bounces back and
+    //  forth mid-journey, the last word is always the true one.
+    prop swim.0 = 1 ~16ms
+    prop swim.1 = 0 ~16ms
+    let swim.here = if(screen.index == 0, swim.0, swim.1)
+    //  Straight up and straight down, at the centre where she lives: the edge
+    //  of the screen is the same water on both monitors, so the journey needs
+    //  no side. Leaning it towards the other monitor looked like an effect
+    //  happening off to one side and then correcting itself.
+    prop drop_in = 0 ~16ms            // 1: above the edge of the one she is going to
+    //  Falling she stretches with her own speed, and nobody leads it: it is the
+    //  velocity of the spring that drops her, so it is longest mid-fall and
+    //  gone by the time she touches.
+    let fall.stretch = clamp(-vel(drop_in) * 0.055, 0, 0.32)
+    //  While she travels the water is there even if she is not tucked into it:
+    //  it is what she goes through.
+    prop splashing = 0 ~16ms
+    let wet = max(if(hidden, 1, 0), splashing)
+    //  And her place is set ONLY by this, not by the geometry of whatever she has
+    //  open: with the tray pulling her directly, on closing she came back at the
+    //  same time as it folded, and two things on top of each other cannot be seen.
+    let aside = offset
+    let cx = 120 + (1 - aside) * 240
+    //  Open, she drops to the height of the card's header, as on the sheet.
+    //  And the path bows: the height goes by the square, so she leaves and comes
+    //  in from above instead of crossing in a straight line. Something with
+    //  weight does not travel diagonally.
+    let cy = 46 + aside * aside * 46
+    let r = 23                        // half of the sheet's 46 px
+
+    // ── what moves her ───────────────────────────────────────────
+    //  `pose` is what a gesture leads by the hand: when it ends it goes back to
+    //  its base by itself, and that is what makes the breath «return exactly to
+    //  neutral».
+    pose body.y = 0                   // how much the body rises
+    pose lid = 1                      // the eyelids: 1 open, 0 closed
+    pose eyes = 13                    // how tall the eyes are
+    pose look.y = 0                   // the gaze inside the face
+    pose tilt = 0                     // the body's tilt
+    pose sx = 1                       // what stretches: widthwise
+    pose sy = 1                       // and heightwise
+    pose shut = 0                     // the shutter: 1 closed
+
+    prop gaze.x = 0 ~gentle           // where they look, following the mouse
+    prop gaze.y = 0 ~gentle
+    prop press = 0 ~quick             // the squeeze under the click
+
+    //  The journey of leaving by the edge and coming back: 620 ms, which is what
+    //  the contract says. A drop that leaves in 200 ms is a drop nobody saw leave.
+    fact hidden = true                // «tuck into the edge», switched on
+    fact needed = false               // something calls her: a notice, the pointer…
+    prop out = 0 ~620ms               // 0 sunk, 1 fully separated
+
+    //  The card. Two things that travel separately, and that is the trick: on
+    //  opening the geometry leads and the content follows it; on closing the
+    //  content fades first and **then** the geometry folds away.
+    fact open = false
+}

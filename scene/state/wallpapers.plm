@@ -1,0 +1,46 @@
+// Marea's scene, in pieces: wallpapers. marea.plm includes it.
+part Wallpapers {
+    // ── wallpapers: the tide that brings a new one ───────────────
+    //  Her page shows the wallpapers there are, small. Picking one closes
+    //  the card, a drop falls from her onto the desktop, and from where it
+    //  lands the new picture spreads as a ring of water with a shadow running
+    //  ahead of it and a line of light on its crest; behind it the water
+    //  ripples until it settles. Then `swaybg` takes the new one, unseen.
+    model walls max 9 { name: text; thumb: image 144, 81; ready: bool; current: bool }
+    model wallnow max 1 { name: text; thumb: image 160, 90; ready: bool }   // the one on now, in her wardrobe
+    model tidepics max 1 { pic: image 1280, 720 }
+    event show_walls
+    event walls_open ->
+    event wall_pick ->
+    event walls_scroll ->
+    event tide_start                   // the logic: the new picture is ready
+    event tide_done ->                 // the water has settled: swaybg can take it
+    event splash
+    fact tide.on = false
+    fact tide.home = 0                 // the monitor where the drop lands
+    prop tide.fall = 0 ~450ms
+    prop tide.p = 0 ~2400ms
+    prop tide.settle = 0 ~2600ms
+    prop tide.fade = 0 ~500ms
+    on show_walls { menu_open = false; tray_open = false; searching = false; open = true; page = walls; emit walls_open }
+    on tide_start {
+        open = false
+        tide.on = true
+        tide.fade: 1 ~0ms
+        tide.p: 0 ~0ms
+        tide.settle: 0 ~0ms
+        tide.fall: 0 ~0ms
+        tide.fall: 1 ~450ms after 30ms
+    }
+    //  The drop has landed: the splash, and the wave sets off.
+    on still tide.fall for 40ms while tide.on and tide.fall > 0.9 and tide.p < 0.001 {
+        emit splash
+        tide.p: 1 ~2400ms
+        tide.settle: 1 ~2600ms after 900ms
+    }
+    on still tide.settle for 80ms while tide.on and tide.settle > 0.9 and tide.p > 0.9 { emit tide_done }
+    //  Once swaybg has it, the tide melts into it and goes.
+    event tide_away
+    on tide_away { tide.fade: 0 ~500ms }
+    on still tide.fade for 60ms while tide.on and tide.fade < 0.1 and tide.p > 0.9 { tide.on = false }
+}

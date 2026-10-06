@@ -1,0 +1,79 @@
+// Marea's scene, in pieces: software. marea.plm includes it.
+part Software {
+    // ── software: updates, and programs to install ───────────────
+    //  What the system has to update —its repositories and the AUR—, looked
+    //  at in the background every three hours without touching anything (a
+    //  database of its own, `checkupdates`), and done from here: her own field
+    //  asks for the password, and the package manager runs without a terminal,
+    //  read line by line, so what it is doing is seen as it does it. Afterwards,
+    //  whether to restart and which settings files it left to review. And the
+    //  catalogue: a program looked for and installed the same way.
+    fact sw.tab: updates | catalogue = updates
+    //  `scanning` the first look; `unlocking` the password; `working` the
+    //  package manager at work; `finished` and `failed`, how it went.
+    fact sw.state: idle | scanning | ready | broken | unlocking | working | finished | failed = idle
+    fact sw.count = 0                  // pending, repositories and AUR
+    fact sw.aur = 0                    // of them, from the AUR
+    fact sw.ticked = 0                 // the ones that will be updated
+    fact sw.looking = false            // a look under way, with a list already there
+    text sw.size = ""                  // what is to be downloaded
+    text sw.summary = ""               // «12 to update · 3 from the AUR · 240 MB»
+    text sw.when = ""                  // when it was last looked at
+    text sw.error = ""
+    //  The rows seen, a window over the whole list (the wheel moves it).
+    model sw.rows max 7 { name: text; versions: text; aur: bool; skip: bool }
+    fact sw.more = 0                   // rows below the window
+    //  Arch's news since the last update: what a big change asks of you
+    //  before updating. The newest, and how many more.
+    fact sw.news = 0
+    text sw.news.title = ""
+    text sw.news.date = ""
+    //  The password, asked for in place.
+    text sw.pw = ""
+    fact sw.verifying = false
+    text sw.asking = ""                // what it is for
+    //  At work: the stage, what it is on, how far, its last line.
+    text sw.stage = ""
+    text sw.item = ""
+    text sw.line = ""
+    fact sw.progress = 0
+    fact sw.can_stop = false
+    fact sw.stopping = false
+    //  How it went.
+    text sw.result = ""
+    fact sw.reboot = false
+    fact sw.pacnew = 0
+    //  The catalogue.
+    text sw.query = ""
+    model sw.found max 6 { name: text; repo: text; version: text; about: text; installed: bool; aur: bool }
+    fact sw.searching = false
+    fact sw.typed = false              // something written to look for
+    event sw_open ->                   // the page opens: a fresh look if it is old
+    event sw_check ->                  // look again
+    event sw_toggle ->                 // (i): that row in or out of this update
+    event sw_all ->                    // all in, or all out
+    event sw_scroll ->                 // (wheel)
+    event sw_go ->                     // update the ones ticked
+    event sw_install ->                // (i): install that one of the catalogue
+    event sw_auth ->                   // the password is written
+    event sw_forget ->                 // not now
+    event sw_wrong                     // the logic: that was not it
+    event sw_stop ->
+    event sw_back ->                   // from how it went, back to the list
+    event sw_news ->                   // read the news
+    event sw_skip_news ->              // read already: do not show it again
+    event sw_terminal ->               // what failed, in a terminal, by hand
+    event sw_review ->                 // the settings files left to review
+    event sw_restart                   // to the session page, to restart
+    prop sw.in = 0 ~220ms              // the password row coming in
+    prop sw.shake = 0 ~lively          // and she shakes her head no
+    on sw_wrong { impulse sw.shake 14 }
+    follow sw.in = if(sw.state == unlocking, 1, 0)
+    prop sw.bar = 0 ~quick             // the progress, travelling
+    follow sw.bar = sw.progress
+    prop sw.t = 0                      // what turns while it works
+    spin sw.t by if(sw.state == working or sw.state == scanning or sw.looking or sw.verifying or sw.searching, 1, 0)
+    on change sw.state while sw.state == unlocking { focus sw.pw }
+    on change sw.tab while sw.tab == catalogue and page == software { focus sw.query }
+
+}

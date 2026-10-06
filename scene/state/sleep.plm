@@ -1,0 +1,86 @@
+// Marea's scene, in pieces: sleeping. marea.plm includes it.
+part Sleep {
+    // ── sleeping ─────────────────────────────────────────────────
+    //  «Dozing off: the eyelids drop, she nods gently and settles in. 1.24 s.
+    //  It starts on pressing “Sleep” or after 45 s idle.» And asleep: «eyes like
+    //  little lines, light breathing and a discreet “z”, a 3.6 s cycle».
+    //
+    //  Sleeping is not the Haven: there she is still awake and attentive —that
+    //  is why the eyes drop to two strokes and do not close—, and here she is
+    //  not. That is why automatic sleep is suspended while the Haven lasts,
+    //  which is what the contract asks for.
+    fact asleep = false
+    event sleep ->
+    event wake ->
+    prop drowsy = 0 ~1240ms            // 0 awake, 1 asleep
+    prop zee = 0 ~3400ms               // the «z» that rises and dissolves
+    on sleep { asleep = true }
+    on wake { asleep = false }
+    //  Falling asleep takes 1.24 s and waking up 380 ms: nobody wakes up slowly
+    //  when they are called.
+    on change asleep while asleep { drowsy: 1 ~1240ms; play nod }
+    on change asleep while not asleep { drowsy: 0 ~380ms; dozed = false }
+    //  Dozing off on her own is not the same as being sent to bed. If she
+    //  nodded off because nobody was there, the mouse moving anywhere —on
+    //  another window, on the other monitor— is somebody back, and she wakes.
+    //  Sent to bed with «Sleep», she sleeps until you come to her: otherwise
+    //  moving away from the button would wake her.
+    fact dozed = false
+    on change cursor.x + cursor.y * 8192 while asleep and dozed { asleep = false }
+    //  The «z», one every 3.6 s: it rises, opens and dissolves. Only when asleep,
+    //  so the clock does not even run while she is not.
+    every 3.6s while asleep { zee: 0 ~16ms; zee: 1 ~3400ms after 40ms }
+
+    //  «One arrives and she is asleep: IT DOES NOT WAKE HER. A drop the colour of
+    //  whoever writes forms hanging from the edge above her head, lets go and
+    //  sinks into her; a ripple of that colour spreads, the drop on her side
+    //  beats and she opens only her right eye towards that drop, closes it and
+    //  breathes a little deeper.» Dripping 420 ms + 90 hanging + a 190 in_quad fall.
+    pose droplet = 0                   // 0 nothing · 1 hanging · 2 inside
+    event sank_in                      // it is already inside
+    prop ripple.drip = 0 ~760ms        // the ripple of its colour
+    prop eye.r = 0 ~280ms              // and the right eye, only that one
+    gesture trickle asked {
+        420ms out_quad hold 90ms { droplet: 1 }
+        190ms in_quad            { droplet: 2 }
+        10ms emit sank_in        { droplet: 2 }
+    }
+    //  And a deeper breath, just one: it is `reflex`, so it beats the sleeping
+    //  posture while it lasts and then hands it back.
+    gesture deep_breath reflex {
+        900ms in_out_sine { body.y: -1.8 }
+        900ms in_out_sine { body.y: 1.2 }
+    }
+    on sank_in {
+        ripple.drip: 0 ~16ms
+        ripple.drip: 1 ~760ms after 30ms
+        eye.r: 1 ~280ms
+        eye.r: 0 ~280ms after 980ms
+        play deep_breath
+        emit direct
+    }
+
+    //  The nod of settling in: she lowers her head, shifts about and stays. The
+    //  contract's 1 240 ms, split into three beats.
+    gesture nod asked {
+        420ms in_out_sine { tilt: 0.05; body.y: 1.6 }
+        380ms out_quad    { tilt: -0.02; body.y: 0.8 }
+        440ms out_back    { tilt: 0.02; body.y: 1.2 }
+    }
+    //  And the asleep breathing, which is a POSTURE and not a gesture: it repeats
+    //  by itself while it lasts and falls silent when it stops being true,
+    //  without anyone starting or stopping it. A 3.6 s cycle, and lighter than
+    //  the awake one: 2 px of travel become 1.1.
+    //  And the «suspend» nod, which the sheet asks to be slow and with the body
+    //  somewhat squashed: 360 ms each way, 0.94 tall. It is not sleeping —she is
+    //  not—, it is showing what would happen.
+    posture settle while hint == sleep {
+        360ms in_out_sine { tilt: 0.05; sy: 0.945; sx: 1.035 }
+        360ms in_out_sine { tilt: 0; sy: 1; sx: 1 }
+    }
+    posture slumber while asleep {
+        1800ms in_out_sine { body.y: 0.1 }
+        1800ms in_out_sine { body.y: 1.2 }
+    }
+
+}

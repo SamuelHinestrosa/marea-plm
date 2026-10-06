@@ -1,0 +1,44 @@
+// Marea's scene, in pieces: the notices and the tray. marea.plm includes it.
+part Notices {
+    // ── the notices ──────────────────────────────────────────────
+    //  «Everything arrives, you decide»: arriving opens nothing. A small card
+    //  comes in beside her, she gives a start and looks at it, it stays as long
+    //  as it takes to read it and then narrows until it is a drop of its
+    //  category's colour, which flies along a curve to her shoulder. On arriving,
+    //  a gulp.
+    //  While this is true, the logic keeps releasing a batch of made-up notices:
+    //  it is the demo mode, to be able to see the whole swell without waiting for
+    //  someone to write to you. `--say "fact demo false"` stops it.
+    //  pleamar knows how to bring the real ones, but it asks for its permission
+    //  and on this machine that spot is Marea's.
+    fact demo = true
+    event another_batch ->             // «release the batch for me again»
+    event notice                       // one arrives: `cat`, `who` and `line` are said first
+    event landed
+    event tray ->                      // pressing the card: the logic opens the tray
+    fact cat = 1                       // 1 messages · 2 work · 3 calendar · 4 system
+    fact reading_cat = 1               // that of the one being read: `cat` can change meanwhile
+    fact arrival_seq = 0               // and its turn of arrival: it lands late, but it arrived first
+    event direct                       // one that arrives with another on screen
+    text who = ""
+    text line = ""
+    fact phase = 0                     // 0 nothing · 1 being read · 2 flying
+    fact hovered = false               // the pointer over it: stops the reading
+    fact mark = 0                      // every time the reading starts over
+    fact seq = 0                       // to know which one is the most recent
+    fact burst = 1                     // how many the burst brings
+    // ── the tray ─────────────────────────────────────────────────
+    //  «Everything arrives, you decide». Arriving does not open it: it opens by
+    //  pressing her, the preview, a drop or the card that arrives.
+    fact tray_open = false
+    //  Which category is shown in the swell: 0 all, or a single one.
+    //  It is set on pressing a drop, and cleared on opening it from anywhere
+    //  else —pressing her, the card that arrives, an urgent one—.
+    fact filter = 0
+    event open_tray
+    //  What has washed up: the notices already dealt with, newest first, with
+    //  a row for each day (`head`). `age` 0 today … 1 a week or more.
+    model past max 9 { app: text; title: text; detail: text; when: text; day: text; cat: number = 4; head: bool; age: number }
+    event show_history                 // from her menu or the swell's footer
+    event clear_all ->                 // the swell's footer: every notice waiting, to the history
+}

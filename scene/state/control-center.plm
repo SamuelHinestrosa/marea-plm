@@ -1,0 +1,162 @@
+// Marea's scene, in pieces: what the control center's pages know. marea.plm includes it.
+part ControlCenter {
+    // ── the pages of the control center ──────────────────────────
+    //  Pressing a card opens its page, and **the page comes out of the card**:
+    //  it grows from its place until it fills the panel. It is not a screen that
+    //  replaces another; it is the same card, opened.
+    fact page: none | wifi | bluetooth | concentration | wardrobe | sound | session | systray | settings | agents | calendar | history | drift | walls | software = none
+    //  Her look, which is chosen in Settings and saved: glass that bends what is
+    //  behind like Apple's, glass that only blurs it —lighter, the compositor
+    //  does it—, or the usual one, opaque.
+    //  Classic by default: it needs nothing of the compositor. The liquid one
+    //  reads the screen behind her, and on some setups (colour management,
+    //  fractional scaling) what it reads does not match and she fills with noise.
+    fact skin: lens | liquid | classic = classic
+    //  And how much glass there is right now: a spring, so changing look is not
+    //  a jump. The glass appears by bending the light, not by fading in.
+    prop glassiness = 1 ~calm
+    follow glassiness = if(skin == classic, 0, 1)
+    let bends = skin == lens
+    //  Settings has two sections: the usual stuff and the look.
+    //  The language she speaks: the system's (`LANG`), or one chosen in
+    //  Settings. The logic turns it into `locale`, which is what switches the texts.
+    fact language: system | english | spanish = system
+    prop paging = 0 ~240ms
+    follow paging = if(page == none, 0, 1)
+    model networks max 5 { name: text; signal: number; current: bool; secure: bool; known: bool; percent: number }
+    //  The Wi-Fi page's hero: `wifi.state` 0 off · 1 on, not connected ·
+    //  2 connected · 3 by cable · 4 joining. Its title and what it says under it.
+    fact wifi.state = 1
+    text wifi.title = ""
+    text wifi.status = ""
+    //  The networks are more than fit: where the list starts, and how many there are.
+    fact wifi.offset = 0
+    fact wifi.total = 0
+    fact wifi.scanning = false
+    prop wifi.spin = 0
+    spin wifi.spin by if(wifi.scanning and page == wifi, 1, 0)
+    //  Shared: the code for the phone, and the password.
+    fact wifi.sharing = false
+    fact wifi.has_qr = false
+    model wifi_qr max 1 { pic: image 140, 140 }
+    text wifi.password = ""
+    text wifi.share_hint = ""
+    event wifi_share ->
+    event wifi_unshare ->
+    event wifi_disconnect ->
+    event wifi_forget ->
+    event wifi_power ->
+    event wifi_rescan ->
+    event wifi_scroll ->
+    event wifi_copy ->
+    //  Bluetooth's two lists: what is hers and what is near. `state` 0 paired ·
+    //  1 connected · 2 working on it · 3 new; `kind` the drawing; `base`, what
+    //  is added to its place for the logic to know which one it is.
+    model bt_mine max 5 { name: text; status: text; kind: number; state: number; battery: number = -1; base: number }
+    model bt_near max 4 { name: text; status: text; kind: number; state: number = 3; battery: number = -1; base: number }
+    fact bt.on = false
+    fact bt.present = true
+    fact bt.busy = false
+    event bt_power ->
+    event bt_forget ->
+    //  A network that asks for its password: which row (−1, none), and the
+    //  one being joined right now, which breathes until it is.
+    fact asking = -1
+    fact joining = -1
+    text wifi_pw = ""
+    event join ->                      // the password is written: join
+    event forget_ask                   // not now
+    //  The Bluetooth radio looking for new gadgets: its radar turns meanwhile.
+    fact bt_scanning = false
+    event bt_scan ->
+    text ask.name = ""
+    //  What the Bluetooth card says under its name: the one connected, or on/off.
+    text bt.sub = "Headphones"
+    prop ask.in = 0 ~220ms
+    follow ask.in = if(asking >= 0, 1, 0)
+    on change asking while asking >= 0 { focus wifi_pw }
+    prop join.t = 0
+    prop radar.t = 0
+    prop join_btn.glow = 0 ~140ms
+    spin join.t by if(joining >= 0 or wifi.state == 4 or bt.busy, 1, 0)
+    spin radar.t by if(bt_scanning and page == bluetooth, 0.8, 0)
+    //  Where it plays and where it listens. pleamar brings them in the same
+    //  service as the volume, so this does not know about `wpctl`, nor does it
+    //  need to.
+    model outputs max 5 { name: text; current: bool }
+    model mics max 4 { name: text; current: bool }
+    //  What is playing, each with its own level: the sound page's mixer.
+    model sound_apps max 3 { name: text; title: text; icon: image 22, 22; has_icon: bool; letter: text; volume: number; muted: bool; playing: bool }
+    fact sound.choosing = 0            // the devices dropped open: 1 where it plays, 2 where it listens
+    text sound.out_name = ""
+    text sound.in_name = ""
+    text sound.more = ""
+    event app_volume ->                // its place × 1000 + the level in hundredths
+    event app_mute ->
+    event sound_scroll ->
+    //  Focus: how long, chosen on its dial; how long it was when it began,
+    //  for the dial to show what is left; when it would end, and today's.
+    fact focus.mins = 25
+    fact focus.total = 25
+    text focus.until = ""
+    text focus.today = ""
+    event pick_device ->
+    //  The system tray: the icons left by the applications that stay alive
+    //  without a window. pleamar brings them —`tray`, which knows how to live
+    //  alongside another bar: if there is already a watcher, it asks that one—
+    //  and here they are only drawn. A click is the usual one; the right one asks
+    //  for its menu, which is a tree: a submenu is ENTERED, with a row to go
+    //  back, instead of opening beside it.
+    model icons max 8 { icon: image 22, 22; title: text }
+    model options max 16 {
+        label: text
+        separator: bool
+        enabled: bool = true
+        checked: number = -1            // -1: not a checkbox · 0: empty · 1: ticked
+        children: number                // how many it holds inside: it is a submenu
+    }
+    text systray.title = ""
+    event systray_activate ->           // (i): the usual click
+    event systray_menu ->               // (i): wants to see its menu
+    event systray_pick ->               // (i): that row of the menu
+    //  The session: lock, suspend, log out, reboot and power off. pleamar does it
+    //  —`session.*`, which underneath are `loginctl` and `systemctl`—, and the
+    //  last three ask for a separate confirmation, which is what the sheet says:
+    //  «the chosen action needs a new, deliberate activation».
+    //  The lock. Marea IS the lock screen: she does not tell someone else to
+    //  lock, she bolts the door herself (`kind: lock`, further down) and it is
+    //  the compositor that guarantees that while it lasts nothing else is seen or
+    //  touched. Who gets in is not up to her: the logic asks PAM.
+    fact locked = false
+    fact checking = false              // PAM is thinking about it
+    fact with_exit = false             // the first locks carry Esc, and say so
+    text password = ""
+    event lock                         // SUPER+L, or the card: `--say marea "emit lock"`
+    event wrong_password               // the logic: that was not it
+    prop headshake = 0 ~lively         // and she shakes her head no
+    prop lock.glow = 0 ~220ms          // the box, when it has the keyboard
+    fact confirming: none | logout | reboot | poweroff = none
+    fact armed = false                 // the question, already settled
+    //  The step from the list to the question: «small displacement and
+    //  opacity», 220 ms. One leaves to the left while the other comes in from
+    //  the right, which is what makes it read as a step forward and not as a
+    //  change of sign.
+    prop question = 0 ~220ms
+    event session ->                   // 1 lock · 2 suspend · 3 log out · 4 reboot · 5 power off
+    //  And its face. «Hovering or moving the focus only shows an ANTICIPATION
+    //  of the gesture. It does not lock, suspend, log out or power off.» That is
+    //  why it is a fact apart from `confirming`: what it shows and what it is
+    //  going to do are not the same.
+    fact hint: none | lock | sleep | logout | reboot | poweroff = none
+    prop padlock = 0 ~150ms            // the padlock's shackle and body
+    prop lids = 0 ~170ms               // two curved eyelids
+    prop door = 0 ~200ms               // the frame and the arrow coming out
+    prop turn = 0 ~160ms               // the circular arrow
+    prop twirl = 0 ~350ms              // and its single turn, one at a time
+    prop power = 0 ~180ms              // the open ring and the vertical stroke
+    prop powerdown = 0 ~280ms          // and the point of light it ends in
+    event scan ->                      // «look what's there»: the logic finds out
+    event pick_network ->
+    event pick_gadget ->
+
+}

@@ -191,7 +191,12 @@ another name (so `pleamar --say` reaches the copy), and
 # How she is made
 
 One scene (`marea.plm`) and its logic (`marea.luau`), plus her translations
-(`lang/`), wardrobe (`wardrobe/`) and shaders (`shaders/`). This lives outside
+(`lang/`), wardrobe (`wardrobe/`) and shaders (`shaders/`). The scene is in
+pieces: `marea.plm` is its spine, and puts back in order with `include` the
+parts under `scene/` —her state, what is seen of her, the control center
+with one file per page (`scene/pages/`), the rules and her other surfaces—.
+The logic too: what stands on its own (the system pages, Deriva, software,
+the chat, the calendar…) is in `logic/`, loaded with `require`. This lives outside
 pleamar's repository on purpose: it is what anyone using pleamar would have —
 some `.plm`, their `.luau` next to them, and the program already built.
 [`ANIMACIONES.md`](ANIMACIONES.md) is how each animation is meant to feel, and

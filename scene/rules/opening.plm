@@ -1,0 +1,144 @@
+// Marea's scene, in pieces: opening and closing. marea.plm includes it.
+part Opening {
+    // ── opening and closing ──────────────────────────────────────
+    //  On opening the geometry leads and the content comes in behind. On
+    //  closing, the other way round: 50 ms of fade and then 210 of folding away,
+    //  which is what makes it look like she swallows it and not like it switches
+    //  off.
+    on change open while open {
+        offset: 1 ~290ms
+        card: 1 ~290ms
+        content: 1 ~200ms after 90ms
+    }
+    //  Closing is three beats, and that is the whole trick: **they do not happen
+    //  at the same time**. What is read switches off (50 ms), she drinks it —the
+    //  card narrows towards her and the neck pinches off by itself, as it already
+    //  was—, she gulps when it has just gone in, and THEN she goes back to her
+    //  place, bowing the path and leaning towards where she is going. On
+    //  arriving, the water at the edge notices: it sinks a little around her and
+    //  bounces, like when something settles.
+    //
+    //  Before, the three things happened on top of each other in 210 ms: the card
+    //  shrank while she had already left, so nothing was drunk, a box was left
+    //  alone fading out in a corner.
+    on change open while not open {
+        content: 0 ~50ms
+        card: 0 ~210ms after 30ms
+    }
+
+    // ── one thing of hers out, and only one ──────────────────────
+    //  The card, the finder and the swell all three come out of her, moving her
+    //  aside (`offset`). Before they did not exclude each other —the finder closed
+    //  the card, but the swell closed nothing and nothing closed it—: pressing
+    //  her face with the swell open brought the card out ON TOP, with the two
+    //  titles stepping on each other. Now opening one closes the others, and the
+    //  menu too.
+    //
+    //  And going back to her place belongs to all of them, not to each one: each
+    //  one sent her back on closing, 200 ms later, even if another was still out;
+    //  on folding the card away she went back with the swell open, and the swell,
+    //  brought out from there, was cut against the edge. Now she goes back when
+    //  nothing is left out and it stays like that for 200 ms: if something else
+    //  comes out in that time, she does not go back.
+    let anything_out = open or searching or tray_open or chatting
+    on change open while open { tray_open = false; searching = false; chatting = false }
+    //  Whatever opened the card —a press, the finder, a shortcut—, she wakes
+    //  up for it: a card beside a sleeping ball was a page nobody was showing.
+    on change open while open and asleep { asleep = false }
+    on change tray_open while tray_open { open = false; searching = false; menu_open = false; chatting = false }
+    on still anything_out for 200ms while not anything_out { offset: 0 ~homing }
+
+    //  And neither the gulp nor the splash go by the clock: they go by what is
+    //  happening. When almost nothing is left of the card, she has swallowed it;
+    //  and when she has almost arrived, the water at the edge notices.
+    on change card < 0.2 while not open and card < 0.2 { play gulp }
+    on change offset < 0.08 while not open and offset < 0.08 {
+        impulse wobble -120
+        impulse bounce -70
+    }
+
+    // ── opening and closing the chat ─────────────────────────────
+    //  As the finder: she moves aside and the panel comes out of her. Closing
+    //  it does not stop her: what she was doing goes on, and the thread is
+    //  there when it opens again.
+    on chat while not chatting { chatting = true }
+    on chat while chatting { chatting = false }
+    on change chatting while chatting {
+        open = false
+        menu_open = false
+        tray_open = false
+        searching = false
+        asleep = false
+        needed = true
+        wanted = true
+        offset: 1 ~300ms
+        chat: 1 ~300ms
+        chat_content: 1 ~200ms after 100ms
+        focus chat.input
+    }
+    on change chatting while not chatting {
+        chat_content: 0 ~50ms
+        chat: 0 ~220ms after 30ms
+        blur
+    }
+    on key Escape while chatting { chatting = false }
+
+    // ── opening and closing the finder ───────────────────────────
+    //  «She moves aside» and **turns into a magnifying glass**: both things at
+    //  once, because it is the same movement. And on closing, the usual order
+    //  —first what is read, then the geometry— and she comes back afterwards,
+    //  with her spring.
+    on search { searching = true }
+    on change searching while searching {
+        chatting = false
+        open = false
+        menu_open = false
+        tray_open = false
+        asleep = false
+        needed = true
+        wanted = true
+        selected = 0
+        offset: 1 ~290ms
+        magnifier: 1 ~320ms
+        finder: 1 ~290ms
+        finder_content: 1 ~200ms after 90ms
+        focus query
+    }
+    on change searching while not searching {
+        finder_content: 0 ~50ms
+        finder: 0 ~210ms after 30ms
+        magnifier: 0 ~280ms after 60ms
+        blur
+    }
+    on key Escape while searching { searching = false }
+    //  The arrows choose and Enter opens. The logic sorts the list; here it is
+    //  only said which one is pointed at.
+    on key Down while searching { selected = min(selected + 1, max(results.count - 1, 0)) }
+    on key Up while searching { selected = max(selected - 1, 0) }
+    on submit query { emit open_result(selected); searching = false }
+    //  «Opens»: the sheet draws her with happy eyes. A short wink and a jump, and
+    //  back to her business: what she celebrates is having found it, not herself.
+    gesture happy reflex {
+        140ms out_quad { eyes: 6.5; sx: 1.06; sy: 0.92; body.y: 2.4 }
+        220ms out_back { eyes: 6.5; sx: 0.97; sy: 1.05; body.y: -3.2 }
+        240ms          { eyes: 8 }
+    }
+    on open_result { searching = false; play happy }
+    //  The height follows what the list takes up, and the selection travels to
+    //  its row. Both things with a spring, so typing moves the panel and the
+    //  arrows move the mark, without anyone rearranging them.
+    follow finder_h = 176 + result_list.height
+    follow sel_y = by0 + 140 + selected * 46 + 22
+
+    // ── the level ────────────────────────────────────────────────
+    //  It fires with whatever changes the volume, wherever it comes from. And it
+    //  does not happen when sunk: the volume key is not addressed to her.
+    follow vol_level = sound.volume
+    //  And it does not happen when asleep: the volume key is not addressed to her.
+    on change sound.volume while out > 0.9 and not asleep { meter: 1 }
+    //  It holds 1.1 s after the LAST change, not after each one: a burst of key
+    //  presses is one continuous reading and not a blink per step. This is what
+    //  pleamar could not say and now says: `on still`.
+    on still sound.volume for 1.1s { meter: 0 }
+
+}

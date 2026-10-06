@@ -1,0 +1,518 @@
+// Marea's scene, in pieces: the card: the control center and its pages. marea.plm includes it.
+part Card {
+    // ── the card ─────────────────────────────────────────────────
+    //  The control center, measured on the sheet
+    //  (`design/concepts/2026-08-31-centro-y-apps/centro-de-control.png`): the
+    //  ball measures 70 there and 46 here, so everything goes times 46/70.
+    //
+    //  Three cards, not six: Wi-Fi, Bluetooth and Focus. And the two levels are
+    //  **brightness and volume**, with their icon BELOW the track, the label and
+    //  the percentage in mint. The six and the orbit belong to the current
+    //  ControlCenter, which is no longer this sheet.
+    let card.w = 520 * card
+    let card.h = 510 * card
+    //  Stuck to her, not beside her: they overlap 17 px and with that the melting
+    //  makes a neck. It is the same as the tray, and for the same reason: the
+    //  card does not appear beside her, it comes out of her.
+    //  The card's corner: the sheet's as soon as there is a card, and fatter and
+    //  fatter in proportion as it goes, so that the last thing that goes into her
+    //  is a drop and not a little box with corners.
+    let card.corner = max(22 * card, min(card.w, card.h) / 2 * (1 - card))
+    let card.x = cx + 6 + card.w / 2
+    let card.y = cy_actual + card.h / 2 - 8
+    //  And its top edge, which is where EVERYTHING inside hangs from. Written from
+    //  the centre, adding a card moved the whole panel and the separator, the
+    //  audio section and the pages had to be rearranged by hand. From the top,
+    //  growing is growing downwards and the rest stays where it was.
+    let card.top = card.y - card.h / 2
+
+
+    include "draw/pool.plm"
+    clip inset 2 box { at: card.x, card.y; size: card.w, card.h; corner: card.corner }
+    group {
+        opacity: content
+        move: 0, (1 - content) * 10
+
+        let x0 = card.x - 228
+        //  The overview goes away while the page grows: there are no two things
+        //  halfway, and what stays below is seen through the gap of the one rising.
+        let overview = 1 - clamp(paging * 1.6, 0, 1)
+        let y0 = card.top + 23
+
+        text "MAREA" { at: x0, y0; anchor: left center; size: 9; weight: 600; color: ink; opacity: 38% }
+        //  The big title says where you are: «Control center» on the front
+        //  page, and the page's own name —with its way back beside it— on the
+        //  others (see the page's header, below).
+        text "Control center" { at: x0 + 22 * paging, y0 + 22; anchor: left center; size: 18; weight: 500; color: ink; opacity: 1 - clamp(paging * 2, 0, 1) }
+        //  The gear and the cross, top right.
+        prop gear.glow = 0 ~140ms
+        prop cross.glow = 0 ~140ms
+        let gear.x = card.x + 168
+        let cross.x = card.x + 204
+        group {
+            //  Inside a page its place is the page's own buttons'.
+            opacity: (55% + gear.glow * 45%) * (1 - clamp(paging * 2, 0, 1))
+            arc { at: gear.x, y0 + 14; radius: 7; span: 300deg; width: 1.8; color: ink }
+            ellipse { at: gear.x, y0 + 14; radius: 2.6; color: ink }
+        }
+        group {
+            opacity: 55% + cross.glow * 45%
+            line { from: cross.x - 6, y0 + 8; to: cross.x + 6, y0 + 20; width: 1.8; color: ink }
+            line { from: cross.x + 6, y0 + 8; to: cross.x - 6, y0 + 20; width: 1.8; color: ink }
+        }
+        zone box gear { at: gear.x, y0 + 14; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 and page == none }
+        zone box close_btn { at: cross.x, y0 + 14; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 }
+        on enter gear { gear.glow: 1 }
+        on leave gear { gear.glow: 0 }
+        on enter close_btn { cross.glow: 1 }
+        on leave close_btn { cross.glow: 0 }
+        on press gear { page = settings }
+        on press close_btn { open = false }
+
+        //  The system tray lives where it does on any desktop: top right, in the
+        //  gap between the title and the gear. It does not cost a pixel of height,
+        //  and what is done most with it —a click to bring up somebody's window—
+        //  is still ONE click. Stuck to the right, so it grows towards the title
+        //  as people sign up.
+        component TrayIcon(i: record) {
+            size: 28, 28
+            prop rise = 0 ~140ms
+            box touch { from: 0, 0; size: 28, 28; corner: 8; color: ink; opacity: rise * 12%
+                       cursor: pointer; active: content > 0.9 and page == none }
+            image i.icon { at: 3, 3 - rise * 1.5; size: 22, 22 }
+            on enter touch { rise: 1 }
+            on leave touch { rise: 0 }
+            on press touch { emit systray_activate(i.index) }
+            on press right touch { emit systray_menu(i.index) }
+        }
+        //  The agents' reservoirs: a little tube beside the gear, as full as the
+        //  tightest window has left, and of its colour. It says «how am I doing»
+        //  without opening anything; pressing it opens the page.
+        prop agents.glow = 0 ~140ms
+        let agents.x = gear.x - 36
+        group {
+            opacity: (55% + agents.glow * 45%) * overview
+            box { at: agents.x, y0 + 14; size: 11, 18; corner: 4; stroke: 1.5; color: ink }
+            box { from: agents.x - 3.5, y0 + 21 - 12 * ag.shown; size: 7, 12 * ag.shown; corner: 2; color: ag.tone }
+        }
+        zone box agents_btn { at: agents.x, y0 + 14; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 and page == none }
+        on enter agents_btn { agents.glow: 1 }
+        on leave agents_btn { agents.glow: 0 }
+        on press agents_btn { page = agents; emit agents_refresh }
+        //  Software: a little parcel beside the tube, and how many updates are
+        //  waiting on its corner, in amber. Pressing it opens the page.
+        prop sw.glow = 0 ~140ms
+        let sw.x = gear.x - 72
+        group {
+            opacity: (55% + sw.glow * 45%) * overview
+            box { at: sw.x, y0 + 15; size: 16, 13; corner: 2.5; stroke: 1.5; color: ink }
+            line { from: sw.x - 8, y0 + 12; to: sw.x + 8, y0 + 12; width: 1.5; color: ink }
+            line { from: sw.x, y0 + 8.5; to: sw.x, y0 + 12; width: 1.5; color: ink }
+        }
+        group {
+            show: sw.count > 0
+            opacity: overview
+            ellipse { at: sw.x + 9, y0 + 7; radius: 7; color: amber }
+            text "{sw.count, 0}" { at: sw.x + 9, y0 + 7.5; anchor: center; size: 8.5; weight: 700; color: #0a0c10; show: sw.count < 10 }
+            text "{sw.count, 0}" { at: sw.x + 9, y0 + 7.5; anchor: center; size: 6.5; weight: 700; color: #0a0c10; show: sw.count >= 10 and sw.count < 100 }
+            text "99+" { at: sw.x + 9, y0 + 7.5; anchor: center; size: 6; weight: 700; color: #0a0c10; show: sw.count >= 100 }
+        }
+        zone box sw_btn { at: sw.x, y0 + 14; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 and page == none }
+        on enter sw_btn { sw.glow: 1 }
+        on leave sw_btn { sw.glow: 0 }
+        on press sw_btn { page = software; sw.tab = updates; emit sw_open }
+
+        row systray_row ~quick {
+            at: gear.x - 94, y0 + 14
+            anchor: right middle
+            gap: 4
+            opacity: overview
+            for i in icons { TrayIcon(i) }
+        }
+
+        group {
+            opacity: overview
+            // ── the two levels ───────────────────────────────────────
+            //  Dragging them really moves them: the scene says where the finger
+            //  goes and the logic asks the system for it. The value is not made up
+            //  here —the service keeps reading it—, so raising the volume with the
+            //  key moves this very track.
+            //  Everything below, measured on the sheet and written from the centre
+            //  of the card: the header ends at −150 and the content starts at −134.
+            //  Before, the right column started at −165 and climbed on top of the
+            //  cross.
+            let levels.x = card.x - 123
+            //  The levels' box reaches as far as the cards reach: with five, the
+            //  old one stopped at half height and the panel looked lopsided. And the
+            //  tracks grow with it, which is what the sheet asks: the sliders are
+            //  the protagonist.
+            let levels.y = card.top + 237
+            box { at: levels.x, levels.y; size: 210, 322; corner: 16; color: mix(#1b1b1c, ink, glassiness); opacity: mix(1, veil, glassiness) }
+            //  Three levels: brightness, volume and the microphone; and while it
+            //  rains on the windows, a fourth, the rain, which the others make
+            //  room for.
+            repeat k in 0..4 {
+                let step = 66 - 14 * four
+                let sx = levels.x - step * (1 + 0.5 * four) + k * step
+                let val = pick(k, bright_level, vol_level, mic_level, rain_level)
+                let silenced = pick(k, 0, if(sound.muted, 1, 0), if(sound.input_muted, 1, 0), 0)
+                let avail = if(k == 0, if(display.present, 1, 0), 1)
+                let track_top = levels.y - 137
+                let track_h = 200
+                let here = if(k == 3, four, 1)
+              group {
+                show: here > 0.01
+                opacity: here
+                group {
+                    opacity: 25% + avail * 75%
+                    //  The track, and the filled part from below.
+                    box { at: sx, track_top + track_h / 2; size: 14, track_h; corner: 7; color: mix(#2a2b2c, sunken, glassiness); opacity: mix(1, 70%, glassiness) }
+                    box { from: sx - 7, track_top + track_h * (1 - val); size: 14, track_h * val; corner: 7
+                          color: mix(mint, #6b7280, silenced) }
+                    //  And the handle, which is what says where you are.
+                    ellipse { at: sx, track_top + track_h * (1 - val); radius: 9; color: #f0ece4 }
+                }
+                //  The icon goes BELOW, and with it the label and the percentage.
+                let iy = levels.y + 93
+                group {
+                    opacity: (25% + avail * 75%) * (1 - silenced * 0.45)
+                    //  The brightness sun: a disc and eight rays.
+                    ellipse { at: sx, iy; radius: 4.5; color: ink; show: k == 0 }
+                    repeat r in 0..8 {
+                        line { from: sx + 7.5 * cos(r * 45), iy + 7.5 * sin(r * 45)
+                               to: sx + 10.5 * cos(r * 45), iy + 10.5 * sin(r * 45)
+                               width: 1.6; color: ink; show: k == 0 }
+                    }
+                    //  The volume speaker: body, horn and two waves.
+                    path { at: sx - 8, iy - 5; color: ink; show: k == 1
+                           move 0, 3; line 4, 3; line 9, 0; line 9, 11; line 4, 8; line 0, 8; close }
+                    arc { at: sx + 3, iy; radius: 6; span: 110deg; width: 1.5; rotate: 90deg; color: ink; show: k == 1 }
+                    arc { at: sx + 3, iy; radius: 9.5; span: 110deg; width: 1.5; rotate: 90deg; color: ink; show: k == 1 }
+                    //  The microphone: a capsule, its cradle and its foot.
+                    box { at: sx, iy - 3; size: 7, 12; corner: 3.5; color: ink; show: k == 2 }
+                    arc { at: sx, iy - 1; radius: 6.5; span: 180deg; width: 1.5; rotate: 90deg; color: ink; show: k == 2 }
+                    line { from: sx, iy + 5.5; to: sx, iy + 9; width: 1.5; color: ink; show: k == 2 }
+                    line { from: sx - 3.5, iy + 9; to: sx + 3.5, iy + 9; width: 1.5; color: ink; show: k == 2 }
+                    //  The rain: three streaks slanting down and a drop.
+                    line { from: sx - 5, iy - 8; to: sx - 7.5, iy - 1; width: 1.6; color: ink; show: k == 3 }
+                    line { from: sx + 1, iy - 10; to: sx - 1.5, iy - 3; width: 1.6; color: ink; show: k == 3 }
+                    line { from: sx + 7, iy - 8; to: sx + 4.5, iy - 1; width: 1.6; color: ink; show: k == 3 }
+                    ellipse { at: sx - 1.5, iy + 5.5; radius: 2.6; scale: 1, 1.25; color: ink; show: k == 3 }
+                }
+                line { from: sx - 9, iy - 9; to: sx + 9, iy + 9; width: 1.8; color: #e0655a; opacity: silenced }
+                //  (Four to a row, the names a little smaller, so they do not touch.)
+                group {
+                    pivot: sx, iy + 24
+                    scale: 1 - 0.14 * four
+                    text "Brightness" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 0 }
+                    text "Volume" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 1 }
+                    text "Microphone" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 2 }
+                    text "Rain" { at: sx, iy + 24; anchor: center; size: 11.5; color: ink; show: k == 3 }
+                }
+                text "{val * 100, 0}%" { at: sx, iy + 42; anchor: center; size: 11.5; weight: 500; color: mint }
+              }
+                //  Drag the track, and press the icon to mute.
+                zone box track.$k { at: sx, track_top + track_h / 2; size: 34 - 6 * four, track_h + 18; corner: 17; cursor: pointer; active: content > 0.9 and (k < 3 or rain_on) }
+                zone box icon.$k { at: sx, iy; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 and (k < 3 or rain_on) }
+
+            }
+            //  The track: wherever you release your finger, that is where it goes.
+            //  With `pointer.y`, which is over the surface, that is, the same
+            //  coordinates the track is drawn with: that way the sum reads next to
+            //  the drawing.
+            let finger.0 = 1 - clamp((pointer.y - (card.top + 100)) / 200, 0, 1)
+            on drag track.0 { emit set_brightness(finger.0) }
+            on press track.0 { emit set_brightness(finger.0) }
+            on drag track.1 { emit set_volume(finger.0) }
+            on press track.1 { emit set_volume(finger.0) }
+            on press icon.1 { emit mute_output }
+            on drag track.2 { emit set_mic(finger.0) }
+            on press track.2 { emit set_mic(finger.0) }
+            on press icon.2 { emit mute_mic }
+            on drag track.3 { emit set_rain(finger.0) }
+            on press track.3 { emit set_rain(finger.0) }
+
+            // ── the sheet's three ────────────────────────────────────
+            //  Each card is a `row` of three: the icon, what is read, and the
+            //  switch or the arrow. The middle one asks for the room left over
+            //  (`grow: 1`) and its texts take their width from it, so **there is
+            //  not a single width written by hand here** and what does not fit is
+            //  cut by itself. Before, I set it and that is why the network's name
+            //  slid under the switch.
+            text title.1 = "Wi-Fi"
+            text title.2 = "Bluetooth"
+            text title.3 = "Focus"
+            text title.4 = "Sound"
+            text title.5 = "Session"
+            text sub.1 = ""
+            text sub.2 = "Headphones"
+            text sub.3 = "25 min"
+            text sub.4 = "Output and input"
+            text sub.5 = "Lock or power off"
+            //  The springs and the zones go OUTSIDE the layout: inside a `column`
+            //  everything there is is a child, and a `prop` takes up no room.
+            repeat k in 1..6 {
+                prop glow.$k = 0 ~140ms
+                zone box row.$k { at: card.x + 111, card.top + 105 + (k - 1) * 66; size: 234, 58; corner: 14; cursor: pointer; active: content > 0.9 }
+                //  The switch has its own zone, ON TOP of the card's: pressing it
+                //  switches on or off, and pressing the rest opens the page.
+                //  Before, the body took both things and the switch did nothing,
+                //  so with the Wi-Fi off there was no way to turn it back on from
+                //  here.
+                zone box switch.$k { at: card.x + 196, card.top + 105 + (k - 1) * 66; size: 52, 44; corner: 20; cursor: pointer; active: content > 0.9 and k < 3 }
+                on enter row.$k { glow.$k: 1 }
+                on leave row.$k { glow.$k: 0 }
+                on press switch.$k { emit flip(k) }
+                //  Pressing the card opens its page. The Wi-Fi and Bluetooth
+            //  switch still belongs to the system; what opens here is the list.
+                on press row.$k { emit scan(k) }
+            }
+            //  And **which page opens is decided by the scene**, not the logic. The
+            //  logic did it —`fact.page = pages[k]`— and that was a round trip with
+            //  the 600 ms of blocking in the middle for something that does not
+            //  depend on the system; worse: the two new cards were not in its
+            //  list, so the logic put the page back to `none` right after the rule
+            //  opened it. Outside the layout, or they would be five identical rules.
+            on press row.1 { page = wifi }
+            on press row.2 { page = bluetooth }
+            on press row.3 { page = concentration }
+            on press row.4 { page = sound }
+            on press row.5 { page = session }
+            column cards {
+                at: card.x - 6, card.top + 76
+                gap: 8
+                repeat k in 1..6 {
+                    row card_row {
+                        size: 234, 58
+                        gap: 6
+                        padding: 8
+                        //  Centred vertically. By default a layout aligns to
+                        //  `start`, and with that the switch stayed stuck at the
+                        //  top while the text dropped to the middle.
+                        align: center
+                        //  The Focus one is highlighted when it is on: the
+                        //  background a touch greener. It is the only border in the
+                        //  panel, and the card paints it, not the layout.
+                        fill: mix(mix(mix(#1b1b1c, #202021, glow.$k), #1a241f, lit.$k * if(k == 3, 1, 0)), mix(ink, mint, lit.$k * if(k == 3, 1, 0)), glassiness) mix(1, veil + glow.$k * veil.glow, glassiness)
+                        corner: 14
+                        group {
+                            size: 20, 22
+                            //  Wi-Fi: three arcs and the dot.
+                            repeat a in 1..4 {
+                                //  An arc is drawn ABOVE its point, so the point
+                                //  goes at the very bottom: the icon takes up from
+                                //  y−16 to y+2, and is centred 7 lower.
+                                arc { at: 10, 18; radius: 3 + a * 3.4; span: 110deg; width: 1.8; color: ink
+                                      opacity: 40% + lit.1 * 60%; show: k == 1 }
+                            }
+                            ellipse { at: 10, 19; radius: 1.8; color: ink; opacity: 40% + lit.1 * 60%; show: k == 1 }
+                            //  Bluetooth: the rune, in one stroke.
+                            path { at: 6, 2; color: ink; stroke: 1.8; opacity: 40% + lit.2 * 60%; show: k == 2
+                                   move 0, 4; line 10, 14; line 5, 18; line 5, 0; line 10, 4; line 0, 14 }
+                            //  Focus: the moon. It was a disc with one side eaten by
+                            //  another the colour of the card, and on a glass card
+                            //  the eating one shows: now it is the crescent itself,
+                            //  the radius 9 disc at (11, 11) minus the 8.5 one at
+                            //  (16, 6), with each arc in curves.
+                            path { at: 0, 0; color: ink; opacity: 70%; show: k == 3
+                                   move 8.3, 2.4; curve 3.5, 6.1 via 5.2, 3.4; curve 2, 11.9 via 1.7, 8.7; curve 4.6, 17.4 via 2.4, 15.1
+                                   curve 10.1, 20 via 6.9, 19.6; curve 15.9, 18.5 via 13.3, 20.3; curve 19.6, 13.7 via 18.6, 16.8
+                                   curve 14.5, 14.4 via 17.2, 14.8; curve 10, 12 via 11.9, 13.9; curve 7.6, 7.5 via 8.1, 10.1
+                                   curve 8.3, 2.4 via 7.2, 4.8; close }
+                            //  Sound: the usual speaker, the same one that goes
+                            //  below its track.
+                            path { at: 2, 5; color: ink; opacity: 70%; show: k == 4
+                                   move 0, 3; line 4, 3; line 9, 0; line 9, 11; line 4, 8; line 0, 8; close }
+                            arc { at: 13, 10.5; radius: 5; span: 110deg; width: 1.5; rotate: 90deg; color: ink; opacity: 70%; show: k == 4 }
+                            //  Session: the power symbol, which is what that card
+                            //  ends up offering.
+                            arc { at: 10, 12; radius: 7; span: 280deg; width: 1.7; rotate: 180deg; color: ink; opacity: 70%; show: k == 5 }
+                            box { at: 10, 4.5; size: 1.7, 7; corner: 0.9; color: ink; opacity: 70%; show: k == 5 }
+                        }
+                        //  What is read, with whatever room is left. No widths.
+                        column { grow: 1; gap: 2
+                            text title.$k { size: 13; lines: 1; color: ink }
+                            text sub.$k { size: 11.5; lines: 1; color: mix(#8b8f95, faint, glassiness); show: k > 3 }
+                            text bt.sub { size: 11.5; lines: 1; color: mix(#8b8f95, faint, glassiness); show: k == 2 }
+                            text net.name { size: 11.5; lines: 1; color: mix(#8b8f95, faint, glassiness); show: k == 1 }
+                            //  The Focus one tells what it has left, not what it
+                            //  would last: when it is on, what you need to know is
+                            //  when she comes back.
+                            text "On · {remaining, 0} min" { size: 11.5; lines: 1; color: mint; show: k == 3 and haven }
+                            text "{focus.mins, 0} min" { size: 11.5; lines: 1; color: mix(#8b8f95, faint, glassiness); show: k == 3 and not haven }
+                        }
+                        //  The switch, or the arrow of those that open a page.
+                        //  The one that opens a page only carries an arrow, so it
+                        //  takes up much less and its text has more room left.
+                        group {
+                            size: if(k < 3, 40, 12), 23
+                            box { from: 0, 0; size: 40, 23; corner: 11.5; color: mix(#2a2b2c, mint, lit.$k); show: k < 3 }
+                            ellipse { at: 11.5 + 18 * lit.$k, 11.5; radius: 8.5; color: #ffffff; show: k < 3 }
+                            path { at: 3, 6; color: ink; stroke: 1.6; opacity: 70%; show: k > 2
+                                   move 0, 0; line 5, 5; line 0, 10 }
+                        }
+                    }
+                }
+            }
+            //  The mint outline of the one that is on. It goes apart and with
+            //  `stroke` —only the outline— because a layout's background is a
+            //  colour and carries no border; a filled `body` on top covered the
+            //  whole card.
+            box { at: card.x + 111, card.top + 237; size: 234, 58; corner: 14
+                  stroke: 1; color: mint; opacity: lit.3 }
+
+
+
+        }
+
+        // ── the page, which comes out of its card ────────────────
+        //  It grows from the place of the card that was pressed until it fills
+        //  the panel. What is below goes away meanwhile: there are no two things
+        //  halfway.
+        let pg.k = if(page == bluetooth, 2, 0) + if(page == concentration, 3, 0) + if(page == wifi, 1, 0) + if(page == sound, 4, 0) + if(page == session, 5, 0)
+        //  The first three come out of their card; the wardrobe has no card
+        //  —it is entered through her menu—, so it grows from the centre of the
+        //  panel.
+        let pg.own = if(page == wardrobe or page == systray or page == settings or page == agents or page == calendar or page == history or page == drift or page == walls or page == software, 0, 1)
+        let pg.ox = card.x + 111 * pg.own
+        let pg.oy = card.top + 231 + (-126 + (pg.k - 1) * 66) * pg.own
+        //  The page's box starts where its content does, 96 below the card's
+        //  top edge: the page's name and its buttons live in the card's own
+        //  header now, not in a row of the box. And the pages of their
+        //  own (agents, calendar, settings…) reach down to where their content
+        //  ends instead of letting it spill out of the box.
+        let pg.to.h = 310 + 88 * (1 - pg.own)
+        let pg.to.y = card.top + 96 + pg.to.h / 2
+        let pg.x = pg.ox + (card.x - pg.ox) * paging
+        let pg.y = pg.oy + (pg.to.y - pg.oy) * paging
+        let pg.w = 234 + 222 * paging
+        let pg.h = 58 + (pg.to.h - 58) * paging
+        //  The box only carries the row into the page: once there it melts,
+        //  and the page sits on the card itself, all of one colour.
+        box { at: pg.x, pg.y; size: pg.w, pg.h; corner: 14; color: mix(#1b1b1c, ink, glassiness); opacity: paging * min(1, (1 - paging) * 4) * mix(1, veil, glassiness) }
+
+        group {
+            opacity: clamp(paging * 3 - 2, 0, 1)
+            let px0 = card.x - 208
+            //  The page's header, in the card's own: back, and where you are.
+            path { at: card.x - 228, card.top + 40; color: ink; stroke: 1.8; opacity: 70%
+                   move 5, 0; line 0, 5; line 5, 10 }
+            text "Wi-Fi" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == wifi }
+            text "Bluetooth" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == bluetooth }
+            text "Focus" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == concentration }
+            text "Her wardrobe" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == wardrobe }
+            text "Sound" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == sound }
+            text pick(section, "Settings", "Where she lives", "Her look", "Language", "The lock", "Notices", "Talking with her", "Her tasks", "Passwords for her tasks", "What she remembers") { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == settings }
+            text "Agents" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == agents }
+            text "History" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == history }
+            text "Deriva" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == drift }
+            text "Wallpapers" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == walls }
+            text "Software" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == software }
+            text "{drift.kept, 0} kept" { at: card.x + 150, card.top + 45; anchor: right center; size: 11; color: #8b8f95; show: page == drift and not drift.trash }
+            text "{drift.trashed, 0} in the trash" { at: card.x + 150, card.top + 45; anchor: right center; size: 11; color: #ef7a66; show: page == drift and drift.trash }
+            text cal.month { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == calendar }
+            text systray.title { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; width: 300; lines: 1; color: ink; show: page == systray }
+            text "Shall we take a break?" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == session and confirming == none }
+            text "Confirm" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == session and confirming != none }
+            zone box back_arrow { at: card.x - 224, card.top + 45; size: 34, 34; corner: 17; cursor: pointer; active: paging > 0.9 }
+            //  A step back is ONE step: from the question you go back to the list,
+            //  not to the control center. The guards read the previous frame, so
+            //  the two do not step on each other.
+            on press back_arrow while confirming != none { confirming = none }
+            on press back_arrow while confirming == none and not (page == settings and section != menu) { page = none }
+
+            //  A row of the updates: ticked or not, its name, from what to what,
+            //  and the AUR's in amber. Pressing it leaves it out of this
+            //  update, or brings it back.
+            component SwRow(r: record) {
+                size: 456, 30
+                prop glow = 0 ~140ms
+                let on = if(r.skip, 0, 1)
+                zone box touch { from: 0, 0; size: 456, 30; corner: 9; cursor: pointer; active: sw.state == ready }
+                box { from: 0, 0; size: 456, 30; corner: 9; color: mix(#1f2021, #262829, glow) }
+                ellipse { at: 16, 15; radius: 7; stroke: 1.4; color: mix(#8b8f95, mint, on) }
+                ellipse { at: 16, 15; radius: 7; color: mint; opacity: on }
+                path { at: 12.5, 14; color: #0c0f12; stroke: 1.6; opacity: on
+                       move 0, 1; line 2.5, 3.5; line 7, -1.5 }
+                text r.name { at: 32, 15; anchor: left center; size: 12; width: 200; lines: 1; color: mix(#8b8f95, mix(#dfe1e3, #f6f6f5, glow), on) }
+                text r.versions { at: 240, 15; anchor: left center; size: 10.5; width: 170; lines: 1; color: #8b8f95; opacity: 55% + 45% * on }
+                group {
+                    show: r.aur
+                    box { at: 432, 15; size: 32, 16; corner: 8; color: #2c2618 }
+                    text "AUR" { at: 432, 15.5; anchor: center; size: 8.5; weight: 700; color: amber }
+                }
+                on enter touch { glow: 1 }
+                on leave touch { glow: 0 }
+                on press touch { emit sw_toggle(r.index) }
+            }
+            //  A program of the catalogue: its name and version, where it comes
+            //  from and what it does; «Install», or that it already is.
+            component CatRow(f: record) {
+                size: 456, 42
+                prop glow = 0 ~140ms
+                box { from: 0, 0; size: 456, 42; corner: 10; color: mix(#1f2021, #262829, glow) }
+                text f.name { at: 14, 14; anchor: left center; size: 12.5; weight: 500; width: 220; lines: 1; color: ink }
+                text f.version { at: 244, 14; anchor: left center; size: 10.5; width: 100; lines: 1; color: #8b8f95 }
+                text f.repo { at: 14, 30; anchor: left center; size: 9.5; weight: 700; width: 70; lines: 1; color: mix(blue, amber, f.aur) }
+                text f.about { at: 84, 30; anchor: left center; size: 10.5; width: 266; lines: 1; color: #8b8f95 }
+                box { from: 362, 7; size: 84, 28; corner: 9; color: mint; opacity: (80% + 20% * glow) * if(f.installed, 0, 1) }
+                text pick(f.installed, "Install", "Installed") { at: 404, 21; anchor: center; size: 11.5; weight: 600; color: mix(#0c0f12, #8b8f95, f.installed) }
+                zone box touch { from: 362, 7; size: 84, 28; corner: 9; cursor: pointer; active: sw.state == ready or sw.state == idle or sw.state == broken or sw.state == scanning; show: not f.installed }
+                on enter touch { glow: 1 }
+                on leave touch { glow: 0 }
+                on press touch { emit sw_install(f.index) }
+            }
+
+            include "pages/wifi.plm"
+            include "pages/bluetooth.plm"
+            include "pages/history.plm"
+            include "pages/software.plm"
+            include "pages/wallpapers.plm"
+            include "pages/deriva.plm"
+            include "pages/wardrobe.plm"
+            include "pages/sound.plm"
+            include "pages/settings.plm"
+            include "pages/agents.plm"
+            include "pages/calendar.plm"
+            include "pages/tray-menu.plm"
+            include "pages/session.plm"
+            include "pages/focus.plm"
+        }
+
+        group {
+            opacity: overview
+            // ── the line and what is playing ─────────────────────────
+            line { from: x0, card.top + 424; to: card.x + 228, card.top + 424; width: 1; color: ink; opacity: 12% }
+            let by = card.top + 466
+            group {
+                show: playback.playing
+                //  The cover, which here is a gradient: there is no artwork yet.
+                body {
+                    gradient: radial x0 + 28, by - 6 radius 44, #e8c9a8, #6f8f7d
+                    box { at: x0 + 28, by; size: 56, 56; corner: 12 }
+                }
+                text playback.title { at: x0 + 66, by - 9; anchor: left center; size: 12.5; width: 130; lines: 1; color: ink }
+                text playback.artist { at: x0 + 66, by + 10; anchor: left center; size: 11; width: 130; lines: 1; color: #8b8f95 }
+                //  Previous, pause and next. The pause goes in its filled disc.
+                let bx1 = card.x + 126
+                let bx3 = card.x + 206
+                path { at: bx1 - 6, by - 7; color: ink; move 12, 0; line 12, 14; line 0, 7; close }
+                box { at: bx1 - 8, by; size: 2.6, 14; corner: 1.3; color: ink }
+                ellipse { at: card.x + 166, by; radius: 19; color: #2a2b2c }
+                box { at: card.x + 162, by; size: 3.4, 14; corner: 1.7; color: ink }
+                box { at: card.x + 170, by; size: 3.4, 14; corner: 1.7; color: ink }
+                path { at: bx3 - 6, by - 7; color: ink; move 0, 0; line 12, 7; line 0, 14; close }
+                box { at: bx3 + 10, by; size: 2.6, 14; corner: 1.3; color: ink }
+                zone box prev_btn { at: bx1, by; size: 34, 34; corner: 17; cursor: pointer; active: content > 0.9 }
+                zone box play_btn { at: card.x + 166, by; size: 42, 42; corner: 21; cursor: pointer; active: content > 0.9 }
+                zone box next_btn { at: bx3, by; size: 34, 34; corner: 17; cursor: pointer; active: content > 0.9 }
+                on press prev_btn { emit previous }
+                on press play_btn { emit play_pause }
+                on press next_btn { emit next }
+            }
+            text "Nothing playing" { at: card.x, by; anchor: center; size: 11.5; color: #8b8f95; show: not playback.playing }
+        }
+
+    }
+
+}

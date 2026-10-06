@@ -1,0 +1,293 @@
+// Marea's scene, in pieces: the body. marea.plm includes it.
+part Body {
+    // ── the body ──────────────────────────────────────────────────
+    //  The water at the edge and the ball are one single silhouette: the neck is
+    //  not drawn, it comes from melting them together. That is why it thins and
+    //  breaks without anyone computing it, and why it is concave.
+    body {
+        color: skin
+        rim: 14%
+        glass: glassiness
+        lens: bends
+        //  Her glass catches the light from wherever the mouse is.
+        shine: cursor.x, cursor.y
+        //  No shadow and no halo when she is alone. What separates her from the
+        //  desktop is her own rim, which is light INSIDE her silhouette: it paints
+        //  nothing outside her, so there is no black ring or green glow around.
+        //  On a dark background it is what draws her, and on a light one nothing
+        //  is needed.
+        //
+        //  A shadow, yes, but only when a panel comes out of her: a 390 × 410
+        //  card floating over the windows needs to say it is on top. Everything
+        //  about a shadow is a computation, so it appears with the card and goes
+        //  away with it.
+        shadow: 0, 2 * panel, 12 * panel, 32% * panel, #05070a
+        box water { from: cx - 70, -70; size: 140, 70 * wet }
+        //  The bulge the water makes around her: it is the same sheet, stretching.
+        //  Melted with her and with the ball, so the three are one silhouette and
+        //  the neck comes from the distances, not from drawing a neck.
+        //  The melting goes away with the bulge: otherwise, a half-pixel bulge kept
+        //  bulging the sheet and left a mole on the edge once she was already loose.
+        ellipse tether { at: cx, 0; radius: 30; scale: 1, sag / 30; blend: 16 * clamp(sag / 6, 0, 1) }
+        ellipse crest.l { at: cx - ripple.x, 0; radius: 9; scale: 1, ripple.h / 9; blend: 8 * clamp(ripple.h / 3, 0, 1) }
+        ellipse crest.r { at: cx + ripple.x, 0; radius: 9; scale: 1, ripple.h / 9; blend: 8 * clamp(ripple.h / 3, 0, 1) }
+        ellipse drop_behind { at: cx, stray_drop.r * 0.7; radius: stray_drop.r; blend: 7 * clamp(stray_drop.r / 3, 0, 1) }
+        ellipse body_shape {
+            at: cx, cy_actual
+            radius: r
+            rotate: tilt + lean
+            scale: (sx + press * 0.04) * (1 - droop) * (1 - fall.stretch * 0.5), (sy - press * 0.05) * (1 + droop) * (1 + fall.stretch)
+            //  Going through the edge on a journey, she melts with the water:
+            //  it swallows her with a neck, and lets her go with one.
+            blend: max(neck, 18 * splashing)
+        }
+        //  The time note, which comes out from BEHIND her: it is born at her
+        //  centre with zero width and slides to the right until it sits 14 px
+        //  away, with its neck halfway. It is part of the same body, so the shadow
+        //  is a single one and so is the edge.
+        //  The tray **sprouts from her**: it is not a card that appears beside
+        //  her, it is her own body stretched. It goes in this same `body`, so they
+        //  share silhouette, shadow and rim, and between the two there is a neck
+        //  nobody draws: it comes from melting them, like the one at the water's
+        //  edge.
+        box tray_box {
+            at: tray.x, tray.y
+            size: tray.w, tray.h
+            corner: 22 * tray
+            blend: 30 * 4 * tray * (1 - tray) + 24 * tray
+        }
+        //  And the control center the same: it sprouts from her with its neck,
+        //  and when it is open it stays joined by a fillet. A panel that appears
+        //  beside her is a panel; this is her, stretched.
+        box card_box {
+            at: card.x, card.y
+            size: card.w, card.h
+            corner: card.corner
+            blend: 30 * 4 * card * (1 - card) + 24 * card
+        }
+        box notecard_box {
+            at: notecard.x, cy_actual
+            size: notecard.w, notecard.h
+            corner: 14 - nc.c
+            blend: 16 * (1 - nc.b)
+        }
+        //  The Haven's capsule, the same: it is what she says when you ask her by
+        //  hovering over her, so it comes out from where the time comes out and in
+        //  the same way. A capsule that appears beside her would be something
+        //  else, put there.
+        box capsule_box {
+            at: capsule.x, capsule.y
+            size: 208 * clamp(capsule * 1.6, 0, 1), 92 * clamp(capsule * 2.4, 0, 1)
+            corner: 16
+            blend: 18 * 4 * capsule * (1 - capsule)
+        }
+        //  And the saved recording's card, the same way.
+        box reel_box {
+            at: reel.x, reel.y
+            size: 300 * clamp(reel * 1.6, 0, 1), 96 * clamp(reel * 2.4, 0, 1)
+            corner: 16
+            blend: 18 * 4 * reel * (1 - reel)
+        }
+        //  The finder, which also comes out of her: it is the same as always, one
+        //  more box in her body with its neck.
+        box finder_box {
+            at: finder.x, finder.y
+            size: finder.w, finder.h
+            corner: max(22 * finder, min(finder.w, finder.h) / 2 * (1 - finder))
+            blend: 30 * 4 * finder * (1 - finder) + 24 * finder
+        }
+        //  The chat, one more box in her body too: while it unfolds the neck
+        //  between her and it is water, not a seam.
+        box chat_box {
+            at: chat.x, chat.y
+            size: chat.w, chat.h
+            corner: max(24 * chat, min(chat.w, chat.h) / 2 * (1 - chat))
+            blend: 30 * 4 * chat * (1 - chat) + 24 * chat
+        }
+        //  And her menu, on the same side and from the same box as the time: «in
+        //  the same place where the clock note comes out and in the same box».
+        box menu_box {
+            at: menu.x, menu.cy
+            size: menu.w * clamp(menu * 1.6, 0, 1), menu.h * clamp(menu * 2.4, 0, 1)
+            corner: 9
+            blend: 18 * 4 * menu * (1 - menu)
+        }
+        //  And the summary on coming back: the last thing the Haven does is give
+        //  back what it kept, and it gives it back coming out of her.
+        box summary_box {
+            at: summary.x, cy_actual
+            size: 196 * clamp(summary * 1.6, 0, 1), 40 * clamp(summary * 2.4, 0, 1)
+            corner: 20
+            blend: 18 * 4 * summary * (1 - summary)
+        }
+    }
+
+    //  Its sky: the one outside at this hour. Night blue, the warm band of
+    //  dawn and dusk, day blue; a sun or a moon crossing a small arc on its
+    //  right side, and stars when it is dark. Over the body, clipped to the
+    //  card, and only once it is a card.
+    //
+    //  And the weather where you are (her sky: the logic asks Open-Meteo every
+    //  quarter of an hour for the city chosen in the calendar): clouds that
+    //  melt into each other and hide the sun, rain slanting, snow drifting,
+    //  fog in bands, lightning now and then; the sky greyer the more it is
+    //  covered, warmer with heat and paler with cold; and the temperature.
+    fact wx.ok = false
+    fact wx.temp = 0
+    fact wx.hi = 0
+    fact wx.lo = 0
+    fact wx.cloud = 0
+    fact wx.rain = 0
+    fact wx.snow = 0
+    fact wx.fog = 0
+    fact wx.storm = 0
+    text wx.place = ""
+    text wx.summary = ""
+    fact sky.editing = false
+    //  A storm there: now and then, lightning in the card.
+    prop bolt = 0 ~60ms
+    every 6.5s while wx.storm > 0.5 and notecard > 0.9 { bolt: 1 ~40ms; bolt: 0 ~520ms after 90ms }
+    let wx.gloom = clamp(max(max(wx.cloud * 0.55, wx.rain * 0.85), max(max(wx.snow * 0.5, wx.fog * 0.7), wx.storm)), 0, 1) * if(wx.ok, 1, 0)
+    let wx.heat = clamp((wx.temp - 26) / 10, 0, 1) * if(wx.ok, 1, 0)
+    let wx.cold = clamp((6 - wx.temp) / 12, 0, 1) * if(wx.ok, 1, 0)
+    let sky.t = now.hour + now.minute / 60
+    let sky.day = clamp((sky.t - 6) / 2, 0, 1) * clamp((19 - sky.t) / 2, 0, 1)
+    let sky.warm = clamp(1 - abs(sky.t - 7) / 1.5, 0, 1) + clamp(1 - abs(sky.t - 19.5) / 1.5, 0, 1)
+    let sky.night = (1 - sky.day) * (1 - clamp(sky.warm, 0, 1))
+    let sky.x0 = notecard.x - 52
+    let sky.y0 = cy_actual - 28
+    //  Where the sun is between 6 and 18, and the moon the other twelve hours.
+    let sun.p = clamp((sky.t - 6) / 12, 0, 1)
+    let moon.p = mod(sky.t + 6, 24) / 12
+    let sun.up = if(sky.t >= 6 and sky.t < 18, 1, 0)
+    let orb.p = if(sun.up > 0.5, sun.p, moon.p)
+    let orb.x = sky.x0 + 70 + 28 * orb.p
+    let orb.y = sky.y0 + 38 - 24 * sin(orb.p * 180)
+    group {
+        opacity: nc.c * 72%
+        clip inset 0 box { at: notecard.x, cy_actual; size: notecard.w, notecard.h; corner: 14 - nc.c }
+        body {
+            gradient: sky.x0, sky.y0 to sky.x0, sky.y0 + 56, mix(mix(mix(mix(mix(#0d1633, #2f76c9, sky.day), #f08a6a, clamp(sky.warm, 0, 1) * (1 - wx.gloom * 0.7)), mix(#1b1f27, #6d7a89, sky.day), wx.gloom), #f0a060, wx.heat * 0.25), #bfe3ff, wx.cold * 0.2), mix(mix(mix(mix(mix(#1d2c57, #5fa6e0, sky.day), #6a4a9a, clamp(sky.warm, 0, 1) * (1 - wx.gloom * 0.7)), mix(#2a303a, #9aa6b3, sky.day), wx.gloom), #f0a060, wx.heat * 0.2), #d6ecff, wx.cold * 0.25)
+            box { at: notecard.x, cy_actual; size: notecard.w, notecard.h; corner: 14 - nc.c }
+        }
+        repeat k in 0..6 {
+            ellipse { at: sky.x0 + 8 + k * 17.5, sky.y0 + 7 + mod(k * 7, 11); radius: 0.8 + mod(k, 2) * 0.4; color: #ffffff; opacity: sky.night * 80% * (1 - wx.gloom) }
+        }
+        group {
+            opacity: 1 - 0.8 * wx.cloud * if(wx.ok, 1, 0)
+            group {
+                glow: 6, 90%, #ffd36b
+                ellipse { at: orb.x, orb.y; radius: 5; color: #ffd36b; show: sun.up > 0.5 }
+            }
+            ellipse { at: orb.x, orb.y; radius: 4.5; color: #e8ecf5; show: sun.up < 0.5 }
+            ellipse { at: orb.x + 2.2, orb.y - 1.4; radius: 3.8; color: mix(#1a2648, #1b1f27, wx.gloom); show: sun.up < 0.5 }
+        }
+        //  Its clouds: three, each a few drops of cloud melted into one, more of
+        //  them the more it is covered, greyer with rain, rocking a little.
+        let cl.col = mix(mix(#f4f6f8, #8a94a3, 1 - sky.day), #5d6572, max(wx.rain, wx.storm) * 0.6)
+        let cl.a = (34% + 30% * wx.cloud) * if(wx.ok, 1, 0)
+        group {
+        //  (Soft at the edge, as clouds are; the ones behind the time fainter,
+        //  so it still reads.)
+        blur: 1.4
+        body {
+            color: cl.col
+            opacity: cl.a * if(wx.cloud > 0.12, 1, 0)
+            ellipse { at: sky.x0 + 73 + 2 * sway, sky.y0 + 20; radius: 7 }
+            ellipse { at: sky.x0 + 81 + 2 * sway, sky.y0 + 15; radius: 8.5; blend: 5 }
+            ellipse { at: sky.x0 + 89 + 2 * sway, sky.y0 + 21; radius: 6.5; blend: 5 }
+            box { at: sky.x0 + 81 + 2 * sway, sky.y0 + 24; size: 26, 6; corner: 3; blend: 4 }
+        }
+        body {
+            color: cl.col
+            opacity: cl.a * 0.6 * if(wx.cloud > 0.4, 1, 0)
+            ellipse { at: sky.x0 + 27 - 1.5 * sway, sky.y0 + 12; radius: 5.5 }
+            ellipse { at: sky.x0 + 34 - 1.5 * sway, sky.y0 + 8.5; radius: 6.5; blend: 4 }
+            ellipse { at: sky.x0 + 41 - 1.5 * sway, sky.y0 + 13; radius: 5; blend: 4 }
+        }
+        body {
+            color: cl.col
+            opacity: cl.a * 0.5 * if(wx.cloud > 0.7, 1, 0)
+            ellipse { at: sky.x0 + 53 + 1.5 * sway, sky.y0 + 47; radius: 6 }
+            ellipse { at: sky.x0 + 60 + 1.5 * sway, sky.y0 + 43; radius: 7.5; blend: 4 }
+            ellipse { at: sky.x0 + 68 + 1.5 * sway, sky.y0 + 48; radius: 5.5; blend: 4 }
+        }
+        }
+        //  Fog: bands of it, drifting.
+        group {
+            show: wx.fog > 0.01
+            blur: 3
+            box { at: sky.x0 + 52 + 5 * sway, sky.y0 + 22; size: 124, 7; corner: 3.5; color: #dfe6ee; opacity: wx.fog * 30% }
+            box { at: sky.x0 + 52 - 5 * sway, sky.y0 + 39; size: 124, 6; corner: 3; color: #dfe6ee; opacity: wx.fog * 24% }
+        }
+        //  Rain, slanting; heavy, more of it.
+        group {
+            show: nc.c > 0.5 and wx.rain > 0.05
+            //  (Particles are not clipped: they are born inside and die before the edge.)
+            particles { at: notecard.x + 8, sky.y0 + 2; area: 84, 1; count: 26; life: 0.26s .. 0.33s; speed: 130 .. 155
+                        direction: 104deg; spread: 3deg; gravity: 0, 0; size: 1, 0.8; colors: #cfe6ff, #a9c8e8; opacity: 70%, 40%; shape: spark }
+        }
+        group {
+            show: nc.c > 0.5 and wx.rain > 0.6
+            particles { at: notecard.x + 8, sky.y0 + 2; area: 84, 1; count: 30; life: 0.24s .. 0.3s; speed: 150 .. 175
+                        direction: 106deg; spread: 3deg; gravity: 0, 0; size: 1, 0.8; colors: #dbeeff, #a9c8e8; opacity: 70%, 40%; shape: spark }
+        }
+        //  Snow, drifting down.
+        group {
+            show: nc.c > 0.5 and wx.snow > 0.05
+            particles { at: notecard.x + 2, sky.y0 + 3; area: 86, 1; count: 22; life: 2.2s .. 3s; speed: 9 .. 15
+                        direction: 95deg; spread: 30deg; gravity: 0, 3; size: 1.7, 1.1; colors: #ffffff, #e8f2ff; opacity: 90%, 60%; shape: dot }
+        }
+        //  Lightning: the card lights up, and a bolt.
+        box { at: notecard.x, cy_actual; size: notecard.w, notecard.h; color: #e8efff; opacity: bolt * 45% }
+        path { at: sky.x0 + 86, sky.y0 + 5; color: #fff3b0; opacity: bolt
+               move 2, 0; line -2, 8; line 1.5, 8; line -1.5, 17; line 5, 6; line 1.5, 6; line 4, 0; close }
+    }
+
+    //  What it has written on it. The system brings the time; there is no logic
+    //  here. Each digit is a column of numbers seen through a window of its own:
+    //  when the card appears they roll a whole lap, one after another, and stop
+    //  on the hour, like a slot machine; when the minute changes, only those
+    //  roll. 24 px between numbers, the same as the window.
+    let dg.1 = floor(now.hour / 10)
+    let dg.2 = now.hour - floor(now.hour / 10) * 10
+    let dg.3 = floor(now.minute / 10)
+    let dg.4 = now.minute - floor(now.minute / 10) * 10
+    on change nc.c > 0.05 while nc.c > 0.05 and notecard.wants {
+        roll.1: 0 ~16ms; roll.2: 0 ~16ms; roll.3: 0 ~16ms; roll.4: 0 ~16ms
+        roll.1: 10 + dg.1 ~650ms after 20ms
+        roll.2: 10 + dg.2 ~750ms after 90ms
+        roll.3: 10 + dg.3 ~850ms after 160ms
+        roll.4: 10 + dg.4 ~950ms after 230ms
+    }
+    on change now.minute while notecard > 0.9 {
+        roll.3: 10 + dg.3 ~420ms
+        roll.4: 10 + dg.4 ~420ms
+    }
+    on change now.hour while notecard > 0.9 {
+        roll.1: 10 + dg.1 ~420ms
+        roll.2: 10 + dg.2 ~420ms
+    }
+    group {
+        opacity: clamp(nc.c * 3 - 1, 0, 1)
+        let tx = notecard.x - 39
+        let ty = cy_actual - 9
+        repeat d in 1..5 {
+            prop roll.$d = 0 ~420ms
+            let dx = tx + 6.4 + (d - 1) * 12.8 + if(d > 2, 6.2, 0)
+            group {
+                clip inset 0 box { at: dx, ty; size: 14, 23 }
+                repeat n in 0..20 {
+                    text number(mod(n, 10), 0) { at: dx, ty + (n - roll.$d) * 24; anchor: center; size: 21; weight: 600; color: #f6f6f5
+                                                 opacity: clamp(1 - abs(n - roll.$d) * 1.4, 0, 1) }
+                }
+            }
+        }
+        text ":" { at: tx + 28.2, ty - 1; anchor: center; size: 21; weight: 600; color: #f6f6f5 }
+        text "{upper(now.date)}" { at: tx, cy_actual + 13; anchor: left center; size: 10; color: #c2c7cc }
+        //  And how warm it is there.
+        text "{wx.temp, 0}°" { at: notecard.x + 47, cy_actual + 13; anchor: right center; size: 10; weight: 600
+                               color: mix(mix(#dfe3e6, #a8d8ff, wx.cold), #ffbb85, wx.heat); show: wx.ok }
+    }
+
+}

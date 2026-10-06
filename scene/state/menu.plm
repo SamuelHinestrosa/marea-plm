@@ -1,0 +1,147 @@
+// Marea's scene, in pieces: her menu. marea.plm includes it.
+part Menu {
+    // ── her menu, the right-button one ───────────────────────────
+    //  «The right button opens her menu, which closes the same way on leaving
+    //  her and the menu.» The house rows —Settings and Customize— and, below a
+    //  line, what the add-ons bring, grouped by the name of each one's add-on:
+    //  an entry called «History» says whose history it is.
+    //  It comes out on the same side as the time and from the same box, because
+    //  it is the same thing: what she has to say when you ask her there.
+    fact menu_open = false
+    fact menu_selected = -1            // the keyboard's row: 0 to 4 the house, 5+ the rest
+    fact groups = 0                    // how many add-ons bring something
+    event customize ->
+    event menu_entry ->                // an add-on's entry, by its number
+    event point_at ->
+    model entries max 9 { group_name: text; title: text; first: bool = false }
+    prop menu = 0 ~190ms
+    follow menu = if(menu_open, 1, 0)
+
+    //  And in the Haven, the capsule: it takes the same place as the time.
+    prop capsule = 0 ~160ms
+    //  It opens in 160 and folds back in 140, which is what the contract asks.
+    //  A `follow` does not know which side it comes from, so the ones who say
+    //  it are two rules about the same thing: going and coming back are not the
+    //  same journey.
+    let capsule.wants = note and haven and not menu_open and out > 0.9
+    on change capsule.wants while capsule.wants { capsule: 1 ~160ms }
+    on change capsule.wants while not capsule.wants { capsule: 0 ~140ms }
+    //  The time comes out of her the way a drop divides. First a bud swells on
+    //  her side, melted into her (a); then it moves off, and the melting
+    //  lessens as it goes, so the neck stretches, thins and snaps (b); and once
+    //  free it stretches into the card (c). Going back in, the same in reverse.
+    let nc.a = clamp(notecard / 0.3, 0, 1)
+    let nc.b = clamp((notecard - 0.3) / 0.3, 0, 1)
+    let nc.c = clamp((notecard - 0.6) / 0.4, 0, 1)
+    let notecard.x = cx + 12 + 15 * nc.a + 62 * nc.b
+    let notecard.w = 28 * nc.a + 76 * nc.c
+    let notecard.h = 28 * nc.a + 28 * nc.c
+    //  And when it comes loose, both of them wobble.
+    on change nc.b > 0.95 while nc.b > 0.95 and notecard.wants { impulse wobble 70 }
+    //  The card of a recording just saved: it comes out of her, to her right,
+    //  like the time and the capsule, and goes back into her on its own after
+    //  ten seconds unless the pointer is on it.
+    fact reel_open = false
+    fact reel_hovered = false
+    text reel.name = ""
+    event recorded                     // the logic: a recording has been saved
+    event reel_watch ->
+    event reel_folder ->
+    event reel_copy ->
+    prop reel = 0 ~200ms
+    follow reel = if(reel_open and out > 0.9, 1, 0)
+    let reel.x = cx + (23 + 11 + 150) * reel
+    //  Its time is a step, not a slow spring: a 10 s spring kicked back to 0
+    //  in 16 ms swung past it and, depending on where it came from, crossed
+    //  «ten seconds» less than one second after the card had come out. The step
+    //  jumps when its moment comes, and its destination is worked out then: if
+    //  the pointer is on the card, it does not jump.
+    prop reel_clock = 0 ~16ms
+    on recorded { reel_open = true; reel_clock: 0; reel_clock: if(reel_hovered, 0, 1) after 10s }
+    on change reel_clock > 0.5 while reel_clock > 0.5 { reel_open = false }
+
+    //  The Haven's capsule and the summary take the same place as the note, and
+    //  that is why they are born the same way: from her centre, sliding to the
+    //  right until they sit 11 px away. Their half width goes in the sum, as in
+    //  the note.
+    let capsule.x = cx + (23 + 11 + 104) * capsule
+    let summary.x = cx + (23 + 11 + 98) * summary
+
+    prop card = 0 ~290ms
+    prop content = 0 ~200ms
+    //  Closed, she starts again from the front page. Otherwise the page she was
+    //  on stayed chosen with the card folded, and pressing her opened straight
+    //  into Settings —or Wi-Fi, or half a confirmation— instead of her control
+    //  center. Only once it has finished folding: done on closing, the content
+    //  jumped to the front page while it was still shrinking.
+    on change card < 0.02 while card < 0.02 and not open { page = none; section = menu; confirming = none }
+
+    //  The level on the face. The system brings the volume: not a single line of
+    //  logic, and that is why the panel's slider and the keyboard's key look
+    //  exactly the same from here —which is just what the contract asks—.
+    prop meter = 0 ~180ms             // 0 face, 1 bar
+    prop vol_level = 0 ~quick         // what the bar shows
+    prop mic_level = 0 ~quick         // and what the microphone's one shows
+    follow mic_level = sound.input
+    prop bright_level = 0 ~quick      // and the screen brightness one
+    follow bright_level = display.level
+    //  And, while it rains on pleamar-wm's windows, how hard: a fourth level
+    //  that the other three make room for (the logic says both).
+    fact rain_on = false
+    fact rain_amount = 1
+    prop rain_level = 1 ~quick
+    follow rain_level = rain_amount
+    prop four = 0 ~quick
+    follow four = if(rain_on, 1, 0)
+
+    //  ── what the face can be ────────────────────────────────────
+    //  A fact with a type: the compiler checks what it is compared against, so
+    //  `face == magnifier` does not get past the first reading.
+    fact face: eye | count | camera | rec | alert | happy | angry | reading = eye
+    fact left = 0                     // what is left of the countdown
+    fact taping = false               // the recorder running FOR REAL
+
+    prop num = 0 ~260ms               // 0 face, 1 number
+    prop cam = 0 ~220ms               // 0 face, 1 camera
+    prop dot = 0 ~260ms               // 0 face, 1 disc
+    prop alarm = 0 ~180ms             // 0 face, 1 exclamation mark
+    prop joy = 0 ~lively              // 0 face, 1 happy: «^ ^»
+    prop fury = 0 ~quick              // 0 face, 1 angry: frowning, reddening
+    //  Her skin: coal, reddening when she is angry. The face's holes are cut
+    //  with it too, or they would show as dark patches on a red face.
+    let skin = mix(coal, #4a1616, fury * 0.75)
+    prop red = 0 ~200ms               // the red, which is something other than the disc
+    prop pop = 0 ~lively              // the countdown's bounce
+
+    //  Each state is a spring that follows its fact. That is why one can
+    //  interrupt another halfway and the only thing that happens is that the
+    //  shape bends: there are no two animations fighting over the same eyes.
+    follow num = if(face == count, 1, 0)
+    follow cam = if(face == camera, 1, 0)
+    //  In the corner she films with a camera of her own (see the nook), not
+    //  with a red eye: the disc is only for recording anywhere else.
+    follow dot = if(face == rec and not corner, 1, 0)
+    follow alarm = if(face == alert, 1, 0)
+    follow joy = if(face == happy, 1, 0)
+    //  Reading water —the agents' tubes—: each eye a little wave, «~ ~», that
+    //  flows while she reads. The wave only runs with that face on.
+    prop eyewave = 0 ~240ms
+    //  Telling the time: while the note comes out, her eyes turn into the
+    //  hands of a clock for a moment and sweep from twelve to the hour.
+    prop hands = 0 ~220ms
+    prop hand.h = 0 ~lively
+    prop hand.m = 0 ~lively
+    on change notecard.wants while notecard.wants {
+        hands: 1 ~220ms; hands: 0 ~300ms after 1600ms
+        hand.h: 0 ~16ms; hand.m: 0 ~16ms
+        hand.h: (mod(now.hour, 12) + now.minute / 60) * 30 ~lively after 120ms
+        hand.m: now.minute * 6 ~lively after 120ms
+    }
+    on change notecard.wants while not notecard.wants { hands: 0 ~150ms }
+    follow eyewave = if(face == reading, 1, 0)
+    prop eyewave.phase = 0
+    spin eyewave.phase by if(face == reading, 1.3, 0)
+    follow fury = if(face == angry, 1, 0)
+    follow red = if(taping, 1, 0)
+
+}

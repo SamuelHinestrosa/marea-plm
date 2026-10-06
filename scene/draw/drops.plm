@@ -1,0 +1,117 @@
+// Marea's scene, in pieces: the drops. marea.plm includes it.
+part Drops {
+    // ── the drops ────────────────────────────────────────────────
+    //  And their two grace zones go IN FRONT, which in zones means below: the
+    //  press —and the cursor— belong to the last one declared, so written after
+    //  they took away each drop's little hand and there was no way to know they
+    //  could be pressed. They go sixth.
+    zone box notecard_area { from: cx - 30, cy_actual - 40; size: 200, 80; active: note and not haven }
+    zone box fan_area { at: cx, cy_actual + 40; size: 260, 180; corner: 30; active: fan > 0.01 }
+
+    //  Up to four, one per category and **the most recent first**, going down
+    //  her right side from the shoulder. Nothing sticks out above her head: up
+    //  there is the edge of the screen. Each one's place is how many there are
+    //  more recent than it, and it travels to it with a spring ALONG THE ARC
+    //  —the angle is what is animated, not x and y—, so when a new one arrives
+    //  the others shift down the shoulder without cutting through her.
+    repeat k in 1..5 {
+        prop slot.$k = 0 ~calm
+        prop shown.$k = 0 ~240ms
+        //  Coming close to a drop wobbles it like what it is: a little water. It
+        //  is not a highlight that switches on, it is a push to a spring with
+        //  little braking, so it squashes, bounces and keeps still by itself.
+        prop touch.drop.$k = 0 ~splash
+        //  And it grows while the mouse is over it: the wobble is the greeting,
+        //  this is «I'm looking at you». Without it, it does not read as
+        //  something you press.
+        prop near.drop.$k = 0 ~140ms
+        //  «The amber drop rises and stays up while it lasts»: the one of the
+        //  category with something urgent goes to slot 0 —the top of the
+        //  shoulder— and the others drop one to leave it to it. On resolving it,
+        //  each one goes back to its slot by recency, without anyone
+        //  rearranging them.
+        //  And the one with something urgent goes first. The others count how
+        //  many there are more recent **without counting the urgent one**, and
+        //  add its slot to that: counting it twice left a gap in the fan and the
+        //  top one looked detached from the others.
+        follow slot.$k = (1 - cat_urgent.$k) * (if(n.1 > 0 and last.1 > last.$k, 1, 0) * (1 - cat_urgent.1) + if(n.2 > 0 and last.2 > last.$k, 1, 0) * (1 - cat_urgent.2) + if(n.3 > 0 and last.3 > last.$k, 1, 0) * (1 - cat_urgent.3) + if(n.4 > 0 and last.4 > last.$k, 1, 0) * (1 - cat_urgent.4) + clamp(cat_urgent.any, 0, 1))
+        //  In the Haven the shoulder drops are gathered in: down there they are
+        //  pearls.
+        follow shown.$k = if(n.$k > 0 and not open, 1, 0) * (1 - calmness) * (1 - summary)
+        //  From the shoulder to the fan **along the arc**: what is animated is the
+        //  angle, so the drops go down around her and do not cut through her.
+        //  The whole fan turns 76° and moves 10 away: each one's slot inside it
+        //  is still its own.
+        //  Open, they spread a little more —30° instead of 26— so they do not
+        //  touch, and the fan stays centred below her.
+        //  And sunk, the whole fan drops 30°: up there is the edge of the screen,
+        //  and the first drop —which is now the urgent one's, which rises to slot
+        //  0— stuck out through it and could not be seen. «Nothing sticks out
+        //  above her head» also holds when the head is half tucked in.
+        let ang.$k = -24 + 30 * (1 - out) + (26 + 4 * fan) * slot.$k + 69 * fan
+        let rad.$k = 31.7 + 10.3 * fan
+        let gx.$k = cx + rad.$k * cos(ang.$k)
+        let gy.$k = cy_actual + rad.$k * sin(ang.$k)
+        //  And in amber while it lasts, like its row in the tray: what matters
+        //  about that drop is no longer whose it is, it is that it is urgent.
+        let color.$k = mix(mix(mix(mix(blue, lilac, k > 1.5), green, k > 2.5), amber, k > 3.5), #e2b25a, cat_urgent.$k)
+        //  The beat goes in both at once —it grows whole—; the wobble of coming
+        //  close goes the other way on each axis, which is what makes it look like
+        //  water and not a balloon: it squashes on one side while it stretches on
+        //  the other, and the spring with little braking leaves it trembling for a
+        //  moment.
+        //  It fattens a little and wobbles: 5 % on both and 12 % the other way on
+        //  each axis. The push goes to a spring with little braking —the water
+        //  splash's one—, so it bounces a couple of times and keeps still by
+        //  itself.
+        let wide.$k = shown.$k * (1 + beat.$k + near.drop.$k * 0.16 + touch.drop.$k * 0.17)
+        let tall.$k = shown.$k * (1 + beat.$k + near.drop.$k * 0.16 - touch.drop.$k * 0.07)
+        group {
+            pivot: gx.$k, gy.$k
+            scale: wide.$k, tall.$k
+            opacity: shown.$k
+            ellipse { at: gx.$k, gy.$k; radius: 7 + 3 * fan; color: color.$k }
+            //  Gathered, it shows its count; open, its category's icon. What it
+            //  says changes because what you ask is something else: gathered, how
+            //  many there are; open, from whom.
+            group {
+                opacity: 1 - fan
+                text number(n.$k, 0) { at: gx.$k, gy.$k + 0.5; anchor: center; size: 8.5; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 1, 0) }
+                text "9+" { at: gx.$k, gy.$k + 0.5; anchor: center; size: 7.5; weight: 700; color: #0a0c10; opacity: if(n.$k < 10, 0, 1) }
+            }
+            group {
+                opacity: clamp(fan * 2 - 1, 0, 1)
+                //  Messages: a speech bubble. Work: a briefcase. Calendar: a sheet
+                //  with its rings. System: the usual gear.
+                box { at: gx.$k, gy.$k - 1; size: 11, 8; corner: 2.5; color: #0a0c10; show: k == 1 }
+                path { at: gx.$k - 3.5, gy.$k + 3; color: #0a0c10; show: k == 1
+                       move 0, 0; line 4, 0; line 1, 3.5; close }
+                box { at: gx.$k, gy.$k + 1; size: 11, 8; corner: 1.5; color: #0a0c10; show: k == 2 }
+                box { at: gx.$k, gy.$k - 4; size: 5, 3; corner: 1; color: #0a0c10; show: k == 2 }
+                box { at: gx.$k, gy.$k + 1; size: 10, 9; corner: 1.5; color: #0a0c10; show: k == 3 }
+                box { at: gx.$k - 2.5, gy.$k - 5; size: 1.6, 3; corner: 0.8; color: #0a0c10; show: k == 3 }
+                box { at: gx.$k + 2.5, gy.$k - 5; size: 1.6, 3; corner: 0.8; color: #0a0c10; show: k == 3 }
+                arc { at: gx.$k, gy.$k; radius: 4.6; span: 300deg; width: 1.6; color: #0a0c10; show: k == 4 }
+                ellipse { at: gx.$k, gy.$k; radius: 1.7; color: #0a0c10; show: k == 4 }
+            }
+        }
+        //  Pressing a drop opens the swell: it is one of the four ways the
+        //  contract names, and the most direct —you are already looking there—.
+        //  The zone grows with it: gathered it measures 14 and open 20, so a fixed
+        //  box of 24 left out half an open drop.
+        zone box drop_zone.$k { at: gx.$k, gy.$k; size: 26 + 10 * fan, 26 + 10 * fan
+                               corner: 13 + 5 * fan; cursor: pointer
+                               active: shown.$k > 0.5 and not tray_open and not open }
+        on enter drop_zone.$k { impulse touch.drop.$k 9; near.drop.$k: 1 }
+        on leave drop_zone.$k { near.drop.$k: 0 }
+        //  And pressing it opens the swell **with its own**: if you ask about the
+        //  blue drop, what you want to see are the messages, not everything there
+        //  is.
+        on press drop_zone.$k { cat = k; filter = k; emit open_tray }
+        //  The drop where something falls beats once, and its number with it.
+        //  Nothing looping.
+        on landed while reading_cat == k { n.$k = n.$k + burst; last.$k = max(last.$k, arrival_seq); impulse beat.$k 5 }
+        on direct while cat == k { n.$k = n.$k + 1; last.$k = seq; impulse beat.$k 5 }
+    }
+
+}
