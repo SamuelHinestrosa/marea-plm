@@ -4,6 +4,7 @@
 // uses these same English words for them.
 library SpanishUi {
     translations es {
+        "Refresh" = "Actualizar"
         "Close" = "Cerrar"
         "Mute sound" = "Silenciar el sonido"
         "Mute microphone" = "Silenciar el micrófono"

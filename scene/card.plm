@@ -414,7 +414,7 @@ part Card {
             text systray.title { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; width: 300; lines: 1; color: ink; show: page == systray }
             text "Shall we take a break?" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == session and confirming == none }
             text "Confirm" { at: px0, card.top + 45; anchor: left center; size: 18; weight: 500; color: ink; show: page == session and confirming != none }
-            zone box back_arrow { at: card.x - 224, card.top + 45; size: 34, 34; corner: 17; cursor: pointer; active: paging > 0.9 }
+            zone box back_arrow { at: card.x - 224, card.top + 45; size: 34, 34; corner: 17; cursor: pointer; active: paging > 0.9; label: "Back" }
             //  A step back is ONE step: from the question you go back to the list,
             //  not to the control center. The guards read the previous frame, so
             //  the two do not step on each other.
