@@ -18,7 +18,7 @@ a replacement task.
 | Scheduled chat, memory and window inspection | Implemented; signed-in model execution still needs acceptance |
 | Unattended desktop launch or input | Unavailable pending independent Windows agent interaction; explicitly rejected |
 | Task notices | Native Windows publishing; errors shown in task settings |
-| Task notice action buttons | Native COM/scene callback implementation; isolated logic checks pass, automatic helper startup fails locally and actual notification-center clicks remain pending |
+| Task notice action buttons | Native protocol/scene callback implementation with legacy COM routing; actual notification-center clicks remain pending |
 | Named passwords | Native Windows Credential Manager; no secret-tool or plaintext JSON values |
 | Typing a saved password | Native service with normal foreground/approval guards; real password-field acceptance pending |
 | Notification clear-all | Asynchronous native acknowledgements; failures remain pending, snoozed items retained |
@@ -43,10 +43,13 @@ Callbacks expire after six hours and on reload/exit. Marea polls only while
 callbacks remain, and the existing task callback rechecks that the task still
 exists. Clicking an old notice does not start Marea or resurrect a closed task.
 These buttons do not grant unattended desktop input or model account access.
-The October 6 native diagnostic can invoke a running helper but automatic COM
-startup currently returns `REGDB_E_CLASSNOTREG` (`0x80040154`) locally. The engine
-CI includes an explicit automatic-start check. This remains an open acceptance
-failure; registry/shortcut readback and mocked callback tests do not resolve it.
+The October 6 diagnostic found that automatic COM startup returns
+`REGDB_E_CLASSNOTREG` (`0x80040154`) on the local Windows 11 machine, while it
+passes in Windows Server 2022 CI. New notices use the installation's native
+protocol handler, which launches the windowless broker directly. The engine
+tests real protocol startup and one-use callback delivery separately from COM.
+Actual notification-center clicks still need acceptance; registry readback or
+mocked callback tests are insufficient evidence for them.
 
 ```powershell
 python windows/build-desktop.py
@@ -64,7 +67,7 @@ desktop parity must not be inferred from these checks.
 `python windows/test-task-notices.py --luau-runner <luau-test.exe>` checks the
 generated Windows notice adapter's one-use callbacks, default click, failed
 publication, unavailable service, expiry, retries, 64-callback bound and stopped
-idle polling. Native COM routing and actual Windows toast interaction have
+idle polling. Native protocol/COM routing and actual Windows toast interaction have
 separate acceptance; a mocked service reply is not evidence of a clicked toast.
 
 ## Native layout evidence

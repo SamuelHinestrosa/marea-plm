@@ -8,8 +8,9 @@ restores managed windows when Marea exits; compositor effects remain pending.
 SDK dependency runtime files and their license/notice texts are included.
 The engine's windowless `pleamar-notifications.exe` handles action-center
 activation. Setup assigns the shortcut's notification identity/activator and
-registers that installation's per-user COM server; uninstall removes only its
-matching server entry. The helper discards actions whose originating scene has
+registers that installation's per-user COM server and native URI handler;
+uninstall removes only matching owned entries. The URI contains an opaque
+one-use action token, never a command or external URL. The helper discards actions whose originating scene has
 closed, and never launches a task by itself.
 It also includes the checksum-pinned Microsoft.WinGet.Client 1.29.380 module and
 notices. The Programs page requires Windows App Installer/WinGet; Setup does not

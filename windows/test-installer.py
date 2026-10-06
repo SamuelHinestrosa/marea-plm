@@ -26,6 +26,16 @@ def toast_server(engine):
             return winreg.QueryValueEx(k,None)[0]
     except FileNotFoundError: return None
 
+def toast_protocol(engine):
+    app=f'org.pleamar.desktop.{fnv(str(engine).replace(chr(47),chr(92)).lower()):016x}'
+    key='Software\\Classes\\pleamar-notify-'+f'{fnv(app):016x}'
+    values=[]
+    for path,name in [(key+'\\shell\\open\\command',None),(key,'URL Protocol')]:
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER,path) as entry:values.append(winreg.QueryValueEx(entry,name)[0])
+        except FileNotFoundError:values.append(None)
+    return tuple(values)
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--setup', type=Path, required=True)
 parser.add_argument('--payload', type=Path, required=True)
@@ -108,8 +118,9 @@ try:
     assert (menu / 'Marea.lnk').is_file()
     assert (target / 'bin/pleamar-notifications.exe').is_file()
     assert toast_server(target / 'bin/pleamar.exe')==f'"{target / "bin/pleamar-notifications.exe"}"'
+    assert toast_protocol(target / 'bin/pleamar.exe')==(f'"{target / "bin/pleamar-notifications.exe"}" --activate-notification "%1"','')
     run([target / 'bin/pleamar.exe','--check-notification-shortcut',menu / 'Marea.lnk'])
-    report['stages'].append('native notification COM broker and shortcut identity verified; no toast clicked')
+    report['stages'].append('native notification COM/protocol broker and shortcut identity verified; no toast clicked')
     icon = target / 'app/assets/marea.ico'
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key, 0, flags) as k:
         display_icon = winreg.QueryValueEx(k, 'DisplayIcon')[0]
@@ -158,6 +169,7 @@ try:
     run([target / 'unins000.exe','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/LOG=' + str(output / 'uninstall.log')])
     assert registration() is None
     assert toast_server(target / 'bin/pleamar.exe') is None
+    assert toast_protocol(target / 'bin/pleamar.exe')==(None,None)
     assert not (target / 'bin/pleamar-notifications.exe').exists()
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Run') as k:
         try: winreg.QueryValueEx(k, 'Marea')
