@@ -5,7 +5,7 @@ part Mouse {
     //  In the Haven the time does not come out —the capsule does—, so neither does
     //  its grace zone: declared after, it kept the click on «End», which lands
     //  right on top of it. The capsule already has its own.
-    zone box body_zone { at: cx, cy_actual; size: 2 * r, 2 * r + 30; corner: r; cursor: pointer }
+    zone box body_zone { at: cx, cy_actual; size: 2 * r, 2 * r + 30; corner: r; cursor: pointer; label: "Marea" }
 
     zone ellipse drift_drop { at: pool.x, cy_actual + 44; radius: 84; active: drag.over }
     zone ellipse drift_later { at: pool.x - 120, pool.y; radius: 34; active: drag.over }

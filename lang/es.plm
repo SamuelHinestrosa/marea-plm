@@ -4,6 +4,15 @@
 // uses these same English words for them.
 library SpanishUi {
     translations es {
+        "Close" = "Cerrar"
+        "Mute sound" = "Silenciar el sonido"
+        "Mute microphone" = "Silenciar el micrófono"
+        "Previous" = "Anterior"
+        "Play" = "Reproducir"
+        "Pause" = "Pausar"
+        "Next" = "Siguiente"
+        "Marea" = "Marea"
+        "Outside Marea: closes what is open" = "Fuera de Marea: cierra lo que está abierto"
         "CALENDAR" = "CALENDARIO"
         "Agents" = "Agentes"
         "Today" = "Hoy"
