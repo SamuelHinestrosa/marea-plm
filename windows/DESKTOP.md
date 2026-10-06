@@ -158,7 +158,8 @@ the locked Pi SDK and native pleamar-wm, including dependency licenses. No globa
 needed. Source builds require preparing these inputs first:
 
 ```powershell
-# Build the bundled native Deriva worker (MSVC and bundled SQLite):
+# Build the native engine, notification helper and bundled workers (MSVC):
+cargo build --release --locked --manifest-path ../pleamar/Cargo.toml --features windows-notifications --bin pleamar --bin pleamar-notifications
 cargo build --release --locked --manifest-path deriva/Cargo.toml
 cargo build --release --locked --manifest-path windows/agent-host/Cargo.toml
 cargo build --release --locked --manifest-path ../pleamar-wm/Cargo.toml --features windows-host

@@ -6,6 +6,11 @@ AI host and locked Pi SDK, the native pleamar-wm CLI/background host, app-local
 Microsoft C++ runtime DLLs and DXC. The window manager starts in free mode and
 restores managed windows when Marea exits; compositor effects remain pending.
 SDK dependency runtime files and their license/notice texts are included.
+The engine's windowless `pleamar-notifications.exe` handles action-center
+activation. Setup assigns the shortcut's notification identity/activator and
+registers that installation's per-user COM server; uninstall removes only its
+matching server entry. The helper discards actions whose originating scene has
+closed, and never launches a task by itself.
 It also includes the checksum-pinned Microsoft.WinGet.Client 1.29.380 module and
 notices. The Programs page requires Windows App Installer/WinGet; Setup does not
 install or repair that operating-system component. Package discovery/downloads
@@ -96,6 +101,7 @@ directory, subject to its license and Distributable Code list.
 
 ```powershell
 .\windows\prepare-installer-tools.ps1
+cargo build --release --locked --manifest-path ../pleamar/Cargo.toml --features windows-notifications --bin pleamar --bin pleamar-notifications
 cargo build --release --locked --manifest-path windows/agent-host/Cargo.toml
 cargo build --release --locked --manifest-path ../pleamar-wm/Cargo.toml --features windows-host
 $node = (Resolve-Path .tools/installer-tools/node-v22.23.3-win-x64/node.exe).Path

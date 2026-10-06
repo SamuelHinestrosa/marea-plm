@@ -11,6 +11,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $PleamarBinary = (Resolve-Path -LiteralPath $PleamarBinary).Path
+$NotificationBrokerBinary = (Resolve-Path -LiteralPath (Join-Path (Split-Path $PleamarBinary -Parent) 'pleamar-notifications.exe')).Path
 $WindowManagerBinary = (Resolve-Path -LiteralPath $WindowManagerBinary).Path
 $WindowManagerHost = (Resolve-Path -LiteralPath $WindowManagerHost).Path
 $WindowManagerLicense = (Resolve-Path -LiteralPath $WindowManagerLicense).Path
@@ -66,6 +67,7 @@ $files = [ordered]@{
 # An upstream scene can add a shader, translation or asset. Updating only the
 # two generated files leaves an installation with incompatible resources.
 foreach ($relative in $runtimeFiles.Keys) { $files[$relative] = $runtimeFiles[$relative] }
+$files['bin/pleamar-notifications.exe'] = $NotificationBrokerBinary
 foreach ($relative in $agentFiles.Keys) { $files[$relative] = $agentFiles[$relative] }
 foreach ($relative in @('marea.plm', 'marea.luau', 'LICENSE')) {
     $files[('app/' + $relative)] = Join-Path $PSScriptRoot $relative
@@ -140,6 +142,8 @@ try {
     [Marea.Windows.Shortcuts]::SetIcon($shortcutPath, (Join-Path $Prefix 'app/assets/marea.ico'))
     & (Join-Path $Prefix 'bin/pleamar.exe') --register-notification-shortcut $shortcutPath
     if ($LASTEXITCODE -ne 0) { throw 'Could not register the updated Marea notification publisher.' }
+    & (Join-Path $Prefix 'bin/pleamar.exe') --check-notification-shortcut $shortcutPath
+    if ($LASTEXITCODE -ne 0) { throw 'Could not verify the updated Marea notification activator.' }
     # Old test counts describe the previous executable. Keep them in its
     # backup, never label a newly installed binary with stale test results.
     [ordered]@{
@@ -157,6 +161,10 @@ try {
 } catch {
     $failure = $_
     & powershell.exe -NoLogo -NoProfile -File $entry stop
+    if ($newFiles -contains 'bin/pleamar-notifications.exe') {
+        & (Join-Path $Prefix 'bin/pleamar.exe') --unregister-notification-publisher
+        if ($LASTEXITCODE -ne 0) { Write-Warning 'The new notification registration could not be removed during rollback.' }
+    }
     foreach ($relative in @($files.Keys) + @('build-info.json')) {
         $saved = Join-Path $backup $relative
         $destination = Join-Path $Prefix $relative

@@ -10,6 +10,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $PleamarBinary = (Resolve-Path -LiteralPath $PleamarBinary).Path
+$NotificationBrokerBinary = (Resolve-Path -LiteralPath (Join-Path (Split-Path $PleamarBinary -Parent) 'pleamar-notifications.exe')).Path
 $WindowManagerBinary = (Resolve-Path -LiteralPath $WindowManagerBinary).Path
 $WindowManagerHost = (Resolve-Path -LiteralPath $WindowManagerHost).Path
 $WindowManagerLicense = (Resolve-Path -LiteralPath $WindowManagerLicense).Path
@@ -42,6 +43,7 @@ foreach ($folder in @('app', 'app/tools', 'bin', 'windows', 'logs')) {
     New-Item -ItemType Directory -Force (Join-Path $Prefix $folder) | Out-Null
 }
 Copy-Item -LiteralPath $PleamarBinary -Destination (Join-Path $Prefix 'bin/pleamar.exe')
+Copy-Item -LiteralPath $NotificationBrokerBinary -Destination (Join-Path $Prefix 'bin/pleamar-notifications.exe')
 Copy-Item -LiteralPath $DerivaWorkerBinary -Destination (Join-Path $Prefix 'bin/deriva-worker.exe')
 Copy-Item -LiteralPath $WindowManagerBinary -Destination (Join-Path $Prefix 'bin/pleamar-wm.exe')
 Copy-Item -LiteralPath $WindowManagerHost -Destination (Join-Path $Prefix 'bin/pleamar-wm-host.exe')
@@ -79,5 +81,7 @@ $launcherArguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hi
 [Marea.Windows.Shortcuts]::Create($shortcutPath, $launcherTarget, $launcherArguments, $Prefix, 'Marea: native Windows desktop companion.', (Join-Path $Prefix 'app/assets/marea.ico'))
 & (Join-Path $Prefix 'bin/pleamar.exe') --register-notification-shortcut $shortcutPath
 if ($LASTEXITCODE -ne 0) { throw 'Could not register the Marea notification publisher.' }
+& (Join-Path $Prefix 'bin/pleamar.exe') --check-notification-shortcut $shortcutPath
+if ($LASTEXITCODE -ne 0) { throw 'Could not verify the Marea notification activator.' }
 Write-Host "Installed: $Prefix"
 Write-Host "Start menu: $shortcutPath"

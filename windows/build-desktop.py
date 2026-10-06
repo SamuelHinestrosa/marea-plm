@@ -83,20 +83,8 @@ logic = replace_once(logic, '    local function perform(id, tool, args, row)\n',
 task_start = logic.index('    -- ── her tasks:')
 task_end = logic.index('    -- ── what the panel asks', task_start)
 tasks = logic[task_start:task_end]
-tasks = remove_between(tasks, '    local function notice(title, body, actions, then_)', '\n    local run_task', '''    local task_notice = 0
-    local function notice(title, body, actions, then_)
-        task_notice += 1
-        -- The native publisher has no action callbacks yet. The same task's
-        -- controls remain available in Settings; never synthesize a selection.
-        body = body .. "\\n" .. tr("Open Settings > Talking with her > Her tasks for the task controls.")
-        local tag = string.format("task%08x%04x", bit32.band(os.time(), 0xffffffff), task_notice % 65536)
-        local function complete(_, code)
-            if code ~= 0 then text["tasks.status"] = tr("Windows could not show the task notification.") end
-        end
-        local ok = pcall(native_sys.call_async, "notifications.publish", {title, body, tag}, complete)
-        if not ok then complete(nil, -1) end
-    end
-''')
+tasks = remove_between(tasks, '    local function notice(title, body, actions, then_)', '\n    local run_task',
+    (root / 'windows/task-notices.luau').read_text(encoding='utf-8') + '\n')
 logic = logic[:task_start] + tasks + logic[task_end:]
 scene = replace_once(scene, 'She does these on her own at their time. Ask her in the chat: «every day at 8:00, …».',
     'Scheduled chat and reading; unattended desktop control is pending.')

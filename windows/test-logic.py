@@ -42,4 +42,5 @@ run(sys.executable, root / 'windows/test-sound-profile.py', '--luau-runner', run
 run(sys.executable, root / 'windows/test-shortcuts.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-chat-credentials.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-chat-tasks.py', '--luau-runner', runner)
+run(sys.executable, root / 'windows/test-task-notices.py', '--luau-runner', runner)
 print('PASS: generated PLM/Luau, native overview source and isolated logic suites; no desktop or hardware validation')

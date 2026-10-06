@@ -69,7 +69,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Shortcut validation failed.' }
       - name: Build native engine with default Luau
         working-directory: pleamar
-        run: cargo build --release --locked --bin pleamar
+        run: cargo build --release --locked --features windows-notifications --bin pleamar --bin pleamar-notifications
       - name: Build bundled Deriva
         working-directory: marea
         run: cargo build --release --locked --manifest-path deriva/Cargo.toml

@@ -63,6 +63,13 @@ function Stop-OwnedMarea([string]$Directory) {
             if ($belongs -and -not $process.WaitForExit(30000)) { throw 'The window manager is still restoring windows. Close it and retry.' }
         } finally { $process.Dispose() }
     }
+    foreach ($process in [Diagnostics.Process]::GetProcessesByName('pleamar-notifications')) {
+        try {
+            $belongs = $false
+            try { $belongs = $process.MainModule.FileName -eq (Join-Path $Directory 'bin/pleamar-notifications.exe') } catch {}
+            if ($belongs -and -not $process.WaitForExit(20000)) { throw 'The notification activator is still closing. Retry the update.' }
+        } finally { $process.Dispose() }
+    }
 }
 
 function Test-Package {
@@ -77,7 +84,7 @@ function Test-Package {
             throw "Incomplete or changed package file: $($file.Name)"
         }
     }
-    foreach ($required in @('bin/pleamar.exe','bin/pleamar-wm.exe','bin/pleamar-wm-host.exe','bin/licenses/pleamar-wm/LICENSE','bin/deriva-worker.exe','bin/node.exe','bin/marea-agent.exe','bin/dxcompiler.dll','bin/dxil.dll',
+    foreach ($required in @('bin/pleamar.exe','bin/pleamar-notifications.exe','bin/pleamar-wm.exe','bin/pleamar-wm-host.exe','bin/licenses/pleamar-wm/LICENSE','bin/deriva-worker.exe','bin/node.exe','bin/marea-agent.exe','bin/dxcompiler.dll','bin/dxil.dll',
         'app/agent/worker.mjs','app/agent/package-lock.json','app/agent/node_modules/@earendil-works/pi-coding-agent/package.json','windows/agent-package.ps1',
         'bin/vcruntime140.dll','bin/vcruntime140_1.dll','bin/msvcp140.dll','app/marea-desktop.plm','app/marea-desktop.luau','app/assets/marea.ico','app/tools/deriva-preview.mjs','app/tools/deriva-fetch.mjs','app/tools/startup.ps1','app/tools/software.ps1','app/tools/winget/Microsoft.WinGet.Client.psd1')) {
         if (-not $manifest.files.PSObject.Properties[$required]) { throw "Missing package manifest entry: $required" }
@@ -150,6 +157,7 @@ try {
         }
         'stop' { Stop-OwnedMarea $Package }
         'unregister' {
+            $null = Invoke-PackageProcess (Join-Path $Package 'bin/pleamar.exe') '--unregister-notification-publisher'
             . (Join-Path $Package 'app/tools/startup.ps1') -Library
             $null = Invoke-MareaStartup -Package $Package -Action disable
             Invoke-MareaAgentMaintenance $Package '--remove-profile'
@@ -158,6 +166,7 @@ try {
         'register' {
             Invoke-MareaAgentMaintenance $Package '--prepare'
             $null = Invoke-PackageProcess (Join-Path $Package 'bin/pleamar.exe') ('--register-notification-shortcut "' + $Shortcut + '"')
+            $null = Invoke-PackageProcess (Join-Path $Package 'bin/pleamar.exe') ('--check-notification-shortcut "' + $Shortcut + '"')
         }
     }
     if ($ResultFile) { [IO.File]::WriteAllText($ResultFile, 'OK') }

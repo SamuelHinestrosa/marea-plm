@@ -24,12 +24,16 @@ def run(*args, cwd=ROOT):
     print(result.stderr, end='', file=sys.stderr)
     result.check_returncode()
 
-def x64(path):
+def x64(path, windowless=False):
     with path.open('rb') as stream:
         header = stream.read(64)
         if len(header) < 64 or header[:2] != b'MZ': raise ValueError(f'Not a PE image: {path.name}')
-        stream.seek(struct.unpack_from('<I', header, 60)[0])
+        pe = struct.unpack_from('<I', header, 60)[0]
+        stream.seek(pe)
         if stream.read(6) != b'PE\0\0\x64\x86': raise ValueError(f'Not native Windows x64: {path.name}')
+        if windowless:
+            stream.seek(pe+92)
+            if stream.read(2) != b'\x02\x00': raise ValueError('Notification broker must use the windowless GUI subsystem.')
 
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
@@ -60,10 +64,10 @@ def main():
     agent = collect_agent(args.agent_host, args.node_directory)
     run(sys.executable, ROOT / 'windows/build-desktop.py')
     run(sys.executable, ROOT / 'windows/prepare-winget.py')
-    for source, name in [(engine, 'pleamar.exe'), (worker, 'deriva-worker.exe'),
+    for source, name in [(engine, 'pleamar.exe'), (engine.with_name('pleamar-notifications.exe'), 'pleamar-notifications.exe'), (worker, 'deriva-worker.exe'),
                          (args.wm_binary.resolve(strict=True), 'pleamar-wm.exe'),
                          (args.wm_host.resolve(strict=True), 'pleamar-wm-host.exe')]:
-        x64(source)
+        x64(source, windowless=name == 'pleamar-notifications.exe')
         copy(source, 'bin/' + name)
     copy(args.wm_license.resolve(strict=True), 'bin/licenses/pleamar-wm/LICENSE')
     for relative, source in agent['files'].items():
