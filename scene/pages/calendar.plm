@@ -35,9 +35,9 @@ part Calendar {
         text "Today" { at: card.x + 128, card.top + 37; anchor: center; size: 11; weight: 500; color: ink }
         path { at: card.x + 160, card.top + 32; color: ink; stroke: 1.8; opacity: 55% + cal.next.glow * 45%
                move 0, 0; line 5, 5; line 0, 10 }
-        zone box cal_prev_btn { at: card.x + 95, card.top + 37; size: 28, 28; corner: 14; cursor: pointer; active: page == calendar and paging > 0.9 }
+        zone box cal_prev_btn { at: card.x + 95, card.top + 37; size: 28, 28; corner: 14; cursor: pointer; active: page == calendar and paging > 0.9; label: "Previous month" }
         zone box cal_today_btn { at: card.x + 128, card.top + 37; size: 46, 26; corner: 13; cursor: pointer; active: page == calendar and paging > 0.9 }
-        zone box cal_next_btn { at: card.x + 163, card.top + 37; size: 28, 28; corner: 14; cursor: pointer; active: page == calendar and paging > 0.9 }
+        zone box cal_next_btn { at: card.x + 163, card.top + 37; size: 28, 28; corner: 14; cursor: pointer; active: page == calendar and paging > 0.9; label: "Next month" }
         on enter cal_prev_btn { cal.prev.glow: 1 }
         on leave cal_prev_btn { cal.prev.glow: 0 }
         on enter cal_next_btn { cal.next.glow: 1 }

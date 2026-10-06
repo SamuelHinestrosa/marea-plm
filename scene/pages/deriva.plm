@@ -179,7 +179,7 @@ part Deriva {
             //  The wheel's zone goes under the cards, not over them: the
             //  wheel reaches any zone underneath, a press only the
             //  topmost, and on top it took every card's click.
-            zone box drift_area { from: dx0, dy0 + 84; size: 456, 312; active: page == drift and paging > 0.9 and not drift.missing }
+            zone box drift_area { from: dx0, dy0 + 84; size: 456, 312; active: page == drift and paging > 0.9 and not drift.missing; label: "Drift"; role: list }
             grid {
                 at: dx0, dy0 + 84; columns: 3; gap: 12; width: 456; row: 150
                 for d in drift { DriftCard(d) }

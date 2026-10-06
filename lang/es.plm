@@ -4,6 +4,16 @@
 // uses these same English words for them.
 library SpanishUi {
     translations es {
+        "Networks" = "Redes"
+        "Apps" = "Apps"
+        "Previous month" = "Mes anterior"
+        "Next month" = "Mes siguiente"
+        "Mute the output" = "Silenciar la salida"
+        "Mute the input" = "Silenciar la entrada"
+        "Output volume" = "Volumen de salida"
+        "Input volume" = "Volumen de entrada"
+        "Mute {a.name}" = "Silenciar {a.name}"
+        "{a.name} volume" = "Volumen de {a.name}"
         "Refresh" = "Actualizar"
         "Close" = "Cerrar"
         "Mute sound" = "Silenciar el sonido"
