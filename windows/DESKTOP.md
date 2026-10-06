@@ -17,6 +17,28 @@ to a different application. The generated-logic regression covers delayed
 presses, replacement sessions, release and continued movement during reordering;
 physical dragging with real applications remains an acceptance check.
 
+`python windows/test-deriva-cards.py --binary PATH --output NEW_DIRECTORY`
+rehearses the current generated cards in a native window on non-primary
+DISPLAY2. An internal renderer mouse script checks that an empty slot ignores
+a click, the real card emits its original URL exactly once, and scrolling over
+the card reaches the library. The owned window is passive; no physical input or
+browser launch occurs. This passed with the six-slot profile on 2026-10-06.
+
+The complete generated profile also passed one native signed-out SDK
+open/retire cycle on DISPLAY2 with engine `8851092`. Three captures were
+inspected, foreground stayed unchanged, and the whole owned process family
+exited. The 35-second samples measured 269.3 MiB private commit initially,
+367.4 MiB with the SDK open, and 275.3 MiB after retirement; these are not
+resident RAM figures. The worker retired after 30.1 seconds. This includes
+the real profile and SDK, excludes the supervisor and quota reader, and ran
+alongside a background Rust build. It is not a sustained-performance or
+physical-interaction acceptance test. The first preparation attempt timed out
+before any scene opened; cleanup succeeded, then diagnostic and full retries
+prepared successfully in 34.5 and 11.2 seconds. The first timeout's cause
+remains unconfirmed. [Measurements and scope](../docs/windows-modular-profile/evidence.json).
+
+![Current generated profile with its signed-out native SDK](../docs/windows-modular-profile/chat-open-0.png)
+
 The adapted radio pages retain five visible Wi-Fi rows with scrolling and
 separate Bluetooth paired/nearby lists with pagination. Native commands use
 exact adapter/profile and device identities. Saved profiles can be forgotten;
