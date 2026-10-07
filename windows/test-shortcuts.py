@@ -19,8 +19,9 @@ local native={ask=function(n,k) assert(n=="env" and k=="MAREA_SEARCH_HOTKEY");re
     call_async=function(n,a,f) requests[#requests+1]={name=n,args=a,done=f} end,
     ask_async=function(n,a,f) requests[#requests+1]={name=n,args=a,done=f} end}
 local install=(function() __MODULE__ end)()
-local overview=0
-install(native,function(message) notices[#notices+1]=message end,{windows_overview=function() overview+=1 end})
+local overview,layout=0,0
+install(native,function(message) notices[#notices+1]=message end,{
+    windows_overview=function() overview+=1 end, windows_toggle_layout=function() layout+=1 end})
 assert(requests[1].name=="hotkeys.bind" and requests[1].args[2]=="Ctrl+Alt+Space")
 requests[1].done("",0)
 assert(requests[2].name=="files.read");requests[2].done(nil,"not found")
@@ -30,14 +31,15 @@ assert(not fact.windows_key_enabled and not fact.windows_key_busy and fact.windo
 assert(#notices==0 and text.windows_search_hint:find("Ctrl+Alt+Space",1,true))
 handlers.windows_toggle_key();handlers.windows_toggle_key()
 assert(#requests==5 and requests[5].args[1]["Win"]=="search" and requests[5].args[1]["Win+Shift+A"]=="chat")
+assert(requests[5].args[1]["Win+W"]=="layout")
 requests[5].done("",0);requests[6].done({available=true,windows_key=true},nil)
 assert(requests[7].name=="files.write" and requests[7].args[1]=="shortcuts.json" and requests[7].args[2].windows_key)
 requests[7].done("",0)
 assert(fact.windows_key_enabled and not fact.windows_key_busy)
-for i,name in ipairs({"search","chat","controls","settings","notifications","windows"}) do watcher({sequence=i,event=name}) end
-assert(table.concat(events,",")=="search,chat,windows_controls,settings,open_tray" and overview==1)
-watcher({sequence=6,event="windows"});watcher({sequence=7,event="unrelated"})
-assert(overview==1 and #events==5)
+for i,name in ipairs({"search","chat","controls","settings","notifications","windows","layout"}) do watcher({sequence=i,event=name}) end
+assert(table.concat(events,",")=="search,chat,windows_controls,settings,open_tray" and overview==1 and layout==1)
+watcher({sequence=7,event="layout"});watcher({sequence=8,event="unrelated"})
+assert(overview==1 and layout==1 and #events==5)
 handlers.windows_toggle_key();assert(requests[8].args[1]==false)
 requests[8].done("",0);requests[9].done({available=true,windows_key=false},nil)
 requests[10].done("disk full",1)

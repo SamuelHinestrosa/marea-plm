@@ -1,6 +1,6 @@
 return function(native_sys, notice, hooks)
     local bindings = {["Win"]="search", ["Win+Space"]="search", ["Win+Shift+A"]="chat",
-        ["Win+A"]="controls", ["Win+I"]="settings", ["Win+Tab"]="windows", ["Win+N"]="notifications"}
+        ["Win+A"]="controls", ["Win+I"]="settings", ["Win+Tab"]="windows", ["Win+N"]="notifications", ["Win+W"]="layout"}
     local actions = {search="search", chat="chat", controls="windows_controls", settings="settings", notifications="open_tray"}
     local sequence, generation = nil, 0
     local enabled, available, busy, unsaved = false, false, true, false
@@ -18,7 +18,8 @@ return function(native_sys, notice, hooks)
         if previous == nil or previous == sequence then return end
         local action = actions[value.event]
         if action then emit(action)
-        elseif value.event == "windows" and hooks.windows_overview then hooks.windows_overview() end
+        elseif value.event == "windows" and hooks.windows_overview then hooks.windows_overview()
+        elseif value.event == "layout" and hooks.windows_toggle_layout then hooks.windows_toggle_layout() end
     end)
     local args = shortcut == "" and {"search"} or {"search", shortcut}
     local ok, error = pcall(native_sys.call_async, shortcut == "" and "hotkeys.unbind" or "hotkeys.bind", args, function(output, code)

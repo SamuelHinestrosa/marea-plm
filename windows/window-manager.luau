@@ -54,6 +54,10 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
         if not name then return end
         request("toggle " .. name, true)
     end
+    hooks.windows_toggle_layout = function()
+        -- The native session resolves the pointer's monitor, independently of Marea's home.
+        request("emit toggle_free", true)
+    end
     hooks.windows_overview = function()
         if not overview then request("status", true); return end
         if viewing then notice(tr("The window view is already open.")); return end

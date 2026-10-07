@@ -70,6 +70,22 @@ assert(#notices==5 and notices[5]:find("capture failed",1,true))
 hooks.windows_overview();assert(#children==2)
 children[1].done("",0);hooks.windows_overview();assert(#children==2)
 children[2].done("",0);hooks.windows_overview();assert(#children==3)
+-- Keyboard layout follows the native pointer monitor, not Marea's home monitor.
+screen="\\\\.\\DISPLAY1"
+hooks.windows_toggle_layout();hooks.windows_toggle_layout()
+assert(#requests==7 and requests[7].command=="emit toggle_free" and #notices==6)
+requests[7].done("good",0)
+assert(hooks.windows_wm_allowed("Tiled or free windows"))
+hooks.windows_toggle_layout();requests[8].done("pointer is outside this WM session",1)
+assert(#notices==7 and notices[7]:find("pointer is outside this WM session",1,true))
+assert(not hooks.windows_wm_allowed("Tiled or free windows"))
+requests[8].done("good",0)
+assert(not hooks.windows_wm_allowed("Tiled or free windows"))
+-- A stale capability cache must not make the first shortcut after recovery a no-op.
+hooks.windows_toggle_layout()
+assert(#requests==9 and requests[9].command=="emit toggle_free")
+requests[9].done("good",0)
+assert(hooks.windows_wm_allowed("Tiled or free windows") and #notices==7)
 log("PASS: native WM capability menus, serialization, monitor scope and failed actions")
 '''
 run_checks(args, checks.replace('__MODULE__', module), 'PASS: native WM capability', 'window-manager')

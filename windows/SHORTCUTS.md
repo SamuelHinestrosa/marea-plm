@@ -11,6 +11,7 @@ The switch is off by default. While enabled, Win is dedicated to Marea:
 | Win+I | Settings |
 | Win+Tab | Window overview (requires the native WM session) |
 | Win+N | Notifications |
+| Win+W | Toggle tiled/free windows on the monitor under the pointer (requires the native WM session) |
 
 Unassigned Win combinations are consumed too; Start and Windows' corresponding
 shortcuts are replaced while Marea owns the layer. Disable the switch to restore
@@ -31,9 +32,11 @@ pleamar Windows-key API; older engines report the option unavailable.
 python windows/test-logic.py --binary ..\pleamar\target\release\pleamar.exe --luau-runner ..\pleamar\target\release\examples\luau-test.exe
 ```
 
-The 24 isolated suites include the shortcut profile, saved opt-in/default-off,
+The isolated suites include the shortcut profile, saved opt-in/default-off,
 native readback, failed storage/native calls, duplicate/stale callbacks, timeout
-recovery, action routing and custom/disabled fallback. The generated scene keeps
+recovery, action routing and custom/disabled fallback. Win+W sends the native
+pointer-monitor command even when cached availability is stale, and reports
+native failures instead of silently acting on Marea's home monitor. The generated scene keeps
 the upstream settings enum order; a regression assertion guards page titles.
 
 Four actual D3D12/WGC views on non-primary DISPLAY2 were inspected: the scrolled
