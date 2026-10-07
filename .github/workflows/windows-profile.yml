@@ -78,21 +78,21 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwayland-dev libxkbcommon-dev libfontconfig1-dev libpam0g-dev pkg-config
       - name: Build native engine and isolated Luau runner
         working-directory: pleamar
-        run: cargo build --locked --bin pleamar --example luau-test
+        run: cargo build --release --locked --bin pleamar --example luau-test
       - name: Generated profile and isolated service logic
         working-directory: marea
-        run: python windows/test-logic.py --binary ../pleamar/target/debug/pleamar${{ runner.os == 'Windows' && '.exe' || '' }} --luau-runner ../pleamar/target/debug/examples/luau-test${{ runner.os == 'Windows' && '.exe' || '' }}
+        run: python windows/test-logic.py --binary ../pleamar/target/release/pleamar${{ runner.os == 'Windows' && '.exe' || '' }} --luau-runner ../pleamar/target/release/examples/luau-test${{ runner.os == 'Windows' && '.exe' || '' }}
       - name: Prepare the pinned native shader compiler
         if: runner.os == 'Windows'
         working-directory: pleamar
         shell: pwsh
-        run: ./scripts/prepare-windows-runtime.ps1 -BinaryDirectory target/debug
+        run: ./scripts/prepare-windows-runtime.ps1 -BinaryDirectory target/release
       - name: Render Marea controls, settings and chat on the disposable CI desktop
         if: runner.os == 'Windows'
         working-directory: marea
         env:
           MAREA_CI_PROFILE_UI: '1'
-        run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/debug/pleamar.exe --output "${{ runner.temp }}/marea-profile-ui"
+        run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/release/pleamar.exe --output "${{ runner.temp }}/marea-profile-ui"
       - name: Preserve native Marea screenshots and interaction evidence
         if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@v4
@@ -104,15 +104,15 @@ jobs:
       - name: Real native Luau to SQLite transport without a display
         if: runner.os == 'Windows'
         working-directory: marea
-        run: python windows/test-deriva-runtime.py --binary ../pleamar/target/debug/pleamar.exe --worker deriva/target/debug/deriva-worker.exe
+        run: python windows/test-deriva-runtime.py --binary ../pleamar/target/release/pleamar.exe --worker deriva/target/debug/deriva-worker.exe
       - name: Shared chat memory through real native storage (no account or windows)
         if: runner.os == 'Windows'
         working-directory: marea
-        run: python windows/test-chat-memory-native.py --binary ../pleamar/target/debug/pleamar.exe --output .tools/chat-memory-native
+        run: python windows/test-chat-memory-native.py --binary ../pleamar/target/release/pleamar.exe --output .tools/chat-memory-native
       - name: Unicode shortcut metadata and native publisher registration
         if: runner.os == 'Windows'
         working-directory: marea
-        run: powershell.exe -NoLogo -NoProfile -File windows/test-shortcuts.ps1 -PleamarBinary ../pleamar/target/debug/pleamar.exe
+        run: powershell.exe -NoLogo -NoProfile -File windows/test-shortcuts.ps1 -PleamarBinary ../pleamar/target/release/pleamar.exe
       - name: Runtime packaging rejects incomplete or modified compiler files
         if: runner.os == 'Windows'
         working-directory: marea
@@ -134,12 +134,12 @@ jobs:
         working-directory: pleamar
         shell: pwsh
         run: |
-          Copy-Item target/debug/pleamar.exe target/debug/pleamar-with-luau.exe
+          Copy-Item target/release/pleamar.exe target/release/pleamar-with-luau.exe
           try {
-            cargo build --locked --no-default-features --bin pleamar
+            cargo build --release --locked --no-default-features --bin pleamar
             if ($LASTEXITCODE -ne 0) { throw 'The diagnostic no-Luau build failed.' }
-            python ../marea/windows/test-runtime-probe.py --binary target/debug/pleamar-with-luau.exe --without-luau target/debug/pleamar.exe
+            python ../marea/windows/test-runtime-probe.py --binary target/release/pleamar-with-luau.exe --without-luau target/release/pleamar.exe
             if ($LASTEXITCODE -ne 0) { throw 'The native Luau runtime preflight regression failed.' }
           } finally {
-            Copy-Item target/debug/pleamar-with-luau.exe target/debug/pleamar.exe -Force
+            Copy-Item target/release/pleamar-with-luau.exe target/release/pleamar.exe -Force
           }

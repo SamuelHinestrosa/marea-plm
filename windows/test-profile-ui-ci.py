@@ -32,6 +32,10 @@ def fixture_source(root):
         source = source.replace('"' + folder + '/', '"' + (root / folder).as_posix() + '/')
     source = re.sub(r'keyboard: on_demand[^\n]*', 'keyboard: none', source)
     source = source.replace('reserve: 72 while taking_room', 'reserve: 0')
+    # Keep the runner's console out of the evidence without changing the UI.
+    assert source.count('\n    // ── where she lives') == 1
+    source = source.replace('\n    // ── where she lives',
+        '\n    box { from: 0, 0; size: 820, 680; color: #d8e0e5 }\n    // ── where she lives', 1)
     source, count = re.subn(r'permissions\s*\{[^{}]*\}', 'permissions { }', source)
     assert count == 1, 'The fixture must deny every external service'
     assert source.count('scene Marea {') == 1
@@ -199,7 +203,7 @@ def exercise(binary, output, root):
                PLEAMAR_CONFIG=str(output / 'config'), PLEAMAR_SOCKET_DIR=f'marea-profile-ci-{os.getpid()}',
                MAREA_SEARCH_HOTKEY='', PLEAMAR_NO_RELAUNCH='1', PLEAMAR_TEST_WINDOWS='1')
     flags = subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS
-    report = dict(passed=False, fixture_logic=True, environment='github-hosted', physical_input=False,
+    report = dict(passed=False, fixture_logic=True, fixture_background=True, environment='github-hosted', physical_input=False,
                   device_services=False, real_account=False, full_product_acceptance=False,
                   binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
                   scene_sha256=hashlib.sha256(scene.read_bytes()).hexdigest(), checks=[], images=[])

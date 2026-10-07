@@ -42,7 +42,8 @@ Seven native storage/error cases, shared logic tests, and six DISPLAY2 captures
 passed; the captures used fixtures and sent no physical input.
 
 The Windows profile workflow also runs `test-profile-ui-ci.py` on its disposable
-GitHub-hosted desktop. It renders the generated control center, Windows-key
+GitHub-hosted desktop, using the optimized distribution build with default Luau.
+It renders the generated control center, Windows-key
 settings and six chat/settings states, checks translated control metadata,
 drags the volume slider through named scene input and checks that a long chat
 keeps its final row visible. All services are denied and the Luau logic uses
