@@ -81,6 +81,14 @@ reduce repainting; it is disabled by default pending pixel and performance
 comparisons. Neither these measurements nor this option claim a RAM reduction
 or physical-GPU frame rate.
 
+With both `retained_surface` and `measure_resources` selected, CI brackets the
+experiment with two full-repaint references on the same runner and binary.
+`marea-native-rendering-references` preserves their images and fourteen reports
+each. Compare both references with the experiment before attributing differences
+to retention: separate hosted runners can have different software-rendering
+speeds. The first controls screenshot waits for visible title glyphs; populated
+scene facts alone do not show that asynchronous font loading has finished.
+
 ## SDK distribution size and initial preparation
 
 Both Windows installers omit dependency type declarations (`.d.ts`, `.d.mts`,

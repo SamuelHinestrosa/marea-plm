@@ -194,6 +194,14 @@ def nodes(parts):
         yield from nodes(node.get('nodes', node.get('children', [])))
 
 
+def control_title_ready(picture):
+    # Scene facts can be ready while the asynchronous font worker is still busy.
+    # The center's white title is the only bright content inside this dark area.
+    width,height,pixels=picture
+    if width<360 or height<140:return False
+    return sum(min(pixels[(y*width+x)*4:(y*width+x)*4+3])>200
+        for y in range(120,140) for x in range(158,360))>=100
+
 def exercise(binary, output, root, resource_cycles=0):
     desktop = Desktop()
     scene = output / 'Marea profile ñ 海.plm'
@@ -267,6 +275,7 @@ def exercise(binary, output, root, resource_cycles=0):
             assert volume.get('value') == '42%', volume
             assert any(n.get('checked') is True and n.get('role') == 'toggle' for n in visible)
             assert any(n.get('label') == 'Cerrar' for n in visible)
+            until(lambda: control_title_ready(desktop.pixels(hwnd)), 'visible control title after font loading')
             capture('01-controls')
             response = ask(f'drag {volume["name"]} 0 -30')
             assert 'dragged' in response, response

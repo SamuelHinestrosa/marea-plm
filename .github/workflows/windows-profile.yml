@@ -104,6 +104,13 @@ jobs:
         working-directory: pleamar
         shell: pwsh
         run: ./scripts/prepare-windows-runtime.ps1 -BinaryDirectory target/release
+      - name: Measure full repaint before the retained experiment
+        if: runner.os == 'Windows' && inputs.retained_surface && inputs.measure_resources
+        working-directory: marea
+        env:
+          MAREA_CI_PROFILE_UI: '1'
+          PLEAMAR_RETAINED_SURFACE: '0'
+        run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/release/pleamar.exe --output "${{ runner.temp }}/marea-references/before" --resource-cycles 6
       - name: Render Marea controls, settings and chat on the disposable CI desktop
         if: runner.os == 'Windows'
         working-directory: marea
@@ -118,6 +125,21 @@ jobs:
           name: marea-native-profile-ui
           path: ${{ runner.temp }}/marea-profile-ui
           if-no-files-found: warn
+          retention-days: 14
+      - name: Measure full repaint after the retained experiment
+        if: runner.os == 'Windows' && inputs.retained_surface && inputs.measure_resources
+        working-directory: marea
+        env:
+          MAREA_CI_PROFILE_UI: '1'
+          PLEAMAR_RETAINED_SURFACE: '0'
+        run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/release/pleamar.exe --output "${{ runner.temp }}/marea-references/after" --resource-cycles 6
+      - name: Preserve same-run full repaint references
+        if: always() && runner.os == 'Windows' && inputs.retained_surface && inputs.measure_resources
+        uses: actions/upload-artifact@v4
+        with:
+          name: marea-native-rendering-references
+          path: ${{ runner.temp }}/marea-references
+          if-no-files-found: error
           retention-days: 14
       - name: Real native Luau to SQLite transport without a display
         if: runner.os == 'Windows'
