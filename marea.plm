@@ -70,7 +70,7 @@ scene Marea {
         //  said by `mine`, in the logic: the one at her home, or the one on the
         //  monitor with the focus if you have set her to follow you. The others
         //  are there, but closed.
-        screens: each max 2
+        screens: each max 3
         //  And the copy she has left through is CLOSED: it has nothing to show,
         //  and a closed surface is not painted and costs nothing. Open while
         //  she is in it or on her way through it, which is what lets you see her

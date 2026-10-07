@@ -15,8 +15,8 @@ part Home {
     //  only receives the pointer while it is over it, so it has to be asked—,
     //  the one that knows which monitors there are and in what order, and the
     //  one that saves her home by its name in `settings.json`. Two facts arrive
-    //  here already chewed: `hosts.0` and `hosts.1`, whether she is on that
-    //  monitor.
+    //  here already chewed: `hosts.0`, `hosts.1` and `hosts.2`, whether she
+    //  is on that monitor (the third, a phone's: pleamar-wm's docs/phone.md).
     fact home = 0
     fact following = false
     //  Whether windows leave her the strip at the top (the compositor keeps
@@ -27,6 +27,7 @@ part Home {
     event pointer_monitor ->
     fact hosts.0 = true
     fact hosts.1 = false
+    fact hosts.2 = false
     //  And the journey. She does not switch off and on: she lives hanging from
     //  the water at the top edge, so she goes the way water lets her. She
     //  LEAPS UP into it on the monitor she leaves —a crouch, a push, and she
@@ -43,7 +44,8 @@ part Home {
     //  forth mid-journey, the last word is always the true one.
     prop swim.0 = 1 ~16ms
     prop swim.1 = 0 ~16ms
-    let swim.here = if(screen.index == 0, swim.0, swim.1)
+    prop swim.2 = 0 ~16ms
+    let swim.here = pick(screen.index, swim.0, swim.1, swim.2)
     //  Straight up and straight down, at the centre where she lives: the edge
     //  of the screen is the same water on both monitors, so the journey needs
     //  no side. Leaning it towards the other monitor looked like an effect

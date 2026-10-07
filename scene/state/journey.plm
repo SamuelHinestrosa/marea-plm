@@ -35,7 +35,7 @@ part Journey {
     //  the other monitor; leaping then, the click that ends the photo cut her
     //  leap short, and she stayed with the camera on and never travelled
     //  again—, nor while she is out riding a window. She travels afterwards.
-    let misplaced = abs(if(hosts.0, 1, 0) - swim.0) + abs(if(hosts.1, 1, 0) - swim.1) > 0.5 and not travelling and not corner and face != camera and purpose != ride
+    let misplaced = abs(if(hosts.0, 1, 0) - swim.0) + abs(if(hosts.1, 1, 0) - swim.1) + abs(if(hosts.2, 1, 0) - swim.2) > 0.5 and not travelling and not corner and face != camera and purpose != ride
     on change misplaced while misplaced {
         purpose = travel
         travelling = true
@@ -68,8 +68,10 @@ part Journey {
         ripple: 1 ~760ms after 30ms
         swim.0: if(hosts.0, 1, swim.0) ~16ms
         swim.1: if(hosts.1, 1, swim.1) ~16ms
+        swim.2: if(hosts.2, 1, swim.2) ~16ms
         swim.0: if(hosts.0, 1, 0) ~16ms after 60ms
         swim.1: if(hosts.1, 1, 0) ~16ms after 60ms
+        swim.2: if(hosts.2, 1, 0) ~16ms after 60ms
         drop_in: 0 ~homing after 70ms
         splashing: 0 ~400ms after 1300ms
     }
