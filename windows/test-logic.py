@@ -39,6 +39,7 @@ for name in ['level-controls', 'app-audio', 'device-controls', 'wallpapers', 'sc
     run(sys.executable, root / f'windows/test-{name}.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-window-overview.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-sound-profile.py', '--luau-runner', runner)
+run(sys.executable, root / 'windows/test-display-routing.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-shortcuts.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-chat-credentials.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-chat-tasks.py', '--luau-runner', runner)

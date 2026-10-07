@@ -51,6 +51,14 @@ a model. The artifact contains screenshots, scene trees, logs and a report;
 its pixels still need visual review. The script refuses local desktops. This
 is UI integration coverage, not physical input or full product acceptance.
 
+The upstream third-copy change (`6e9dd41`) is integrated. On Windows the three
+copies map to native monitors; brightness selection, window overview and the
+wallpaper transition now include the third monitor. A transition prepares all
+three sizes before it opens and rejects a display removed or renamed during
+preparation. Isolated Luau tests cover those routes. Three-monitor hardware and
+mixed-DPI acceptance remain separate; the Linux phone/virtual-output compositor
+is not provided by this native Windows companion yet.
+
 From the repository root, after preparing the native x64/MSVC pleamar build
 with default Luau and its app-local runtime files:
 

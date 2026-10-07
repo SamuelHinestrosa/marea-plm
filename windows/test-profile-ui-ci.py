@@ -101,7 +101,8 @@ class Desktop:
         assert source and target and bitmap
         old = self.gdi.SelectObject(target, bitmap)
         try:
-            assert self.gdi.BitBlt(target, 0, 0, width, height, source, point.x, point.y, 0x00CC0020)
+            # Include the native transparent panel in the runner's composed image.
+            assert self.gdi.BitBlt(target, 0, 0, width, height, source, point.x, point.y, 0x40CC0020)
             self.gdi.SelectObject(target, old)
             old = None
             header = C.create_string_buffer(struct.pack('<IiiHHIIiiII', 40, width, -height, 1, 32, 0, 0, 0, 0, 0, 0))
@@ -135,7 +136,7 @@ def png(path, picture):
 FIXTURE_LOGIC = r'''
 fact.locale="es"
 fact.hidden=false;fact.needed=true;fact.home=0
-fact["hosts.0"]=true;fact["hosts.1"]=false
+fact["hosts.0"]=true;fact["hosts.1"]=false;fact["hosts.2"]=false
 fact["sound.volume"]=0.42;fact["sound.input"]=0.3;fact["display.level"]=0.55;fact["display.present"]=true
 fact.windows_wifi_present=true;fact.windows_bluetooth_present=true
 fact.windows_key_available=true;fact.windows_key_enabled=true;fact.windows_key_busy=false

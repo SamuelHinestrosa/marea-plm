@@ -150,8 +150,8 @@ scene = replace_once(scene, '''                //  The cover, which here is a gr
 scene = replace_once(scene, 'fact demo = true', 'fact demo = false')
 # The main Marea panels are only 820x680; their screen facts are not the
 # full wallpaper area. Publish each tide surface's actual measured geometry.
-scene = replace_once(scene, 'model tidepics max 1 { pic: image 1280, 720 }', '''model tidepics max 2 { pic: image 1280, 720 }
-    repeat k in 0..2 {
+scene = replace_once(scene, 'model tidepics max 1 { pic: image 1280, 720 }', '''model tidepics max 3 { pic: image 1280, 720 }
+    repeat k in 0..3 {
         fact windows_tide_width.$k = 0
         fact windows_tide_height.$k = 0
     }''')
@@ -432,7 +432,7 @@ logic = replace_once(logic, '    local e = plugin_entries[i + 1]', '''    local 
     if e ~= nil and e.id == "windows.shelf" then emit("windows_toggle_shelf"); return end''')
 logic += '\ndo\n(function()\n' + (root / 'windows/window-manager.luau').read_text(encoding='utf-8') + '''
 end)()(native_run, hooks, plugin_entries, set_menu, function()
-    for k = 0, 1 do if fact["hosts." .. k] == true then return monitors[k + 1] end end
+    for k = 0, 2 do if fact["hosts." .. k] == true then return monitors[k + 1] end end
     return nil
 end, notice, native_spawn)
 end

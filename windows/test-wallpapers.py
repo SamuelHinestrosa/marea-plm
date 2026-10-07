@@ -91,6 +91,33 @@ complete("wallpaper.preview", "C:/landscape.jpg")
 fact["windows_tide_width.1"] = 1536
 complete("wallpaper.preview", "C:/portrait.jpg")
 assert(#events == before and #requests == 0 and saves == 1)
+-- The third upstream copy is also a native display. Prepare every crop before
+-- showing the transition, and anchor it to the display which hosts Marea.
+fact["screens.count"] = 3
+fact["hosts.1"] = false; fact["hosts.2"] = true
+text["screen.2.name"] = "DISPLAY3 ñ"
+fact["windows_tide_width.2"], fact["windows_tide_height.2"] = 1600, 900
+before = #events
+handlers.wall_pick(0)
+complete("wallpaper.preview", "C:/landscape.jpg")
+complete("wallpaper.preview", "C:/portrait.jpg")
+assert(#events == before and #requests == 1, "third monitor was omitted from the wallpaper transition")
+assert(requests[1].args[2] == 1600 and requests[1].args[3] == 900)
+complete("wallpaper.preview", "C:/third.jpg")
+assert(#model.tidepics == 3 and model.tidepics[3].pic == "C:/third.jpg")
+assert(fact["tide.home"] == 2 and events[#events] == "tide_start")
+handlers.tide_done(); complete("wallpaper.set", "failure", -1)
+-- Reject a third display removed or renamed while its image was prepared.
+for _, change in ipairs({"remove", "rename"}) do
+    fact["screens.count"] = 3; text["screen.2.name"] = "DISPLAY3 ñ"
+    before = #events
+    handlers.wall_pick(0)
+    complete("wallpaper.preview", "C:/landscape.jpg")
+    complete("wallpaper.preview", "C:/portrait.jpg")
+    if change == "remove" then fact["screens.count"] = 2 else text["screen.2.name"] = "Replacement display" end
+    complete("wallpaper.preview", "C:/third.jpg")
+    assert(#events == before and #requests == 0 and saves == 1)
+end
 fact["windows_tide_width.0"] = 0
 handlers.wall_pick(0)
 assert(#requests == 0 and #events == before, "unconfigured geometry used an arbitrary fallback")

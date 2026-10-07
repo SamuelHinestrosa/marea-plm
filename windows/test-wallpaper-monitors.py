@@ -41,7 +41,7 @@ def main():
     while depth:
         depth += (source[end] == '{') - (source[end] == '}')
         end += 1
-    surface = source[start:end]
+    surface = source[start:end].replace('screens: each max 3', 'screens: each max 2')
     if args.overlay:
         surface = surface.replace('level: bottom', 'level: overlay')
     scene = work / 'wallpaper-monitors.plm'

@@ -36,7 +36,7 @@ local function select_brightness_monitor(k)
         if not ok then notice(tostring(error)) end
     end
 end
-for k = 0, 1 do
+for k = 0, 2 do
     on("fact:hosts." .. k, function() select_brightness_monitor(k) end)
     on("text:screen." .. k .. ".name", function() select_brightness_monitor(k) end)
     select_brightness_monitor(k)

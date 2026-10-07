@@ -57,8 +57,11 @@ on("wall_pick", function(index)
     local item = wall_list[wall_offset + index + 1]
     if not item or wall_busy or same_wall(item.path, WALLPAPER) then return end
     wall_busy = true
-    local home = fact["hosts.1"] and 1 or 0
-    local count = math.min(tonumber(fact["screens.count"]) or 0, 2)
+    local home = 0
+    local count = math.min(tonumber(fact["screens.count"]) or 0, 3)
+    for k = 0, count - 1 do
+        if fact["hosts." .. k] then home = k end
+    end
     local sizes, pictures = {}, {}
     for k = 0, count - 1 do
         local w, h = fact["windows_tide_width." .. k], fact["windows_tide_height." .. k]
@@ -71,7 +74,7 @@ on("wall_pick", function(index)
     local function prepare(index)
         if index > count then
             -- A hotplug/DPI change during preparation invalidates the crops.
-            if math.min(tonumber(fact["screens.count"]) or 0, 2) ~= count then
+            if math.min(tonumber(fact["screens.count"]) or 0, 3) ~= count then
                 wall_busy = false; wallpaper_error("Las pantallas han cambiado. Vuelve a elegir el fondo."); return
             end
             for k, size in ipairs(sizes) do
