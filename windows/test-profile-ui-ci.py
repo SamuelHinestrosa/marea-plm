@@ -197,7 +197,7 @@ def exercise(binary, output, root):
     scene.with_suffix('.luau').write_text(FIXTURE_LOGIC, encoding='utf-8')
     env = dict(os.environ, APPDATA=str(output / 'state'), LOCALAPPDATA=str(output / 'local'),
                PLEAMAR_CONFIG=str(output / 'config'), PLEAMAR_SOCKET_DIR=f'marea-profile-ci-{os.getpid()}',
-               MAREA_SEARCH_HOTKEY='', PLEAMAR_NO_RELAUNCH='1')
+               MAREA_SEARCH_HOTKEY='', PLEAMAR_NO_RELAUNCH='1', PLEAMAR_TEST_WINDOWS='1')
     flags = subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS
     report = dict(passed=False, fixture_logic=True, environment='github-hosted', physical_input=False,
                   device_services=False, real_account=False, full_product_acceptance=False,
@@ -248,7 +248,7 @@ def exercise(binary, output, root):
     try:
         run(['--check', str(scene)])
         with (output / 'scene.log').open('w', encoding='utf-8') as log:
-            process = subprocess.Popen([str(binary), '--scene', str(scene), '--no-hud'], env=env,
+            process = subprocess.Popen([str(binary), '--scene', str(scene), '--no-hud', '--stall', '0', '--seconds', '180'], env=env,
                                        stdout=log, stderr=log, creationflags=flags)
             until(lambda: ask('get fixture_ready') == 'true', 'fixture initialization')
             hwnd = until(lambda: desktop.window(process.pid, 'pleamar surface 0 · '), 'main scene window')
