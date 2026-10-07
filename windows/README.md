@@ -59,6 +59,14 @@ preparation. Isolated Luau tests cover those routes. Three-monitor hardware and
 mixed-DPI acceptance remain separate; the Linux phone/virtual-output compositor
 is not provided by this native Windows companion yet.
 
+When the home monitor disappears, the Windows profile falls back to a live
+copy without replacing the saved monitor name; it returns when that monitor
+reappears. Following a window on an unrepresented output also falls back home.
+Brightness selection follows these Lua-driven moves explicitly, avoids repeat
+commands when the target is unchanged and ignores stale failures from a previous
+selection. The isolated routing regression covers unplug/replug, a zero-output
+interval and delayed completions; real hardware hotplug still needs validation.
+
 From the repository root, after preparing the native x64/MSVC pleamar build
 with default Luau and its app-local runtime files:
 

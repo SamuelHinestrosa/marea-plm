@@ -21,6 +21,46 @@ def remove_between(source, begin, end, replacement=''):
     return source[:start] + replacement + source[stop:]
 
 scene = remove_between(scene, '    surface lockscreen {', '    // ── the adventure\'s stage')
+# Native output removal changes screens.count even when an old name remains in
+# the scene. Rebuild the live set without overwriting the user's saved home.
+logic = remove_between(logic, 'local function decide()', '--  Her wardrobe\'s pieces', '''local function decide()
+    local count = math.min(tonumber(fact["screens.count"]) or 0, 3)
+    local wanted = pointed or focused
+    local chosen = nil
+    for k = 0, count - 1 do
+        if monitors[k + 1] ~= nil then
+            if chosen == nil or k == fact.home then chosen = k end
+        end
+    end
+    if fact.following == true then
+        for k = 0, count - 1 do
+            if monitors[k + 1] == wanted then chosen = k end
+        end
+    end
+    for k = 0, 2 do fact["hosts." .. k] = k == chosen end
+    -- Lua writes do not echo fact events to their own subscribers.
+    if chosen ~= nil then select_brightness_monitor(chosen) end
+    tell_island()
+end
+
+''')
+logic = remove_between(logic, 'local function place()', '-- ── the stones:', '''local function place()
+    local count = math.min(tonumber(fact["screens.count"]) or 0, 3)
+    fact.home = 0
+    for k = 0, 2 do
+        local name = text["screen." .. k .. ".name"]
+        monitors[k + 1] = if k < count and name ~= nil and name ~= "" then name else nil
+        if monitors[k + 1] ~= nil and name == settings.home then fact.home = k end
+    end
+    fact.following = settings.follow == true
+    fact.taking_room = settings.room == true
+    decide()
+end
+for k = 0, 2 do on("text:screen." .. k .. ".name", place) end
+on("fact:screens.count", place)
+place()
+
+''')
 scene = re.sub(r'^        run: .*$', '        run: "node", "deriva-worker", "marea-agent", "pleamar-wm", "curl.exe", "powershell.exe"', scene, flags=re.M)
 logic = replace_once(logic, '''    local base = sys.ask("env", "XDG_STATE_HOME")
     if base == nil or base == "" then base = home_dir .. "/.local/state" end

@@ -26,14 +26,23 @@ on("fact:page", function(page)
 end)
 local brightness = {}
 native_sys.watch("brightness", function(state) brightness = state end)
+local brightness_monitor, brightness_revision = nil, 0
 local function select_brightness_monitor(k)
     if fact["hosts." .. k] ~= true then return end
     local name = text["screen." .. k .. ".name"]
-    if name and name ~= "" then
+    if name and name ~= "" and name ~= brightness_monitor then
+        brightness_monitor = name
+        brightness_revision += 1
+        local revision = brightness_revision
+        local function failed(error)
+            if revision ~= brightness_revision then return end
+            brightness_monitor = nil
+            notice(error)
+        end
         local ok, error = pcall(native_sys.call_async, "brightness.monitor", { name }, function(error, code)
-            if code ~= 0 then notice(error) end
+            if code ~= 0 then failed(error) end
         end)
-        if not ok then notice(tostring(error)) end
+        if not ok then failed(tostring(error)) end
     end
 end
 for k = 0, 2 do
