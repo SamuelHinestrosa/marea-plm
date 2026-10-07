@@ -804,3 +804,21 @@ file dragging through this new layout, sustained performance or an installed
 Marea walkthrough. Installer CI runs the scene acceptance and preserves its
 report and screenshots, in addition to checking that both source files and the
 matching native capability are packaged.
+
+
+A second local native test runs the actual Marea dock adapter through Luau's
+`run`/`spawn` bridge. Two owners open separate docks; hiding one leaves the
+other alive, and forcibly ending the second owner cleans up its child. The
+session-status reply is an explicit fixture; child launches, IPC namespaces,
+exit callbacks and process lifetimes are real. It passed on secondary DISPLAY1
+without input injection or an owned foreground window. Reproduce with:
+
+```powershell
+python windows/test-dock-owner.py --binary ../pleamar/target/release/pleamar-wm.exe --monitor '\\.\DISPLAY1' --output C:/Temp/marea-dock-owner
+```
+
+The refreshed 0.3.0 native dock also passed the scene regression. A ten-second
+idle sample on this D3D12 machine used 0.155% of one CPU core and held private
+commit at 174,317,568 bytes (166.2 MiB). This is a short sample of the separate
+dock process; it is neither total Marea memory nor a sustained performance
+claim. `tests/windows-dock.py --idle-seconds 10` records reproducible counters.

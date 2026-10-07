@@ -89,6 +89,8 @@ jobs:
         run: |
           cargo test --release --locked
           if ($LASTEXITCODE -ne 0) { throw 'Window manager tests failed.' }
+          cargo test --release --locked --example windows-dock-fixture
+          if ($LASTEXITCODE -ne 0) { throw 'Dock fixture guard failed.' }
           cargo build --release --locked --features windows-host --bins --example windows-dock-fixture
           if ($LASTEXITCODE -ne 0) { throw 'Window manager build failed.' }
       - name: Build and test the native AI host
@@ -114,12 +116,16 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $screens.Count -eq 0) { throw 'No CI monitor.' }
           python ../pleamar-wm/tests/windows-dock.py --binary $wm --fixture ../pleamar/target/release/examples/windows-dock-fixture.exe --monitor $screens[0].name --scene-file tools/windows-dock.plm --ci-owned-desktop --output .tools/dock-smoke
           if ($LASTEXITCODE -ne 0) { throw 'Native Marea dock failed.' }
+          python windows/test-dock-owner.py --binary $wm --monitor $screens[0].name --ci-owned-desktop --output .tools/dock-owner-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Native Marea dock ownership failed.' }
       - name: Keep native dock evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: marea-dock-acceptance
-          path: marea/.tools/dock-smoke
+          path: |
+            marea/.tools/dock-smoke
+            marea/.tools/dock-owner-smoke
           if-no-files-found: warn
       - name: Prepare pinned installer and Node tools
         working-directory: marea
