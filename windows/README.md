@@ -5,9 +5,21 @@ pleamar builds, installation, updates, controls and the capability matrix.
 The port is under development; the guide distinguishes implemented features
 from limited integrations and hardware checks that remain unverified.
 
-The latest integration includes upstream `0bc96d5`, pleamar 0.2.19 and
-pleamar-wm 0.2.22. See [scheduled tasks and named credentials](TASKS.md) for
-their native behavior, validation and the remaining unattended-input limits.
+The current integration includes upstream Marea `e4f95ac`, pleamar 0.2.25
+and pleamar-wm 0.2.26. The generated Windows profile preserves the new control
+labels, roles, values and checked states. Two Spanish keys already supplied
+by upstream were removed from the companion translation file to avoid a
+duplicate-definition error. See [scheduled tasks and named credentials](TASKS.md)
+for their native behavior and remaining unattended-input limits.
+
+With the matching Windows WM, `pleamar-wm agent scenes` discovers Marea and
+`agent tree PID json` describes her visible controls. Use names from that tree
+with `agent press` or `agent say`; scene commands use the existing scene/Luau
+handlers. They do not add an independent desktop keyboard or mouse. The local
+native metadata check rendered the actual generated Spanish control center
+and dragged a volume slider through isolated Luau logic on DISPLAY2. It denied
+all device services and sent no physical input; this is not hardware or full
+installed-product acceptance. Final integration CI is still pending.
 
 The new upstream chat is being integrated separately; see its
 [Windows agent status and validation](AGENT.md). Packaging now includes its

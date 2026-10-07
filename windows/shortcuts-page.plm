@@ -4,7 +4,7 @@
                         text "Replaces Start and Windows-key shortcuts while Marea runs" { at: card.x - 210, card.top + 161; width: 342; lines: 2; size: 10; color: st.faint }
                         box { at: card.x + 191, card.top + 147; size: 38, 22; corner: 11; color: if(windows_key_enabled, mint, #363839) }
                         ellipse { at: card.x + 191 + if(windows_key_enabled, 8, -8), card.top + 147; radius: 8; color: ink; opacity: if(windows_key_busy, 0.4, 1) }
-                        zone box windows_key_switch { from: card.x - 228, card.top + 112; size: 456, 76; corner: 16; cursor: pointer; active: page == settings and section == windows_shortcuts and paging > 0.9 and windows_key_available and not windows_key_busy }
+                        zone box windows_key_switch { from: card.x - 228, card.top + 112; size: 456, 76; corner: 16; cursor: pointer; active: page == settings and section == windows_shortcuts and paging > 0.9 and windows_key_available and not windows_key_busy; label: "Use the Windows key for Marea"; role: toggle; checked: windows_key_enabled }
                         on press windows_key_switch { emit windows_toggle_key }
                         text windows_key_status { at: card.x - 228, card.top + 210; width: 456; lines: 2; size: 11; color: mint }
                         repeat k in 0..6 {

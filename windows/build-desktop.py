@@ -181,8 +181,8 @@ scene = replace_once(scene, 'let val = pick(k, bright_level, vol_level, mic_leve
 scene = replace_once(scene, 'let avail = if(k == 0, if(display.present, 1, 0), 1)', 'let avail = if(windows_level_available.$k, 1, 0)')
 scene = replace_once(scene, 'text "{val * 100, 0}%" { at: sx, iy + 42; anchor: center; size: 11.5; weight: 500; color: mint }', '''text "{val * 100, 0}%" { at: sx, iy + 42; anchor: center; size: 11.5; weight: 500; color: mint; show: windows_level_available.$k }
                 text "—" { at: sx, iy + 42; anchor: center; size: 11.5; color: ink; opacity: 0.4; show: not windows_level_available.$k }''')
-scene = replace_once(scene, 'zone box track.$k { at: sx, track_top + track_h / 2; size: 34 - 6 * four, track_h + 18; corner: 17; cursor: pointer; active: content > 0.9 and (k < 3 or rain_on) }', 'zone box track.$k { at: sx, track_top + track_h / 2; size: 34, track_h + 18; corner: 17; cursor: pointer; active: content > 0.9 and windows_level_available.$k }')
-scene = replace_once(scene, 'zone box icon.$k { at: sx, iy; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 and (k < 3 or rain_on) }', 'zone box icon.$k { at: sx, iy; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 and (k == 0 or windows_level_available.$k) }')
+scene = replace_once(scene, 'zone box track.$k { at: sx, track_top + track_h / 2; size: 34 - 6 * four, track_h + 18; corner: 17; cursor: pointer; active: content > 0.9 and (k < 3 or rain_on)', 'zone box track.$k { at: sx, track_top + track_h / 2; size: 34, track_h + 18; corner: 17; cursor: pointer; active: content > 0.9 and windows_level_available.$k')
+scene = replace_once(scene, 'zone box icon.$k { at: sx, iy; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 and (k < 3 or rain_on)', 'zone box icon.$k { at: sx, iy; size: 30, 30; corner: 15; cursor: pointer; active: content > 0.9 and (k == 0 or windows_level_available.$k)')
 for gesture in ('press', 'drag'):
     scene = replace_once(scene, f'            on {gesture} track.3 {{ emit set_rain(finger.0) }}\n', '')
 logic = replace_once(logic, '''do

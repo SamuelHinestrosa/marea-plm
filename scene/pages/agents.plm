@@ -58,7 +58,7 @@ part Agents {
             path { at: card.x + 168 + 7 * cos(refresh.turn - 55), card.top + 37 + 7 * sin(refresh.turn - 55); color: ink; rotate: (refresh.turn + 35) * 1deg
                    move -3, -3; line 3, 0; line -3, 3; close }
         }
-        zone box refresh_btn { at: card.x + 168, card.top + 37; size: 30, 30; corner: 15; cursor: pointer; active: page == agents and paging > 0.9 }
+        zone box refresh_btn { at: card.x + 168, card.top + 37; size: 30, 30; corner: 15; cursor: pointer; active: page == agents and paging > 0.9; label: "Refresh" }
         on enter refresh_btn { refresh.glow: 1 }
         on leave refresh_btn { refresh.glow: 0 }
         on press refresh_btn { refresh.turn: refresh.turn + 360; emit agents_refresh }
@@ -201,7 +201,7 @@ part Agents {
                         box { from: sx + 58, ay + 150; size: 72 * ag.elapsed.$a.$l * eased, 3; corner: 1.5; color: ink; opacity: 45% }
                         ellipse { at: sx + 58 + 72 * clamp(used / 100, 0, 1) * eased, ay + 151.5; radius: 3; color: tone; show: known > 0.5 }
                     }
-                    zone box tank.$a.$l { at: sx + 23, ay + 108; size: 46, 112; corner: 13; active: page == agents and paging > 0.9 and ag.on.$a.$l }
+                    zone box tank.$a.$l { at: sx + 23, ay + 108; size: 46, 112; corner: 13; active: page == agents and paging > 0.9 and ag.on.$a.$l; label: "{ag.name.$a} · {ag.lname.$a.$l}"; value: "{avail, 0}%" }
                     on enter tank.$a.$l { hover.$a.$l: 1; impulse sway.$a.$l 1.5 }
                     on leave tank.$a.$l { hover.$a.$l: 0 }
                     //  A new reading makes every tube sway, a little

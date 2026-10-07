@@ -9,7 +9,7 @@
                     text number(media_v * 100, 0) { at: card.x + 225, by + 32; anchor: right center; size: 10; color: ink }
                 }
                 text windows_media_volume_status { at: x0 + 66, by + 32; anchor: left center; width: 390; lines: 1; size: 10; color: #8b8f95; show: not windows_media_can_volume }
-                zone box media_volume_track { from: x0 + 130, by + 21; size: 292, 22; cursor: pointer; active: content > 0.9 and windows_media_can_volume }
+                zone box media_volume_track { from: x0 + 130, by + 21; size: 292, 22; cursor: pointer; active: content > 0.9 and windows_media_can_volume; label: "Volume"; role: slider; value: "{media_v * 100, 0}%" }
                 on press media_volume_track { windows_media_volume_pending = true; windows_media_volume_drag = true; windows_media_volume_target: media_finger ~16ms; emit windows_set_media_volume(media_finger) }
                 on drag media_volume_track { windows_media_volume_pending = true; windows_media_volume_target: media_finger ~16ms; emit windows_set_media_volume(media_finger) }
                 on release media_volume_track { windows_media_volume_pending = true; windows_media_volume_drag = false; windows_media_volume_target: media_finger ~16ms; emit windows_set_media_volume(media_finger) }

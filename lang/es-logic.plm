@@ -221,8 +221,6 @@ library SpanishLogic {
         "%d things, %d notes" = "%d cosas, %d notas"
         "%d / %d" = "%d / %d"
         "Memory unavailable" = "Memoria no disponible"
-        "Previous" = "Anterior"
-        "Next" = "Siguiente"
         "Could not read memory. Existing data has been left untouched." = "No se ha podido leer la memoria. Los datos guardados se conservan."
         "Could not read saved conversations." = "No se han podido leer las conversaciones guardadas."
         "Could not save memory. Your previous memories are still kept." = "No se ha podido guardar la memoria. Se conservan los recuerdos anteriores."

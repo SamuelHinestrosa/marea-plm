@@ -17,7 +17,7 @@ part Desktop {
         open: open or tray_open or menu_open or reel_open or searching or chatting
         //  And the zone says it again: a full-screen zone that stays on by
         //  mistake is the whole desktop taken. It happened.
-        zone box outside { from: 0, 0; size: catcher.width, catcher.height; active: open or tray_open or menu_open or reel_open }
+        zone box outside { from: 0, 0; size: catcher.width, catcher.height; active: open or tray_open or menu_open or reel_open; label: "Outside Marea: closes what is open"; role: region }
         on press outside { open = false; tray_open = false; menu_open = false; reel_open = false }
         //  The finder stays in her own layer —moving it up as it opens left
         //  it without the keyboard—, so here the catcher would be over it:
