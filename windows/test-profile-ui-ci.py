@@ -297,24 +297,32 @@ def exercise(binary, output, root, resource_cycles=0):
             if resource_cycles:
                 from profile_resources import Probe, summarize
                 probe = Probe(process, output / 'resources.json')
+                def observe(label, seconds):
+                    ask('probe start')
+                    interval = probe.observe(label, seconds)
+                    path = output / f'renderer-{label}.md'
+                    path.write_text(ask('probe report') + '\n', encoding='utf-8')
+                    interval['renderer_report'] = path.name
+                    probe.save()
+                    return interval
                 ask('emit fixture_stage 8')
                 until(lambda: ask('get open') == 'false' and ask('get chatting') == 'false', 'closed resource baseline')
                 time.sleep(1.5)
-                baseline = probe.observe('closed-initial', 10)
+                baseline = observe('closed-initial', 10)
                 for cycle in range(resource_cycles):
                     ask('emit fixture_stage 5')
                     until(lambda: ask('get chat.rows.count') == '12', 'resource conversation')
                     time.sleep(1.5)
-                    probe.observe(f'conversation-{cycle}', 5)
+                    observe(f'conversation-{cycle}', 5)
                     ask('emit fixture_stage 8')
                     until(lambda: ask('get open') == 'false' and ask('get chatting') == 'false', 'resource closure')
                     time.sleep(1.5)
-                    probe.observe(f'closed-{cycle}', 5)
-                final = probe.observe('closed-final', 10)
+                    observe(f'closed-{cycle}', 5)
+                final = observe('closed-final', 10)
                 probe.report['between_closed_samples'] = summarize(baseline['final'], final['final'])
                 probe.finish()
                 report['resources'] = dict(file='resources.json', cycles=resource_cycles,
-                    whole_product_acceptance=False, real_sdk=False, physical_gpu_benchmark=False)
+                    renderer_reports=True, whole_product_acceptance=False, real_sdk=False, physical_gpu_benchmark=False)
                 ask('emit fixture_stage 6')
                 until(lambda: any(n.get('label') == 'Volumen' for n in tree('controls-after-cycles')), 'controls after resource cycles')
                 time.sleep(1.2)

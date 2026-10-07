@@ -45,6 +45,28 @@ that turns these samples into a performance pass. The normal profile check
 does not enable the extra cycles. Local execution of the visible fixture is
 refused by the existing disposable-runner guard.
 
+Each interval also requests the engine's existing `probe start` / `probe report`
+and saves `renderer-LABEL.md`. These reports separate scene evaluation,
+composition, painting and waiting, and identify the adapter. Their small,
+bounded measurement buffers and timing overhead are part of that instrumented
+run. Compare it separately from an uninstrumented performance baseline.
+
+The [first six-cycle recording](https://github.com/SamuelHinestrosa/marea-plm/actions/runs/37606900754)
+(Marea `fdd8b543`, engine `2e64d079`) collected 94 samples and ten inspected UI
+images on Windows Server 2022's **Microsoft Basic Render Driver (Dx12)**.
+Between the settled first/last closed samples, private commit changed from
+233.477 to 234.492 MiB; resident working set changed from 170.617 to 126.035 MiB.
+GDI/USER objects stayed at 8/15. Handles increased from 432 to 461, staying
+between 460 and 463 after the first conversation cycle. This short sample does
+not demonstrate a long-run leak or rule one out.
+
+Conversation intervals consumed 367–372% of one CPU core; closed intervals
+consumed 66–145%. This software-rendered run is not a hardware-GPU performance
+result, and the observed resident-memory decline is not an optimization gain.
+The recording predates the per-interval engine reports; the next instrumented
+run is needed to locate its cost before changing renderer behavior. It includes
+no SDK, hardware services, account or physical input.
+
 ## SDK distribution size and initial preparation
 
 Both Windows installers omit dependency type declarations (`.d.ts`, `.d.mts`,
