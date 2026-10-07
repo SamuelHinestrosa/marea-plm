@@ -140,5 +140,25 @@ With `measure_resources`, the profile workflow's `performance_comparison:
 idle-chat` brackets the generated profile with two references that omit only
 this visibility guard. All three use the same engine, runner, retention mode,
 fixture data and sampling sequence. Reports identify the baseline explicitly;
-working and resting chat screenshots are also retained. Native results are
-pending; no CPU, frame-time or RAM improvement is claimed yet.
+working and resting chat screenshots are also retained.
+
+The [paired native run](https://github.com/SamuelHinestrosa/marea-plm/actions/runs/37635871685)
+passed Windows/Linux at Marea `3e736149` / engine `a4b5b504`. The three runs used
+one binary and auto retention on Microsoft Basic Render Driver. The generated
+scenes differ only in the visibility guard. Forty-two renderer reports and 282
+resource samples were checked; all 36 PNG checksums were verified. Eight PNGs
+covering chat, its working/resting states and final controls were inspected.
+
+| Median across intervals | Reference before | Guard enabled | Reference after |
+| --- | ---: | ---: | ---: |
+| Conversation paint (ms/round) | 483.875 | 154.385 | 472.655 |
+| Conversation CPU (% of one core) | 374.362 | 371.175 | 371.890 |
+| Conversation working set (MiB) | 171.861 | 178.051 | 176.440 |
+
+This improves paint time in the later cycles, not consistently from opening:
+the six optimized intervals were 456.47, 460.54, 171.86, 136.91, 115.01 and 47.99
+ms/round. CPU is nearly unchanged and no RAM saving is established. This is a
+software-adapter fixture, not physical-GPU, authenticated-chat or steady-state
+latency acceptance. One earlier reference resting image has clipped text; the
+optimized and final-reference resting chat-body pixels match exactly. Broader
+text/transition validation and the remaining slow early cycles are still open.
