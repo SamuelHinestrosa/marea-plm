@@ -46,6 +46,7 @@ part Home {
     prop swim.1 = 0 ~16ms
     prop swim.2 = 0 ~16ms
     let swim.here = pick(screen.index, swim.0, swim.1, swim.2)
+    let hosts.here = pick(screen.index, hosts.0, hosts.1, hosts.2)
     //  Straight up and straight down, at the centre where she lives: the edge
     //  of the screen is the same water on both monitors, so the journey needs
     //  no side. Leaning it towards the other monitor looked like an effect

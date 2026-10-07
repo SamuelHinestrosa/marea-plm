@@ -75,7 +75,11 @@ scene Marea {
         //  and a closed surface is not painted and costs nothing. Open while
         //  she is in it or on her way through it, which is what lets you see her
         //  leap out of one and fall into the other; `swim.here` is this copy's one.
-        open: swim.here > 0.01
+        //  And the one she should be in, even before she is: its rules are the
+        //  ones that send her there. When the copy she was in went with its
+        //  monitor (a phone's, taken down), every copy left was closed, their
+        //  rules asleep, and she never came back.
+        open: swim.here > 0.01 or hosts.here
         //  Sixty frames per second, decided here and not by the monitor: she is
         //  always breathing, and at 165 Hz she painted every breath 165 times a
         //  second. Measured: 21.5 % of a core, against 8.6 % on a 60 Hz screen.
