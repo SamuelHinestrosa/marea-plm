@@ -202,6 +202,17 @@ def control_title_ready(picture):
     return sum(min(pixels[(y*width+x)*4:(y*width+x)*4+3])>200
         for y in range(120,140) for x in range(158,360))>=100
 
+def retained_policy(logs, mode):
+    policy=re.findall(r'retained surface policy: (\S+) · adapter: (\w+) · enabled: (true|false)',logs)
+    assert policy and len(set(policy))==1, 'Missing or inconsistent native retention policy trace'
+    setting,adapter,selected=policy[0]
+    assert setting==mode, (setting,mode)
+    enabled=mode=='1' or (mode=='auto' and adapter=='Cpu')
+    assert (selected=='true')==enabled, (policy,mode)
+    count=logs.count('retained surface allocated')
+    assert (count>0 if enabled else count==0), 'The selected retention policy was not exercised'
+    return dict(setting=setting,adapter=adapter,enabled=enabled,allocations=count)
+
 def exercise(binary, output, root, resource_cycles=0):
     desktop = Desktop()
     scene = output / 'Marea profile ñ 海.plm'
@@ -210,12 +221,14 @@ def exercise(binary, output, root, resource_cycles=0):
     env = dict(os.environ, APPDATA=str(output / 'state'), LOCALAPPDATA=str(output / 'local'),
                PLEAMAR_CONFIG=str(output / 'config'), PLEAMAR_SOCKET_DIR=f'marea-profile-ci-{os.getpid()}',
                MAREA_SEARCH_HOTKEY='', PLEAMAR_NO_RELAUNCH='1', PLEAMAR_TEST_WINDOWS='1')
-    retained = env.get('PLEAMAR_RETAINED_SURFACE') == '1'
-    if retained:
-        env['PLEAMAR_TIMING'] = '1'
+    retention_mode = env.get('PLEAMAR_RETAINED_SURFACE') or 'auto'
+    assert retention_mode in ('auto','0','1'), retention_mode
+    env['PLEAMAR_RETAINED_SURFACE'] = retention_mode
+    env.pop('PLEAMAR_FULL_REPAINT',None)
+    env['PLEAMAR_TIMING'] = '1'
     flags = subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS
     report = dict(passed=False, fixture_logic=True, fixture_background=True, environment='github-hosted', physical_input=False,
-                  device_services=False, real_account=False, full_product_acceptance=False, retained_surface=retained,
+                  device_services=False, real_account=False, full_product_acceptance=False, retained_surface_mode=retention_mode,
                   binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
                   scene_sha256=hashlib.sha256(scene.read_bytes()).hexdigest(), checks=[], images=[])
     process, hwnd = None, None
@@ -344,8 +357,8 @@ def exercise(binary, output, root, resource_cycles=0):
             assert process.wait(timeout=20) == 0
         logs = (output / 'scene.log').read_text(encoding='utf-8')
         assert 'first frame' in logs and 'runtime error:' not in logs, logs
-        if retained:
-            assert 'retained surface allocated' in logs, 'Requested retained surface was not exercised'
+        report['retained_policy'] = retained_policy(logs,retention_mode)
+        report['retained_surface'] = report['retained_policy']['enabled']
         report['passed'] = True
     finally:
         if process and process.poll() is None:

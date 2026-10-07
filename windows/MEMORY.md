@@ -73,21 +73,35 @@ mostly waiting, with occasional expensive repaints. Private commit changed
 234.457→234.207 MiB between settled closed states; GDI/USER stayed at 8/15.
 These runs contain no SDK, hardware services, account or physical input.
 
-The workflow's optional `retained_surface` input exercises the engine's
-experimental Windows canvas and records that choice in `report.json`. It
-requires an allocation trace, so an engine that ignores the option cannot
-produce a false comparison. Retention uses extra bounded texture memory to
-reduce repainting; it is disabled by default pending pixel and performance
-comparisons. Neither these measurements nor this option claim a RAM reduction
-or physical-GPU frame rate.
+The [same-run retained comparison](https://github.com/SamuelHinestrosa/marea-plm/actions/runs/37613571984)
+passed Windows/Linux at Marea `3af26181` / engine `d64e4d23`. Full repaint,
+forced retention and full repaint used the same binary, scene and software
+runner. Thirty PNGs, 282 resource samples and forty-two reports were inspected.
 
-With both `retained_surface` and `measure_resources` selected, CI brackets the
-experiment with two full-repaint references on the same runner and binary.
-`marea-native-rendering-references` preserves their images and fourteen reports
-each. Compare both references with the experiment before attributing differences
-to retention: separate hosted runners can have different software-rendering
-speeds. The first controls screenshot waits for visible title glyphs; populated
-scene facts alone do not show that asynchronous font loading has finished.
+| Median across measured intervals | Full before | Retained | Full after |
+| --- | ---: | ---: | ---: |
+| Collected Marea CPU (% of one core) | 19.060 | 6.718 | 18.904 |
+| Collected Marea paint (ms/round) | 0.605 | 0.150 | 0.530 |
+| Conversation paint (ms/round) | 231.395 | 228.270 | 232.450 |
+| Conversation CPU (% of one core) | 384.831 | 385.654 | 386.232 |
+| Conversation working set (MiB) | 179.734 | 180.409 | 177.166 |
+| Conversation private commit (MiB) | 237.430 | 235.828 | 226.240 |
+
+The idle CPU saving supports the engine's software-adapter default. Conversation
+painting improves only 1.35–1.80%, and no RAM reduction is established. Private
+commit is not resident memory. These are software-renderer fixtures, not live
+SDK, device/account, physical-GPU or whole-product measurements. Physical GPU
+defaults stay unchanged; retained texture requests share a 32 MiB budget.
+
+The workflow uses `retained_mode`: `auto` (default), `on` or `off`. Auto exercises
+the normal renderer policy instead of silently forcing it off. Policy/adapter
+and allocation traces must agree with the request; an ignored option cannot
+pass as a successful comparison. With `measure_resources` and auto/on, two
+full-repaint references bracket the measured mode on the same runner. Their
+images and reports are in `marea-native-rendering-references`; the measured
+mode is in `marea-native-profile-ui`. All three use the same timing diagnostics.
+The initial controls capture waits for visible title glyphs, because populated
+scene facts alone do not prove that asynchronous font loading has finished.
 
 ## SDK distribution size and initial preparation
 
