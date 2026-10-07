@@ -1,21 +1,24 @@
 -- The native companion reports its actual session. Keep Linux's in_wm false:
 -- its dock, rain, ride and agent seat have separate capabilities.
 return function(run, hooks, entries, changed, screen, notice, spawn)
-    local available, overview, busy, state = false, false, false, nil
+    local available, overview, dock, busy, state = false, false, false, false, nil
     local viewing = false
+    local dock_view = nil
     local navigation = {}
     local function publish(value)
         state = value
         available = type(value) == "table" and value.running == true and value.automatic_layouts == true
         overview = type(value) == "table" and value.running == true and value.window_overview == true
+        dock = type(value) == "table" and value.running == true and value.application_dock == true
         for i = #entries, 1, -1 do
-            if entries[i].id == "windows.wm.layout" or entries[i].id == "windows.wm.restore" or entries[i].id == "windows.wm.overview" then table.remove(entries, i) end
+            if entries[i].id == "windows.wm.layout" or entries[i].id == "windows.wm.restore" or entries[i].id == "windows.wm.overview" or entries[i].id == "windows.wm.dock" then table.remove(entries, i) end
         end
         if available then
             entries[#entries + 1] = { id = "windows.wm.layout", group = "Windows", title = "Tiled or free windows" }
             entries[#entries + 1] = { id = "windows.wm.restore", group = "Windows", title = "Bring back every window" }
         end
         if overview then entries[#entries + 1] = { id = "windows.wm.overview", group = "Windows", title = "Window overview" } end
+        if dock or dock_view then entries[#entries + 1] = { id = "windows.wm.dock", group = "Windows", title = dock_view and "Hide application dock" or "Show application dock" } end
         changed()
     end
     local function request(command, visible, repeatable)
@@ -46,7 +49,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
         if not ok then done(tostring(error), 1) end
     end
     hooks.windows_wm_allowed = function(title)
-        return (overview and title == "Window overview") or (available and (title == "Tiled or free windows" or title == "Bring back every window"))
+        return (overview and title == "Window overview") or ((dock or dock_view ~= nil) and title == "Application dock") or (available and (title == "Tiled or free windows" or title == "Bring back every window"))
     end
     local function current_screen()
         local name = screen()
@@ -90,6 +93,46 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
             "--preview-monitor", name, "--window-actions", "--no-hud", "--stall", "0"},
             function(line) last_line = tostring(line):sub(1, 180) end, done,
             {cwd=".", errors=true, env={MAREA_LOCALE=tostring(fact.locale or "en")}})
+        if not ok then done(tostring(error), 1) end
+    end
+    hooks.windows_dock = function()
+        if dock_view then
+            local child = dock_view
+            if child.closing then return end
+            child.closing = true
+            local completed = false
+            local function done(output, code)
+                if completed or dock_view ~= child then return end
+                completed = true
+                if code ~= 0 or tostring(output or ""):sub(1, 1) == "?" then
+                    child.closing = false
+                    notice(tr("The application dock could not close.") .. " " .. tostring(output or ""):sub(1, 180))
+                end
+                -- The process callback, not an IPC acknowledgement, releases ownership.
+            end
+            local ok, error = pcall(run, "pleamar-wm", {"--say", "windows-dock", "quit"}, done)
+            if not ok then done(tostring(error), 1) end
+            return
+        end
+        if not dock then request("status", true); return end
+        local name = current_screen()
+        if not name then return end
+        local child = {closing=false, last_line=""}
+        dock_view = child
+        publish(state)
+        local function done(output, code)
+            if dock_view ~= child then return end
+            dock_view = nil
+            publish(state)
+            if code ~= 0 then notice(tr("The application dock could not open.") .. " " .. (output ~= "" and tostring(output) or child.last_line):sub(1, 180)) end
+        end
+        local ok, error = pcall(spawn, "pleamar-wm", {"--scene", "tools/windows-dock.plm", "--screen", name,
+            "--preview-monitor", name, "--window-actions", "--no-hud", "--stall", "0"},
+            function(line)
+                if dock_view ~= child then return end
+                child.last_line = tostring(line):sub(1, 180)
+                if child.last_line:find("windows dock:", 1, true) then notice(tr("The dock action failed.") .. " " .. child.last_line) end
+            end, done, {cwd=".", errors=true, env={MAREA_LOCALE=tostring(fact.locale or "en"), MAREA_DOCK_MONITOR=name}})
         if not ok then done(tostring(error), 1) end
     end
     on("fact:menu_open", function(open) if open then request("status", false) end end)

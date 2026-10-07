@@ -136,5 +136,14 @@
   "Deriva returned an invalid library summary.": "Deriva devolvió un resumen inválido de la biblioteca.",
   "Deriva returned an invalid capture count.": "Deriva devolvió un recuento inválido.",
   "Deriva returned an invalid folder.": "Deriva devolvió una carpeta inválida.",
-  "Deriva returned an invalid folder count.": "Deriva devolvió un recuento de carpeta inválido."
+  "Deriva returned an invalid folder count.": "Deriva devolvió un recuento de carpeta inválido.",
+  "Application dock": "Barra de aplicaciones",
+  "Show application dock": "Mostrar barra de aplicaciones",
+  "Hide application dock": "Ocultar barra de aplicaciones",
+  "The application dock could not open.": "No se ha podido abrir la barra de aplicaciones.",
+  "The application dock could not close.": "No se ha podido cerrar la barra de aplicaciones.",
+  "The dock action failed.": "La acción de la barra de aplicaciones ha fallado.",
+  "Win + D": "Win + D",
+  "Win + Q": "Win + Q",
+  "Win + ← ↑ / → ↓": "Win + ← ↑ / → ↓"
 }

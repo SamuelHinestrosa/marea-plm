@@ -10,6 +10,7 @@ The switch is off by default. While enabled, Win is dedicated to Marea:
 | Win+A | Control center |
 | Win+I | Settings |
 | Win+Tab | Window overview (requires the native WM session) |
+| Win+D | Show/hide the application dock on Marea's home monitor |
 | Win+N | Notifications |
 | Win+W | Toggle tiled/free windows on the monitor under the pointer (requires the native WM session) |
 | Win+M | Minimize the active application on a managed monitor in free-window mode |

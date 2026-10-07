@@ -1,7 +1,7 @@
 return function(native_sys, notice, hooks)
     local bindings = {["Win"]="search", ["Win+Space"]="search", ["Win+Shift+A"]="chat",
         ["Win+A"]="controls", ["Win+I"]="settings", ["Win+Tab"]="windows", ["Win+N"]="notifications", ["Win+W"]="layout",
-        ["Win+M"]="minimize", ["Win+Shift+M"]="restore_last", ["Win+Q"]="close",
+        ["Win+D"]="dock", ["Win+M"]="minimize", ["Win+Shift+M"]="restore_last", ["Win+Q"]="close",
         ["Win+Left"]="focus_previous", ["Win+Up"]="focus_previous",
         ["Win+Right"]="focus_next", ["Win+Down"]="focus_next"}
     local actions = {search="search", chat="chat", controls="windows_controls", settings="settings", notifications="open_tray"}
@@ -22,6 +22,7 @@ return function(native_sys, notice, hooks)
         local action = actions[value.event]
         if action then emit(action)
         elseif value.event == "windows" and hooks.windows_overview then hooks.windows_overview()
+        elseif value.event == "dock" and hooks.windows_dock then hooks.windows_dock()
         elseif value.event == "layout" and hooks.windows_toggle_layout then hooks.windows_toggle_layout()
         elseif value.event == "minimize" and hooks.windows_minimize then hooks.windows_minimize()
         elseif value.event == "restore_last" and hooks.windows_restore_last then hooks.windows_restore_last()

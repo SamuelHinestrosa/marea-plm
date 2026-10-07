@@ -472,6 +472,7 @@ on("fact:menu_open", function(value) if value then set_menu() end end)
 on("menu_entry"''')
 logic = replace_once(logic, '    local e = plugin_entries[i + 1]', '''    local e = plugin_entries[i + 1]
     if e ~= nil and e.id == "windows.wm.overview" then hooks.windows_overview(); return end
+    if e ~= nil and e.id == "windows.wm.dock" then hooks.windows_dock(); return end
     if e ~= nil and e.id == "windows.wm.layout" then hooks.wm_free(); return end
     if e ~= nil and e.id == "windows.wm.restore" then hooks.wm_restore(); return end
     if e ~= nil and e.id == "windows.shelf" then emit("windows_toggle_shelf"); return end''')
@@ -484,6 +485,8 @@ end
 install_shortcuts(native_sys, notice, hooks)
 '''
 logic = replace_once(logic, 'local OWN = {', '''local OWN = {
+    { "Application dock", "dock applications apps barra aplicaciones anclar", 1,
+      function() if hooks.windows_dock then hooks.windows_dock() end end, "wm" },
     { "Window overview", "windows overview ventanas vista abiertas overview resumen", 1,
       function() if hooks.windows_overview then hooks.windows_overview() end end, "wm" },''')
 # Development shells often inject C.UTF-8; it is not a user language choice.

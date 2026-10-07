@@ -769,3 +769,38 @@ GPU memory shrinks. Capture has an aggregate pixel limit, so some very large or
 protected windows may have no preview. View-only pictures do not redirect input
 into applications. This feature needs matching new engine and WM binaries, and
 its two scene files are included in install, update and installer packaging.
+
+
+## Native application dock
+
+Right-click Marea and choose **Windows → Show application dock**, or search for
+**Application dock**. **Win+D** toggles it when Settings → Keyboard shortcuts →
+Use the Windows key for Marea is enabled. Hide it from the same menu or the ×
+button. The dock opens on Marea's home monitor; it starts hidden.
+
+Up to twelve application icons share a compact bar above the Windows taskbar.
+Click an icon to launch it or cycle through its open windows. Dots show up to
+three windows, with mint indicating the focused app. Right-click for Pin,
+Unpin, Close windows or Hide dock. Pins survive a restart. A dropped file opens
+in that selected application; unsupported packaged file contracts report an
+error rather than opening a different program. Closing the bar leaves user
+applications running. Windows still controls foreground permission and an app
+can keep an unsaved-work dialog open after Close windows.
+
+The native companion must report `application_dock: true`; older companions
+leave this entry unavailable. The broader Linux `dock`/workspace capability
+remains false. No workspace pools, compositor effects or remote seats are
+implied. Taskbar work-area changes are read when opening the dock or changing
+its surface dimensions; moving only the taskbar may require reopening it.
+
+The 2026-10-07 acceptance used the actual PLM/Luau on secondary DISPLAY1 at
+125% DPI with D3D12: Spanish pin/unpin menus, persistence, native relaunch,
+application survival after closing/reopening the bar, and Hide through Luau
+passed. No OS input was injected; test windows did not take foreground and
+cleanup left none. Isolated Luau checks cover monitor/DPI geometry, menu/search
+capability gating, ownership, failure recovery and Win+D routing. This does not
+establish physical keyboard dispatch, mouse focus/cycling, cross-application
+file dragging through this new layout, sustained performance or an installed
+Marea walkthrough. Installer CI runs the scene acceptance and preserves its
+report and screenshots, in addition to checking that both source files and the
+matching native capability are packaged.

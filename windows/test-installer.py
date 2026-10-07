@@ -110,7 +110,11 @@ try:
     for extension in ['plm', 'luau']:
         assert (target / f'app/tools/windows-overview.{extension}').is_file()
     run([target / 'bin/pleamar-wm.exe', '--check', target / 'app/tools/windows-overview.plm'])
-    assert json.loads(run([target / 'bin/pleamar-wm.exe', 'capabilities']).stdout)['visible_window_capture']
+    capabilities = json.loads(run([target / 'bin/pleamar-wm.exe', 'capabilities']).stdout)
+    assert capabilities['visible_window_capture'] and capabilities['application_dock']
+    for extension in ['plm', 'luau']:
+        assert (target / f'app/tools/windows-dock.{extension}').is_file()
+    run([target / 'bin/pleamar-wm.exe', '--check', target / 'app/tools/windows-dock.plm'])
     report['stages'].append('packaged overview source compiles with matching native capture capability; no GUI test')
     programs = ctypes.create_unicode_buffer(32768)
     assert ctypes.windll.shell32.SHGetFolderPathW(None, 2, None, 0, programs) == 0

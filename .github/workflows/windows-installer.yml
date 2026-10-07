@@ -89,7 +89,7 @@ jobs:
         run: |
           cargo test --release --locked
           if ($LASTEXITCODE -ne 0) { throw 'Window manager tests failed.' }
-          cargo build --release --locked --features windows-host
+          cargo build --release --locked --features windows-host --bins --example windows-dock-fixture
           if ($LASTEXITCODE -ne 0) { throw 'Window manager build failed.' }
       - name: Build and test the native AI host
         working-directory: marea
@@ -104,6 +104,23 @@ jobs:
       - name: Prepare app-local shader compiler
         working-directory: pleamar
         run: ./scripts/prepare-windows-runtime.ps1
+      - name: Native Marea dock on the disposable Windows desktop
+        working-directory: marea
+        env:
+          PLEAMAR_WM_CI_DOCK: '1'
+        run: |
+          $wm = (Resolve-Path ../pleamar/target/release/pleamar-wm.exe).Path
+          $screens = @(& $wm monitors | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or $screens.Count -eq 0) { throw 'No CI monitor.' }
+          python ../pleamar-wm/tests/windows-dock.py --binary $wm --fixture ../pleamar/target/release/examples/windows-dock-fixture.exe --monitor $screens[0].name --scene-file tools/windows-dock.plm --ci-owned-desktop --output .tools/dock-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Native Marea dock failed.' }
+      - name: Keep native dock evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marea-dock-acceptance
+          path: marea/.tools/dock-smoke
+          if-no-files-found: warn
       - name: Prepare pinned installer and Node tools
         working-directory: marea
         run: ./windows/prepare-installer-tools.ps1
