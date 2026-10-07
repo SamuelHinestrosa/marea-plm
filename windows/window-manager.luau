@@ -110,14 +110,14 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
                 end
                 -- The process callback, not an IPC acknowledgement, releases ownership.
             end
-            local ok, error = pcall(run, "pleamar-wm", {"--say", "windows-dock", "quit"}, done)
+            local ok, error = pcall(run, "pleamar-wm", {"--say", "windows-dock", "quit"}, done, {env={PLEAMAR_SOCKET_DIR=child.endpoint}})
             if not ok then done(tostring(error), 1) end
             return
         end
         if not dock then request("status", true); return end
         local name = current_screen()
         if not name then return end
-        local child = {closing=false, last_line=""}
+        local child = {closing=false, last_line="", endpoint="marea-dock-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 2147483647))}
         dock_view = child
         publish(state)
         local function done(output, code)
@@ -132,7 +132,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
                 if dock_view ~= child then return end
                 child.last_line = tostring(line):sub(1, 180)
                 if child.last_line:find("windows dock:", 1, true) then notice(tr("The dock action failed.") .. " " .. child.last_line) end
-            end, done, {cwd=".", errors=true, env={MAREA_LOCALE=tostring(fact.locale or "en"), MAREA_DOCK_MONITOR=name}})
+            end, done, {cwd=".", errors=true, env={MAREA_LOCALE=tostring(fact.locale or "en"), MAREA_DOCK_MONITOR=name, PLEAMAR_SOCKET_DIR=child.endpoint}})
         if not ok then done(tostring(error), 1) end
     end
     on("fact:menu_open", function(open) if open then request("status", false) end end)

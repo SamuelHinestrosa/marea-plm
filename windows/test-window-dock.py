@@ -48,12 +48,13 @@ local value = {running=true,automatic_layouts=true,window_overview=true,monitors
 local json = {decode=function() return value end}
 local function tr(s) return s end
 local function on(name,callback) handlers[name]=callback end
-local function run(command,args,done) assert(command=="pleamar-wm");requests[#requests+1]={args=args,done=done} end
+local function run(command,args,done,options) assert(command=="pleamar-wm");requests[#requests+1]={args=args,done=done,options=options} end
 local function spawn(command,args,line,done,options)
     assert(command=="pleamar-wm" and args[2]=="tools/windows-dock.plm")
     assert(args[4]==screen and args[6]==screen and args[7]=="--window-actions")
     assert(options.env.MAREA_LOCALE=="es" and options.env.MAREA_DOCK_MONITOR==screen)
-    children[#children+1]={line=line,done=done}
+    assert(options.env.PLEAMAR_SOCKET_DIR:match("^marea%-dock%-"))
+    children[#children+1]={line=line,done=done,endpoint=options.env.PLEAMAR_SOCKET_DIR}
 end
 local install=(function() __MODULE__ end)()
 install(run,hooks,entries,function() end,function() return screen end,function(message) notices[#notices+1]=message end,spawn)
@@ -64,11 +65,13 @@ assert(hooks.windows_wm_allowed("Application dock") and entries[5].title=="Show 
 hooks.windows_dock();assert(#children==1 and entries[5].title=="Hide application dock")
 hooks.windows_dock();hooks.windows_dock();assert(#requests==3 and #children==1)
 assert(table.concat(requests[3].args,",")=="--say,windows-dock,quit")
+assert(requests[3].options.env.PLEAMAR_SOCKET_DIR==children[1].endpoint)
 requests[3].done("not listening yet",1);assert(#notices==1)
 hooks.windows_dock();assert(#requests==4);requests[4].done("bye",0)
 hooks.windows_dock();assert(#children==1)
 children[1].done("",0);assert(entries[5].title=="Show application dock")
 hooks.windows_dock();assert(#children==2)
+assert(children[2].endpoint~=children[1].endpoint)
 children[1].done("late",1);assert(entries[5].title=="Hide application dock" and #notices==1)
 children[2].line("windows dock: app refused");assert(#notices==2)
 -- Hide stays available after losing the session, until the owned dock exits.
