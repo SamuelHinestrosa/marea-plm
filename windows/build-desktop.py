@@ -330,7 +330,9 @@ scene = replace_once(scene, 'text "Open" { at: cx.i, f.top + 58;', 'text "Abrir 
 
 # Scroll listeners receive the wheel for every enclosing zone, but a press
 # goes to the last declared zone. Keep the gallery's scroll area behind cards.
-wall_area = '                zone box walls_area { from: card.x - 228, card.top + 100; size: 456, 340; active: page == walls and paging > 0.9 }'
+wall_areas = re.findall(r'(?m)^[ \t]*zone box walls_area \{[^\n]*\}', scene)
+assert len(wall_areas) == 1, 'Upstream wallpaper scroll area changed'
+wall_area = wall_areas[0]
 scene = replace_once(scene, wall_area + '\n', '')
 scene = replace_once(scene, '                show: page == walls\n                grid {',
                      '                show: page == walls\n' + wall_area + '\n                grid {')

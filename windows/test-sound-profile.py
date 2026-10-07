@@ -15,7 +15,9 @@ assert 'model outputs max 32' in scene and 'model mics max 32' in scene
 assert scene.count('view: 416, 160') == 2
 assert 'on release level.0 { windows_level_drag.1 = false;' in scene
 assert 'on release level.1 { windows_level_drag.2 = false;' in scene
-assert 'and pick(k, windows_level_available.1, windows_level_available.2) }' in scene
+level = next(line for line in scene.splitlines() if 'zone box level.$k {' in line)
+assert 'and pick(k, windows_level_available.1, windows_level_available.2);' in level
+assert 'label: pick(k, "Output volume", "Input volume")' in level and 'value: "{val * 100, 0}%"' in level
 assert 'on press track { emit windows_app_press(a.control); emit app_volume(' in scene
 assert 'on release track { emit windows_app_release }' in scene
 assert 'on change page while page != sound { emit windows_app_release }' in scene

@@ -5,8 +5,8 @@ pleamar builds, installation, updates, controls and the capability matrix.
 The port is under development; the guide distinguishes implemented features
 from limited integrations and hardware checks that remain unverified.
 
-The current integration includes upstream Marea `e4f95ac`, pleamar 0.2.25
-and pleamar-wm 0.2.26. The generated Windows profile preserves the new control
+The current integration includes upstream Marea `0e23c6c`, pleamar 0.2.27
+and pleamar-wm 0.2.28. The generated Windows profile preserves the new control
 labels, roles, values and checked states. Two Spanish keys already supplied
 by upstream were removed from the companion translation file to avoid a
 duplicate-definition error. See [scheduled tasks and named credentials](TASKS.md)

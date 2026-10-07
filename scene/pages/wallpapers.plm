@@ -38,7 +38,7 @@ part Wallpapers {
             at: card.x - 228, card.top + 100; columns: 3; gap: 12; width: 456; row: 104
             for w in walls { WallCard(w, pick: wall_pick) }
         }
-        zone box walls_area { from: card.x - 228, card.top + 100; size: 456, 340; active: page == walls and paging > 0.9 }
+        zone box walls_area { from: card.x - 228, card.top + 100; size: 456, 340; active: page == walls and paging > 0.9; label: "Wallpapers"; role: list }
     }
     on scroll walls_area { emit walls_scroll(wheel) }
 

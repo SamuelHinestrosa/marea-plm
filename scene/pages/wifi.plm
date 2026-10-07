@@ -129,7 +129,7 @@ part Wifi {
             on press rescan_btn { emit wifi_rescan }
             //  The wheel's zone goes BEFORE the rows: the last declared is
             //  the one on top, and it would take their presses.
-            zone box wifi_wheel { from: lx, ly + 12; size: 456, 200; active: page == wifi and paging > 0.9 }
+            zone box wifi_wheel { from: lx, ly + 12; size: 456, 200; active: page == wifi and paging > 0.9; label: "Networks"; role: list }
             on scroll wifi_wheel { emit wifi_scroll(wheel) }
             column wifi_list {
                 at: lx, ly + 14

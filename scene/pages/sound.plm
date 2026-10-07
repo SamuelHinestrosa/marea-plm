@@ -28,12 +28,12 @@ part Sound {
             arc { at: 216, 20.5; radius: 4.5; span: 110deg; width: 1.4; rotate: 90deg; color: ink; opacity: 1 - off }
             line { from: 203, 13; to: 219, 28; width: 1.7; color: #e0655a; opacity: off }
         }
-        zone box mute { at: 211, 20; size: 28, 28; corner: 14; cursor: pointer; active: paging > 0.9 }
+        zone box mute { at: 211, 20; size: 28, 28; corner: 14; cursor: pointer; active: paging > 0.9; label: "Mute {a.name}"; role: toggle; checked: off }
         box { from: 236, 17; size: 164, 6; corner: 3; color: #2f3031 }
         box { from: 236, 17; size: 164 * a.volume, 6; corner: 3; color: mix(mint, #6b7280, off) }
         ellipse { at: 236 + 164 * a.volume, 20; radius: 6.5 + glow; color: #f0ece4 }
         text "{a.volume * 100, 0}%" { at: 444, 20; anchor: right center; size: 10.5; weight: 500; color: mix(mint, #8b8f95, off) }
-        zone box track { from: 228, 6; size: 182, 28; cursor: pointer; active: paging > 0.9 }
+        zone box track { from: 228, 6; size: 182, 28; cursor: pointer; active: paging > 0.9; label: "{a.name} volume"; role: slider; value: "{a.volume * 100, 0}%" }
         on enter touch { glow: 1 }
         on leave touch { glow: 0 }
         on enter mute { mute.glow: 1 }
@@ -90,8 +90,8 @@ part Sound {
             ellipse { at: lx + 60 + 330 * val, py + 54; radius: 7; color: #f0ece4 }
             text "{val * 100, 0}%" { at: lx + 444, py + 54; anchor: right center; size: 11; weight: 500; color: mix(mint, #8b8f95, off) }
             zone box dev.$k { from: lx + 56, py + 20; size: 390, 24; corner: 8; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0 and pick(k, outputs.count, mics.count) > 1 }
-            zone box icon.$k { at: lx + 30, py + 37; size: 38, 38; corner: 19; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0 }
-            zone box level.$k { from: lx + 52, py + 44; size: 346, 22; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0 }
+            zone box icon.$k { at: lx + 30, py + 37; size: 38, 38; corner: 19; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0; label: pick(k, "Mute the output", "Mute the input") }
+            zone box level.$k { from: lx + 52, py + 44; size: 346, 22; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0; label: pick(k, "Output volume", "Input volume"); value: "{val * 100, 0}%" }
             on enter dev.$k { dev.glow.$k: 1 }
             on leave dev.$k { dev.glow.$k: 0 }
             on enter icon.$k { icon.glow.$k: 1 }
@@ -109,7 +109,7 @@ part Sound {
         let ay = ty + 172
         text "PLAYING" { at: lx, ay; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
         text sound.more { at: lx + 456, ay; anchor: right center; size: 10; color: #8b8f95 }
-        zone box apps_wheel { from: lx, ay + 10; size: 456, 132; active: page == sound and paging > 0.9 and sound.choosing == 0 }
+        zone box apps_wheel { from: lx, ay + 10; size: 456, 132; active: page == sound and paging > 0.9 and sound.choosing == 0; label: "Apps"; role: list }
         on scroll apps_wheel { emit sound_scroll(wheel) }
         column app_list {
             at: lx, ay + 12

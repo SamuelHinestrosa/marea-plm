@@ -100,6 +100,6 @@ def apply(scene, logic, root: Path):
                 f'on {gesture} level.{slot} {{ windows_level_drag.{slot + 1} = true; windows_level_pending.{slot + 1} = true; windows_level_target.{slot + 1}: {expr} ~16ms; emit {event}({expr}) }}')
         scene = replace(scene, f'        on drag level.{slot}',
             f'        on release level.{slot} {{ windows_level_drag.{slot + 1} = false; windows_level_pending.{slot + 1} = true; windows_level_target.{slot + 1}: {expr} ~16ms; emit {event}({expr}) }}\n        on drag level.{slot}')
-    scene = replace(scene, 'zone box level.$k { from: lx + 52, py + 44; size: 346, 22; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0 }',
-                    'zone box level.$k { from: lx + 52, py + 44; size: 346, 22; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0 and pick(k, windows_level_available.1, windows_level_available.2) }')
+    scene = replace(scene, 'zone box level.$k { from: lx + 52, py + 44; size: 346, 22; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0',
+                    'zone box level.$k { from: lx + 52, py + 44; size: 346, 22; cursor: pointer; active: page == sound and paging > 0.9 and sound.choosing == 0 and pick(k, windows_level_available.1, windows_level_available.2)')
     return scene, logic
