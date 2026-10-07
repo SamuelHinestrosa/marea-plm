@@ -82,6 +82,25 @@ jobs:
       - name: Generated profile and isolated service logic
         working-directory: marea
         run: python windows/test-logic.py --binary ../pleamar/target/debug/pleamar${{ runner.os == 'Windows' && '.exe' || '' }} --luau-runner ../pleamar/target/debug/examples/luau-test${{ runner.os == 'Windows' && '.exe' || '' }}
+      - name: Prepare the pinned native shader compiler
+        if: runner.os == 'Windows'
+        working-directory: pleamar
+        shell: pwsh
+        run: ./scripts/prepare-windows-runtime.ps1 -BinaryDirectory target/debug
+      - name: Render Marea controls, settings and chat on the disposable CI desktop
+        if: runner.os == 'Windows'
+        working-directory: marea
+        env:
+          MAREA_CI_PROFILE_UI: '1'
+        run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/debug/pleamar.exe --output "${{ runner.temp }}/marea-profile-ui"
+      - name: Preserve native Marea screenshots and interaction evidence
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: marea-native-profile-ui
+          path: ${{ runner.temp }}/marea-profile-ui
+          if-no-files-found: warn
+          retention-days: 14
       - name: Real native Luau to SQLite transport without a display
         if: runner.os == 'Windows'
         working-directory: marea

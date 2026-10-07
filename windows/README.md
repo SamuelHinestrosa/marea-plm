@@ -41,6 +41,16 @@ are reachable in pages of 24 rows, including after deleting the last page.
 Seven native storage/error cases, shared logic tests, and six DISPLAY2 captures
 passed; the captures used fixtures and sent no physical input.
 
+The Windows profile workflow also runs `test-profile-ui-ci.py` on its disposable
+GitHub-hosted desktop. It renders the generated control center, Windows-key
+settings and six chat/settings states, checks translated control metadata,
+drags the volume slider through named scene input and checks that a long chat
+keeps its final row visible. All services are denied and the Luau logic uses
+fixture data, so it cannot change a device, enable a keyboard hook or contact
+a model. The artifact contains screenshots, scene trees, logs and a report;
+its pixels still need visual review. The script refuses local desktops. This
+is UI integration coverage, not physical input or full product acceptance.
+
 From the repository root, after preparing the native x64/MSVC pleamar build
 with default Luau and its app-local runtime files:
 
