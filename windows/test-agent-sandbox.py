@@ -65,13 +65,14 @@ try:
 
     # The first repeat adopts the worker's newly created files. Thereafter the
     # real LPAC worker keeps its permissions without rewriting identical ACLs.
-    for repeat in range(2):
+    for repeat in range(5):
         result=run();assert result.returncode==0,result.stderr
         repeated=json.loads(result.stdout)
         assert all(repeated.get(name) is True for name in names),repeated
     writes=re.search(r'security updates \((\d+) writes\)',result.stderr)
     assert writes and int(writes[1])==0,result.stderr
     report['checks']['unchangedStateNeedsNoSecurityWrites']=True
+    report['successful_immediate_restarts']=5
 
     # A persistent, idle worker must die when its owner disappears.
     child=subprocess.Popen(command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,encoding='utf-8',env=env,creationflags=flags)

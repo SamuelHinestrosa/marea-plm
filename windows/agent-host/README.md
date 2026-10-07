@@ -71,6 +71,15 @@ UI run on DISPLAY2 completed seven 90-second samples with three real signed-out
 SDK reopen/retirement cycles; all owned processes exited. This covers idle
 lifecycle/resource use, not authenticated work or physical interaction.
 
+A sharing violation while locking a sandbox path now retries for at most three
+seconds. Immediate restarts exposed error 32 in Windows CI; the log did not
+identify the process retaining the file. The retry retains the original access
+and sharing flags, and validates links and permissions through the acquired
+handle. Persistent locks stop startup with the affected path in the error;
+other errors return immediately. Native regression tests reproduce temporary
+and persistent contention, including denial of writes while the lock is held.
+The boundary test also runs five consecutive worker restarts.
+
 The implementation follows Microsoft's [LPAC launch contract](https://learn.microsoft.com/en-us/windows/win32/secauthz/implementing-an-appcontainer),
 [AccessCheck](https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-accesscheck)
 and the documented non-propagating `MAXIMUM_ALLOWED` behavior of

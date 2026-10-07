@@ -5,8 +5,10 @@ use std::{
     os::windows::fs::MetadataExt,
     path::{Path, PathBuf},
     ptr::{null, null_mut},
+    time::{Duration, Instant},
 };
 use windows_sys::Win32::{
+    Foundation::{ERROR_SHARING_VIOLATION, INVALID_HANDLE_VALUE},
     Security::{Authorization::*, *},
     Storage::FileSystem::*,
     System::SystemServices::MAXIMUM_ALLOWED,
@@ -20,10 +22,12 @@ struct Entry {
 fn open(path: &Path) -> Result<Entry> {
     // MAXIMUM_ALLOWED has documented non-propagating SetSecurityInfo semantics.
     // Each object is checked and updated through this exact, non-reparse handle.
-    let handle = Handle::new(
-        unsafe {
+    let name = wide(path);
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let handle = loop {
+        let raw = unsafe {
             CreateFileW(
-                wide(path).as_ptr(),
+                name.as_ptr(),
                 MAXIMUM_ALLOWED,
                 FILE_SHARE_READ,
                 null(),
@@ -31,9 +35,20 @@ fn open(path: &Path) -> Result<Entry> {
                 FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
                 null_mut(),
             )
-        },
-        "lock sandbox path",
-    )?;
+        };
+        if raw != INVALID_HANDLE_VALUE && !raw.is_null() {
+            break Handle(raw);
+        }
+        let error = std::io::Error::last_os_error();
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        // A file can still be held briefly across worker restarts. Keep the
+        // exclusive write/delete boundary, and validate the acquired handle
+        // normally; persistent contention must still stop startup.
+        if error.raw_os_error() != Some(ERROR_SHARING_VIOLATION as i32) || remaining.is_zero() {
+            return Err(format!("lock sandbox path '{}': {error}", path.display()));
+        }
+        std::thread::sleep(remaining.min(Duration::from_millis(25)));
+    };
     let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { zeroed() };
     ok(
         unsafe { GetFileInformationByHandle(handle.0, &mut info) },
@@ -326,6 +341,77 @@ pub(super) fn prepare(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn retries_temporary_file_contention_without_relaxing_the_lock() {
+        use std::{os::windows::fs::OpenOptionsExt, time::Duration};
+        let path = std::env::temp_dir().join(format!(
+            "marea-agent-contention-{}-ñ.txt",
+            std::process::id()
+        ));
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .share_mode(FILE_SHARE_READ)
+            .open(&path)
+            .unwrap();
+        struct Cleanup(PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_file(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(path.clone());
+        let release = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            drop(file);
+        });
+        let result = open(&path);
+        release.join().unwrap();
+        let entry = result.unwrap();
+        assert_eq!(
+            std::fs::OpenOptions::new()
+                .write(true)
+                .open(&path)
+                .unwrap_err()
+                .raw_os_error(),
+            Some(32)
+        );
+        drop(entry);
+        std::fs::OpenOptions::new().write(true).open(&path).unwrap();
+    }
+
+    #[test]
+    fn persistent_contention_reports_the_path_and_stops_startup() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let path = std::env::temp_dir().join(format!(
+            "marea-agent-persistent-lock-{}-ñ.txt",
+            std::process::id()
+        ));
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .share_mode(FILE_SHARE_READ)
+            .open(&path)
+            .unwrap();
+        let began = Instant::now();
+        let result = open(&path);
+        let elapsed = began.elapsed();
+        drop(file);
+        std::fs::remove_file(&path).unwrap();
+        let error = result.err().unwrap();
+        assert!(error.contains(&path.display().to_string()), "{error}");
+        assert!(error.contains("os error 32"), "{error}");
+        assert!(elapsed >= Duration::from_secs(3), "{elapsed:?}");
+        assert!(elapsed < Duration::from_secs(10), "{elapsed:?}");
+
+        let began = Instant::now();
+        let error = open(&path).err().unwrap();
+        assert!(error.contains("os error 2"), "{error}");
+        assert!(began.elapsed() < Duration::from_secs(1));
+    }
+
     #[test]
     fn repeated_preparation_keeps_real_acl_and_label_without_rewriting() {
         use windows_sys::Win32::Security::Isolation::DeriveAppContainerSidFromAppContainerName;
