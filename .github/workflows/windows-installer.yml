@@ -93,6 +93,23 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Dock fixture guard failed.' }
           cargo build --release --locked --features windows-host --bins --example windows-dock-fixture
           if ($LASTEXITCODE -ne 0) { throw 'Window manager build failed.' }
+      - name: Native fullscreen and recovery on the disposable Windows desktop
+        working-directory: pleamar-wm
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/pleamar/target
+          PLEAMAR_WM_CI_FULLSCREEN: '1'
+          PLEAMAR_WM_TEST_OUTPUT: ${{ runner.temp }}/wm-fullscreen-acceptance
+        run: >-
+          cargo test --release --locked --bin pleamar-wm
+          windows_backend::session::fullscreen_tests::native_fullscreen_and_recovery
+          -- --ignored --exact --nocapture --test-threads=1
+      - name: Keep native fullscreen evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wm-fullscreen-acceptance
+          path: ${{ runner.temp }}/wm-fullscreen-acceptance
+          if-no-files-found: warn
       - name: Build and test the native AI host
         working-directory: marea
         run: |
@@ -118,6 +135,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Native Marea dock failed.' }
           python windows/test-dock-owner.py --binary $wm --monitor $screens[0].name --ci-owned-desktop --output .tools/dock-owner-smoke
           if ($LASTEXITCODE -ne 0) { throw 'Native Marea dock ownership failed.' }
+          python ../pleamar-wm/tests/windows-fullscreen.py --binary $wm --fixture ../pleamar/target/release/examples/windows-dock-fixture.exe --monitor $screens[0].name --ci-owned-desktop --output .tools/fullscreen-process-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Native cross-process fullscreen failed.' }
       - name: Keep native dock evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -126,6 +145,7 @@ jobs:
           path: |
             marea/.tools/dock-smoke
             marea/.tools/dock-owner-smoke
+            marea/.tools/fullscreen-process-smoke
           if-no-files-found: warn
       - name: Prepare pinned installer and Node tools
         working-directory: marea

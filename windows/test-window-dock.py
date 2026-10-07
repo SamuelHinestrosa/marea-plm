@@ -41,13 +41,14 @@ log("PASS: dock geometry uses physical work areas and DPI, coalesces refresh, in
 run_checks(args, geometry.replace('__MODULE__', (root / 'tools/windows-dock.luau').read_text(encoding='utf-8')), 'PASS: dock geometry', 'dock-geometry')
 
 adapter = r'''
-local handlers, requests, children, notices = {}, {}, {}, {}
+local handlers, requests, children, notices, timers = {}, {}, {}, {}, {}
 local entries, hooks, fact = {{id="other"}}, {}, {locale="es"}
 local screen = "\\\\.\\DISPLAY1"
 local value = {running=true,automatic_layouts=true,window_overview=true,monitors={{name=screen}}}
 local json = {decode=function() return value end}
 local function tr(s) return s end
 local function on(name,callback) handlers[name]=callback end
+local function after(ms,callback) assert(ms==2000);timers[#timers+1]=callback end
 local function run(command,args,done,options) assert(command=="pleamar-wm");requests[#requests+1]={args=args,done=done,options=options} end
 local function spawn(command,args,line,done,options)
     assert(command=="pleamar-wm" and args[2]=="tools/windows-dock.plm")
@@ -66,18 +67,22 @@ hooks.windows_dock();assert(#children==1 and entries[5].title=="Hide application
 hooks.windows_dock();hooks.windows_dock();assert(#requests==3 and #children==1)
 assert(table.concat(requests[3].args,",")=="--say,windows-dock,quit")
 assert(requests[3].options.env.PLEAMAR_SOCKET_DIR==children[1].endpoint)
-requests[3].done("not listening yet",1);assert(#notices==1)
+requests[3].done("not listening yet",1);assert(#notices==0)
+timers[1]();assert(#notices==1)
 hooks.windows_dock();assert(#requests==4);requests[4].done("bye",0)
 hooks.windows_dock();assert(#children==1)
 children[1].done("",0);assert(entries[5].title=="Show application dock")
+timers[2]();assert(#notices==1)
 hooks.windows_dock();assert(#children==2)
 assert(children[2].endpoint~=children[1].endpoint)
 children[1].done("late",1);assert(entries[5].title=="Hide application dock" and #notices==1)
 children[2].line("windows dock: app refused");assert(#notices==2)
+children[2].line("windows dock metadata: a catalog window exited");assert(#notices==2)
 -- Hide stays available after losing the session, until the owned dock exits.
 value={running=false};handlers["fact:menu_open"](true);requests[5].done("status",0)
 assert(#entries==2 and entries[2].title=="Hide application dock")
-hooks.windows_dock();requests[6].done("bye",0);children[2].done("",0)
+hooks.windows_dock();requests[6].done("pipe disconnected",1);children[2].done("",0)
+timers[3]();assert(#notices==2,"successful owned exit produced a stale close error")
 assert(#entries==1 and not hooks.windows_wm_allowed("Application dock"))
 log("PASS: Marea dock capability gate, monitor/locale selection, open/hide ownership, errors and stale callbacks")
 '''

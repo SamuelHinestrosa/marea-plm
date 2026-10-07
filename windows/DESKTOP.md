@@ -822,3 +822,18 @@ idle sample on this D3D12 machine used 0.155% of one CPU core and held private
 commit at 174,317,568 bytes (166.2 MiB). This is a short sample of the separate
 dock process; it is neither total Marea memory nor a sustained performance
 claim. `tests/windows-dock.py --idle-seconds 10` records reproducible counters.
+
+Win+F, when the dedicated Windows-key layer is enabled, now asks the native WM
+session to toggle borderless fullscreen for the active managed application.
+The shortcut page includes its Spanish/English description. The WM journals
+the frame and placement before changing them, keeps the window outside tiling
+while fullscreen and restores it on exit/recovery. Scoped native fullscreen
+acceptance passed locally on the secondary display; physical Win+F and the
+maximized/focus cases still require their separate Windows acceptance checks.
+
+Dock close errors wait for the owned child to exit before displaying a failure;
+an IPC reply racing a successful exit does not produce a stale error toast.
+A child that remains open for two seconds reports failure and can be retried.
+Background application-catalog diagnostics use a separate prefix from failed
+user dock actions. The native owner acceptance preserves any unexpected notice
+in its report and log so installer failures include the actual message.

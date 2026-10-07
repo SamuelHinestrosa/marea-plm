@@ -75,6 +75,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
     hooks.windows_focus_next = function() request("emit focus_next", true, true) end
     hooks.windows_focus_previous = function() request("emit focus_previous", true, true) end
     hooks.windows_close = function() request("emit close", true) end
+    hooks.windows_fullscreen = function() request("emit fullscreen", true) end
     hooks.windows_overview = function()
         if not overview then request("status", true); return end
         if viewing then notice(tr("The window view is already open.")); return end
@@ -100,13 +101,21 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
             local child = dock_view
             if child.closing then return end
             child.closing = true
+            child.close_attempt = (child.close_attempt or 0) + 1
+            local attempt, problem = child.close_attempt, ""
+            -- A quit reply can race process teardown. The owned process callback
+            -- decides whether it closed; a still-running child remains retryable.
+            after(2000, function()
+                if dock_view ~= child or not child.closing or child.close_attempt ~= attempt then return end
+                child.closing = false
+                notice(tr("The application dock could not close.") .. " " .. problem)
+            end)
             local completed = false
             local function done(output, code)
                 if completed or dock_view ~= child then return end
                 completed = true
                 if code ~= 0 or tostring(output or ""):sub(1, 1) == "?" then
-                    child.closing = false
-                    notice(tr("The application dock could not close.") .. " " .. tostring(output or ""):sub(1, 180))
+                    problem = tostring(output or ""):sub(1, 180)
                 end
                 -- The process callback, not an IPC acknowledgement, releases ownership.
             end

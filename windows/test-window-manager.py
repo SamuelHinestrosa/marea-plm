@@ -110,6 +110,11 @@ assert(#requests==15 and #notices==9, "failed navigation continued acting on a d
 hooks.windows_close();hooks.windows_close()
 assert(#requests==16 and requests[16].command=="emit close")
 requests[16].done("good",0)
+hooks.windows_fullscreen();hooks.windows_fullscreen()
+assert(#requests==17 and requests[17].command=="emit fullscreen")
+requests[17].done("fullscreen target is outside this WM session",1)
+assert(#notices==10 and notices[10]:find("outside this WM session",1,true))
+hooks.windows_fullscreen();assert(#requests==18);requests[18].done("good",0)
 log("PASS: native WM capability menus, serialization, monitor scope and failed actions")
 '''
 run_checks(args, checks.replace('__MODULE__', module), 'PASS: native WM capability', 'window-manager')

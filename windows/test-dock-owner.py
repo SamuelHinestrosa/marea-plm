@@ -72,7 +72,7 @@ def wait(fn,label):
 
 module=(root/'windows/window-manager.luau').read_text(encoding='utf-8')
 status=json.dumps(dict(running=True,automatic_layouts=True,window_overview=True,application_dock=True,monitors=[dict(name=screen['name'])]))
-logic='local hooks, entries = {}, {}\nlocal actual_run, actual_spawn = run, spawn\nlocal function execute(command, args, done, options)\n    if args[1] == "--say" and args[2] == "wm" and args[3] == "status" then done([==[__STATUS__]==], 0)\n    else actual_run(command, args, done, options) end\nend\nlocal function start(command, args, line, done, options)\n    text.endpoint = options.env.PLEAMAR_SOCKET_DIR\n    return actual_spawn(command, args, line, done, options)\nend\nlocal install=(function() __MODULE__ end)()\ninstall(execute, hooks, entries, function()\n    fact.dock_open = false\n    for _,entry in ipairs(entries) do if entry.id=="windows.wm.dock" then fact.dock_open=entry.title=="Hide application dock" end end\nend, function() return [==[__MONITOR__]==] end, function(message) text.notice=message end, start)\non("toggle", hooks.windows_dock)\n'
+logic='local hooks, entries = {}, {}\nlocal actual_run, actual_spawn = run, spawn\nlocal function execute(command, args, done, options)\n    if args[1] == "--say" and args[2] == "wm" and args[3] == "status" then done([==[__STATUS__]==], 0)\n    else actual_run(command, args, done, options) end\nend\nlocal function start(command, args, line, done, options)\n    text.endpoint = options.env.PLEAMAR_SOCKET_DIR\n    return actual_spawn(command, args, line, done, options)\nend\nlocal install=(function() __MODULE__ end)()\ninstall(execute, hooks, entries, function()\n    fact.dock_open = false\n    for _,entry in ipairs(entries) do if entry.id=="windows.wm.dock" then fact.dock_open=entry.title=="Hide application dock" end end\nend, function() return [==[__MONITOR__]==] end, function(message) text.notice=message; log(message) end, start)\non("toggle", hooks.windows_dock)\n'
 logic=logic.replace('__STATUS__',status).replace('__MONITOR__',screen['name']).replace('__MODULE__',module)
 try:
     for name in ['dock-owner-a','dock-owner-b']:
@@ -104,7 +104,9 @@ try:
     owners[1][1].kill();owners[1][1].wait(timeout=5)
     wait(lambda:not windows(children[1]['pid']),'dock ended with its owner')
     report['stages'].append('forced-owner-exit-cleans-its-dock')
-    assert say(owners[0][0],'get notice') in ('','""')
+    notice=say(owners[0][0],'get notice')
+    report['notice']=notice
+    assert notice in ('','""'), notice
     report.update(passed=True,foreground_owned_at_checks=False,children=[{k:c[k] for k in ['pid','endpoint']} for c in children])
 finally:
     for name,process in owners:

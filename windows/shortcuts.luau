@@ -1,7 +1,7 @@
 return function(native_sys, notice, hooks)
     local bindings = {["Win"]="search", ["Win+Space"]="search", ["Win+Shift+A"]="chat",
         ["Win+A"]="controls", ["Win+I"]="settings", ["Win+Tab"]="windows", ["Win+N"]="notifications", ["Win+W"]="layout",
-        ["Win+D"]="dock", ["Win+M"]="minimize", ["Win+Shift+M"]="restore_last", ["Win+Q"]="close",
+        ["Win+D"]="dock", ["Win+M"]="minimize", ["Win+Shift+M"]="restore_last", ["Win+Q"]="close", ["Win+F"]="fullscreen",
         ["Win+Left"]="focus_previous", ["Win+Up"]="focus_previous",
         ["Win+Right"]="focus_next", ["Win+Down"]="focus_next"}
     local actions = {search="search", chat="chat", controls="windows_controls", settings="settings", notifications="open_tray"}
@@ -28,7 +28,8 @@ return function(native_sys, notice, hooks)
         elseif value.event == "restore_last" and hooks.windows_restore_last then hooks.windows_restore_last()
         elseif value.event == "focus_next" and hooks.windows_focus_next then hooks.windows_focus_next()
         elseif value.event == "focus_previous" and hooks.windows_focus_previous then hooks.windows_focus_previous()
-        elseif value.event == "close" and hooks.windows_close then hooks.windows_close() end
+        elseif value.event == "close" and hooks.windows_close then hooks.windows_close()
+        elseif value.event == "fullscreen" and hooks.windows_fullscreen then hooks.windows_fullscreen() end
     end)
     local args = shortcut == "" and {"search"} or {"search", shortcut}
     local ok, error = pcall(native_sys.call_async, shortcut == "" and "hotkeys.unbind" or "hotkeys.bind", args, function(output, code)
