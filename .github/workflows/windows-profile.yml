@@ -15,6 +15,10 @@ on:
         description: Also sample the native renderer during six conversation/closure cycles
         default: false
         type: boolean
+      retained_surface:
+        description: Compare the optional Windows retained canvas (requires a supporting engine)
+        default: false
+        type: boolean
 permissions:
   contents: read
 jobs:
@@ -105,6 +109,7 @@ jobs:
         working-directory: marea
         env:
           MAREA_CI_PROFILE_UI: '1'
+          PLEAMAR_RETAINED_SURFACE: ${{ inputs.retained_surface && '1' || '0' }}
         run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/release/pleamar.exe --output "${{ runner.temp }}/marea-profile-ui" ${{ inputs.measure_resources && '--resource-cycles 6' || '' }}
       - name: Preserve native Marea screenshots and interaction evidence
         if: always() && runner.os == 'Windows'

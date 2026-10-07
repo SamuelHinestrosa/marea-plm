@@ -202,9 +202,12 @@ def exercise(binary, output, root, resource_cycles=0):
     env = dict(os.environ, APPDATA=str(output / 'state'), LOCALAPPDATA=str(output / 'local'),
                PLEAMAR_CONFIG=str(output / 'config'), PLEAMAR_SOCKET_DIR=f'marea-profile-ci-{os.getpid()}',
                MAREA_SEARCH_HOTKEY='', PLEAMAR_NO_RELAUNCH='1', PLEAMAR_TEST_WINDOWS='1')
+    retained = env.get('PLEAMAR_RETAINED_SURFACE') == '1'
+    if retained:
+        env['PLEAMAR_TIMING'] = '1'
     flags = subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS
     report = dict(passed=False, fixture_logic=True, fixture_background=True, environment='github-hosted', physical_input=False,
-                  device_services=False, real_account=False, full_product_acceptance=False,
+                  device_services=False, real_account=False, full_product_acceptance=False, retained_surface=retained,
                   binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
                   scene_sha256=hashlib.sha256(scene.read_bytes()).hexdigest(), checks=[], images=[])
     process, hwnd = None, None
@@ -332,6 +335,8 @@ def exercise(binary, output, root, resource_cycles=0):
             assert process.wait(timeout=20) == 0
         logs = (output / 'scene.log').read_text(encoding='utf-8')
         assert 'first frame' in logs and 'runtime error:' not in logs, logs
+        if retained:
+            assert 'retained surface allocated' in logs, 'Requested retained surface was not exercised'
         report['passed'] = True
     finally:
         if process and process.poll() is None:

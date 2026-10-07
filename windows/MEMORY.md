@@ -63,9 +63,23 @@ not demonstrate a long-run leak or rule one out.
 Conversation intervals consumed 367–372% of one CPU core; closed intervals
 consumed 66–145%. This software-rendered run is not a hardware-GPU performance
 result, and the observed resident-memory decline is not an optimization gain.
-The recording predates the per-interval engine reports; the next instrumented
-run is needed to locate its cost before changing renderer behavior. It includes
-no SDK, hardware services, account or physical input.
+The [instrumented follow-up](https://github.com/SamuelHinestrosa/marea-plm/actions/runs/37608860736)
+(Marea `98fd4fa3`, engine `49150679`) also passed Windows/Linux and retained
+ten inspected PNGs, 94 resource samples and fourteen renderer reports. During
+conversation intervals, mean painting costs 472–483 ms per round, versus
+0.43–0.57 ms for rules and 0.88–0.99 ms for composition. Median frame times are
+474–482 ms on the software adapter. Closed intervals have a 16.6 ms median,
+mostly waiting, with occasional expensive repaints. Private commit changed
+234.457→234.207 MiB between settled closed states; GDI/USER stayed at 8/15.
+These runs contain no SDK, hardware services, account or physical input.
+
+The workflow's optional `retained_surface` input exercises the engine's
+experimental Windows canvas and records that choice in `report.json`. It
+requires an allocation trace, so an engine that ignores the option cannot
+produce a false comparison. Retention uses extra bounded texture memory to
+reduce repainting; it is disabled by default pending pixel and performance
+comparisons. Neither these measurements nor this option claim a RAM reduction
+or physical-GPU frame rate.
 
 ## SDK distribution size and initial preparation
 
