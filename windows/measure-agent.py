@@ -9,6 +9,7 @@ import queue
 import subprocess
 import threading
 import time
+from process_memory import Reader
 
 
 class ProcessEntry(c.Structure):
@@ -16,12 +17,6 @@ class ProcessEntry(c.Structure):
                 ('heap', c.c_size_t), ('module', w.DWORD), ('threads', w.DWORD),
                 ('parent', w.DWORD), ('priority', w.LONG), ('flags', w.DWORD),
                 ('name', w.WCHAR * 260)]
-
-
-class Memory(c.Structure):
-    _fields_ = [('cb', w.DWORD), ('faults', w.DWORD)] + [(name, c.c_size_t) for name in
-        ('peak_working', 'working', 'peak_paged', 'paged', 'peak_nonpaged', 'nonpaged',
-         'pagefile', 'peak_pagefile', 'private')]
 
 
 def main():
@@ -42,7 +37,7 @@ def main():
     env = dict(os.environ, LOCALAPPDATA=str(local))
     flags = subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS
     kernel = c.WinDLL('kernel32', use_last_error=True)
-    psapi = c.WinDLL('psapi', use_last_error=True)
+    memory_reader = Reader()
     kernel.CreateToolhelp32Snapshot.argtypes = [w.DWORD, w.DWORD]
     kernel.CreateToolhelp32Snapshot.restype = w.HANDLE
     for name in ('Process32FirstW', 'Process32NextW'):
@@ -58,8 +53,6 @@ def main():
     kernel.GetProcessTimes.restype = w.BOOL
     kernel.GetProcessHandleCount.argtypes = [w.HANDLE, c.POINTER(w.DWORD)]
     kernel.GetProcessHandleCount.restype = w.BOOL
-    psapi.GetProcessMemoryInfo.argtypes = [w.HANDLE, c.POINTER(Memory), w.DWORD]
-    psapi.GetProcessMemoryInfo.restype = w.BOOL
 
     def node_handle(parent):
         snapshot = kernel.CreateToolhelp32Snapshot(2, 0)
@@ -80,15 +73,12 @@ def main():
 
     def metrics(handle):
         created, ended, system, user = [w.FILETIME() for _ in range(4)]
-        memory, handles = Memory(), w.DWORD()
-        memory.cb = c.sizeof(memory)
+        handles = w.DWORD()
         for ok in (kernel.GetProcessTimes(handle, c.byref(created), c.byref(ended), c.byref(system), c.byref(user)),
-                   kernel.GetProcessHandleCount(handle, c.byref(handles)),
-                   psapi.GetProcessMemoryInfo(handle, c.byref(memory), memory.cb)):
+                   kernel.GetProcessHandleCount(handle, c.byref(handles))):
             if not ok: raise c.WinError(c.get_last_error())
         return {'cpu_seconds': sum((v.dwHighDateTime << 32) | v.dwLowDateTime for v in (system, user)) / 1e7,
-                'working_set_mib': round(memory.working / 2**20, 2),
-                'private_mib': round(memory.private / 2**20, 2), 'handles': handles.value}
+                **memory_reader.read(handle), 'handles': handles.value}
 
     report = {'complete': False, 'package': str(package), 'cycles': [],
               'scope': 'Real full SDK signed out and idle; separate validation profile and fresh account state. No model, Marea UI or desktop input.'}

@@ -15,6 +15,7 @@ import re
 import subprocess
 import sys
 import time
+from process_memory import Reader
 
 
 def summarize_trace(lines, opened, skin):
@@ -61,14 +62,9 @@ def main():
                PLEAMAR_TIMING='1', PLEAMAR_NO_RELAUNCH='1', MAREA_SEARCH_HOTKEY='',
                CLAUDE_CONFIG_DIR=str(state / 'claude'), CODEX_HOME=str(state / 'codex'))
 
-    class Memory(ctypes.Structure):
-        _fields_ = [('cb', wintypes.DWORD), ('PageFaultCount', wintypes.DWORD)] + [
-            (name, ctypes.c_size_t) for name in ('PeakWorkingSetSize', 'WorkingSetSize',
-            'QuotaPeakPagedPoolUsage', 'QuotaPagedPoolUsage', 'QuotaPeakNonPagedPoolUsage',
-            'QuotaNonPagedPoolUsage', 'PagefileUsage', 'PeakPagefileUsage', 'PrivateUsage')]
+    memory_reader = Reader()
 
     kernel = ctypes.WinDLL('kernel32', use_last_error=True)
-    psapi = ctypes.WinDLL('psapi', use_last_error=True)
     user32 = ctypes.WinDLL('user32', use_last_error=True)
     user32.GetGuiResources.argtypes = [wintypes.HANDLE, wintypes.DWORD]
     user32.GetGuiResources.restype = wintypes.DWORD
@@ -76,17 +72,13 @@ def main():
     kernel.GetProcessTimes.restype = wintypes.BOOL
     kernel.GetProcessHandleCount.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
     kernel.GetProcessHandleCount.restype = wintypes.BOOL
-    psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(Memory), wintypes.DWORD]
-    psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
 
     def metrics(process):
         created, exited, system, user = [wintypes.FILETIME() for _ in range(4)]
-        memory, handles = Memory(), wintypes.DWORD()
-        memory.cb = ctypes.sizeof(memory)
+        handles = wintypes.DWORD()
         for success in (
             kernel.GetProcessTimes(int(process._handle), ctypes.byref(created), ctypes.byref(exited), ctypes.byref(system), ctypes.byref(user)),
             kernel.GetProcessHandleCount(int(process._handle), ctypes.byref(handles)),
-            psapi.GetProcessMemoryInfo(int(process._handle), ctypes.byref(memory), memory.cb),
         ):
             if not success:
                 raise ctypes.WinError(ctypes.get_last_error())
@@ -98,8 +90,8 @@ def main():
             if count == 0 and ctypes.get_last_error():
                 raise ctypes.WinError(ctypes.get_last_error())
             gui[name] = count
-        return dict(cpu_seconds=cpu, working_set_mib=round(memory.WorkingSetSize / 2**20, 2),
-                    private_mib=round(memory.PrivateUsage / 2**20, 2), handles=handles.value, **gui)
+        return dict(cpu_seconds=cpu, handles=handles.value,
+                    **memory_reader.read(int(process._handle)), **gui)
 
     def ask(command):
         return subprocess.check_output([str(binary), '--say', scene.stem, command], env=env,
