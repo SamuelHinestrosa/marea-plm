@@ -58,6 +58,8 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
         -- The native session resolves the pointer's monitor, independently of Marea's home.
         request("emit toggle_free", true)
     end
+    hooks.windows_minimize = function() request("emit minimize", true) end
+    hooks.windows_restore_last = function() request("emit restore_last", true) end
     hooks.windows_overview = function()
         if not overview then request("status", true); return end
         if viewing then notice(tr("The window view is already open.")); return end

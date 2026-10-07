@@ -12,6 +12,8 @@ The switch is off by default. While enabled, Win is dedicated to Marea:
 | Win+Tab | Window overview (requires the native WM session) |
 | Win+N | Notifications |
 | Win+W | Toggle tiled/free windows on the monitor under the pointer (requires the native WM session) |
+| Win+M | Minimize the active application on a managed monitor in free-window mode |
+| Win+Shift+M | Restore the last minimized application still inside the native WM session |
 
 Unassigned Win combinations are consumed too; Start and Windows' corresponding
 shortcuts are replaced while Marea owns the layer. Disable the switch to restore
@@ -25,6 +27,13 @@ choice; a failed save does not undo a successful opt-out. Restart uses only a
 recognized version-1 preference. A conflicting owner, registration error or
 timeout is shown instead of reporting success. This requires the corresponding
 pleamar Windows-key API; older engines report the option unavailable.
+
+The minimize/restore shortcuts require the native WM session. Its bounded
+history follows actual Windows minimize events, including the application's
+own minimize button; closed or already restored windows are removed. It tracks
+only windows in that session's monitor/process scope, and starts empty after
+a session restart. Restoration uses the native restore state, including a
+window minimized from maximized. Windows still controls foreground permission.
 
 ## Verification
 
