@@ -828,8 +828,17 @@ session to toggle borderless fullscreen for the active managed application.
 The shortcut page includes its Spanish/English description. The WM journals
 the frame and placement before changing them, keeps the window outside tiling
 while fullscreen and restores it on exit/recovery. Scoped native fullscreen
-acceptance passed locally on the secondary display; physical Win+F and the
-maximized/focus cases still require their separate Windows acceptance checks.
+acceptance passed locally on the secondary display. The disposable Windows CI
+also passed maximized restoration without foreground activation, both during a
+normal toggle and after reopening the recovery journal. Physical Win+F dispatch
+remains an acceptance check.
+
+The current generated shortcut page was rendered natively and visually checked:
+all thirteen Spanish rows, including Win+F, fit without overlap or clipping.
+The screenshot uses isolated fixture state; it does not enable the key hook or
+exercise real system controls. [Revisions and scope](../docs/windows-shortcuts/evidence.json).
+
+![Native Spanish shortcut page with Win+F](../docs/windows-shortcuts/shortcuts.png)
 
 Dock close errors wait for the owned child to exit before displaying a failure;
 an IPC reply racing a successful exit does not produce a stale error toast.
