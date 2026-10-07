@@ -194,7 +194,7 @@ def nodes(parts):
         yield from nodes(node.get('nodes', node.get('children', [])))
 
 
-def exercise(binary, output, root):
+def exercise(binary, output, root, resource_cycles=0):
     desktop = Desktop()
     scene = output / 'Marea profile ñ 海.plm'
     scene.write_text(fixture_source(root), encoding='utf-8')
@@ -252,7 +252,7 @@ def exercise(binary, output, root):
     try:
         run(['--check', str(scene)])
         with (output / 'scene.log').open('w', encoding='utf-8') as log:
-            process = subprocess.Popen([str(binary), '--scene', str(scene), '--no-hud', '--stall', '0', '--seconds', '180'], env=env,
+            process = subprocess.Popen([str(binary), '--scene', str(scene), '--no-hud', '--stall', '0', '--seconds', str(180 + resource_cycles * 20)], env=env,
                                        stdout=log, stderr=log, creationflags=flags)
             until(lambda: ask('get fixture_ready') == 'true', 'fixture initialization')
             hwnd = until(lambda: desktop.window(process.pid, 'pleamar surface 0 · '), 'main scene window')
@@ -294,6 +294,32 @@ def exercise(binary, output, root):
                     assert float(state['chat.length']) > 404, state
                     assert abs(float(state['chat.from_end']) - 404) < 1, state
             report['checks'].append('Six native chat/settings states and long conversation keeps the visible tail')
+            if resource_cycles:
+                from profile_resources import Probe, summarize
+                probe = Probe(process, output / 'resources.json')
+                ask('emit fixture_stage 8')
+                until(lambda: ask('get open') == 'false' and ask('get chatting') == 'false', 'closed resource baseline')
+                time.sleep(1.5)
+                baseline = probe.observe('closed-initial', 10)
+                for cycle in range(resource_cycles):
+                    ask('emit fixture_stage 5')
+                    until(lambda: ask('get chat.rows.count') == '12', 'resource conversation')
+                    time.sleep(1.5)
+                    probe.observe(f'conversation-{cycle}', 5)
+                    ask('emit fixture_stage 8')
+                    until(lambda: ask('get open') == 'false' and ask('get chatting') == 'false', 'resource closure')
+                    time.sleep(1.5)
+                    probe.observe(f'closed-{cycle}', 5)
+                final = probe.observe('closed-final', 10)
+                probe.report['between_closed_samples'] = summarize(baseline['final'], final['final'])
+                probe.finish()
+                report['resources'] = dict(file='resources.json', cycles=resource_cycles,
+                    whole_product_acceptance=False, real_sdk=False, physical_gpu_benchmark=False)
+                ask('emit fixture_stage 6')
+                until(lambda: any(n.get('label') == 'Volumen' for n in tree('controls-after-cycles')), 'controls after resource cycles')
+                time.sleep(1.2)
+                capture('10-controls-after-cycles')
+                report['checks'].append('Owned renderer counters during repeated conversation/closure; final controls still render')
             assert desktop.user.PostMessageW(hwnd, 0x10, 0, 0)
             assert process.wait(timeout=20) == 0
         logs = (output / 'scene.log').read_text(encoding='utf-8')
@@ -316,13 +342,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--resource-cycles', type=int, choices=range(0, 13), default=0,
+                        help='Optional bounded conversation/closure resource sampling; not a whole-product benchmark')
     args = parser.parse_args()
     require_ci()
     output = args.output.resolve()
     temporary = Path(os.environ['RUNNER_TEMP']).resolve()
     assert output != temporary and output.is_relative_to(temporary), 'Evidence must be in a new runner-temp directory'
     output.mkdir(parents=True, exist_ok=False)
-    exercise(args.binary.resolve(strict=True), output, Path(__file__).resolve().parents[1])
+    exercise(args.binary.resolve(strict=True), output, Path(__file__).resolve().parents[1], args.resource_cycles)
 
 
 if __name__ == '__main__':

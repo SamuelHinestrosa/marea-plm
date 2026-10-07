@@ -27,6 +27,24 @@ resident-memory outlier by themselves. Whole-Marea sustained measurements and
 their rendering/input checks remain necessary; no RAM reduction is claimed by
 this diagnostic change.
 
+## Repeatable renderer sample on disposable CI
+
+The desktop-profile workflow accepts `measure_resources: true`. After the nine
+native UI states it records the owned renderer's memory, CPU time, handles and
+GDI/USER counts through six long-conversation/closed cycles, then captures the
+control center again. `resources.json` retains one-second samples, each interval
+and the change between the settled first/last closed states. CPU percentages
+use one core; values over 100% are valid for a multithreaded renderer. Unknown
+resident counters remain null, and a failed read aborts the measurement.
+
+This fixture renders the generated Marea scene, with isolated Luau state and no
+SDK, devices, account or physical input. It cannot establish sustained whole-app
+RAM, physical-display FPS or GPU memory use. CI's adapter and rendering mode
+must be considered when comparing runs. There is no arbitrary memory threshold
+that turns these samples into a performance pass. The normal profile check
+does not enable the extra cycles. Local execution of the visible fixture is
+refused by the existing disposable-runner guard.
+
 ## SDK distribution size and initial preparation
 
 Both Windows installers omit dependency type declarations (`.d.ts`, `.d.mts`,

@@ -11,6 +11,10 @@ on:
         description: Exact port commit or PR ref, including the luau-test example
         required: true
         type: string
+      measure_resources:
+        description: Also sample the native renderer during six conversation/closure cycles
+        default: false
+        type: boolean
 permissions:
   contents: read
 jobs:
@@ -76,6 +80,9 @@ jobs:
       - name: Owned process memory counters (no desktop)
         working-directory: marea
         run: python windows/test-process-memory.py
+      - name: Resource interval calculations (no desktop)
+        working-directory: marea
+        run: python windows/test-profile-resources.py
       - name: Native SDK distribution inventory
         working-directory: marea
         run: python windows/test-agent-files.py
@@ -98,7 +105,7 @@ jobs:
         working-directory: marea
         env:
           MAREA_CI_PROFILE_UI: '1'
-        run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/release/pleamar.exe --output "${{ runner.temp }}/marea-profile-ui"
+        run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/release/pleamar.exe --output "${{ runner.temp }}/marea-profile-ui" ${{ inputs.measure_resources && '--resource-cycles 6' || '' }}
       - name: Preserve native Marea screenshots and interaction evidence
         if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@v4
