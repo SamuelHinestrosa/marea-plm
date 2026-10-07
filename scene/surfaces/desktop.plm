@@ -13,7 +13,7 @@ part Desktop {
         size: full, full
         anchor: top_left
         level: top
-        screens: each max 2
+        screens: each max 3
         open: open or tray_open or menu_open or reel_open or searching or chatting
         //  And the zone says it again: a full-screen zone that stays on by
         //  mistake is the whole desktop taken. It happened.
@@ -47,7 +47,7 @@ part Desktop {
         size: full, full
         anchor: top_left
         level: bottom
-        screens: each max 2
+        screens: each max 3
         open: tide.on
         let here = screen.index == tide.home
         let tw = tide.width
@@ -91,7 +91,7 @@ part Desktop {
         size: full, full
         anchor: top_left
         level: overlay
-        screens: each max 2
+        screens: each max 3
         open: adventuring and screen.index == adv_screen
         //  Where she is: across the bottom and between home and the floor.
         //  Home is where she lives: 50 px left of the middle, at her height.
@@ -154,7 +154,7 @@ part Desktop {
         //  being recorded—. It used to say `screens: "DP-3"`, from when she only
         //  lived there, and with her on the other monitor the corner came out on
         //  the wrong one.
-        screens: each max 2
+        screens: each max 3
         //  Open while anything of her is left inside: that way she slides out
         //  instead of disappearing with the window.
         open: tuck > 0.01 and screen.index == nook_screen

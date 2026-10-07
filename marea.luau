@@ -1092,7 +1092,7 @@ local told_island = nil
 local function tell_island()
     if not in_wm then return end
     local name = nil
-    for k = 0, 1 do
+    for k = 0, 2 do
         if fact["hosts." .. k] == true then name = monitors[k + 1] end
     end
     if name == nil or name == told_island then return end
@@ -1109,7 +1109,7 @@ end
 local function decide()
     --  In pleamar-wm's session she follows the mouse; elsewhere, the focus.
     local wanted = pointed or focused
-    for k = 0, 1 do
+    for k = 0, 2 do
         local name = monitors[k + 1]
         local hers
         if fact.following == true then
@@ -1401,7 +1401,7 @@ local function place()
     fact.taking_room = settings.room == true
     decide()
 end
-for k = 0, 1 do
+for k = 0, 2 do
     on("text:screen." .. k .. ".name", function(name)
         if name == nil or name == "" then return end
         monitors[k + 1] = name
@@ -1410,7 +1410,7 @@ for k = 0, 1 do
 end
 --  When only the logic is reloaded, the names no longer arrive again: the ones
 --  there are are read.
-for k = 0, 1 do
+for k = 0, 2 do
     local name = text["screen." .. k .. ".name"]
     if name ~= nil and name ~= "" then monitors[k + 1] = name end
 end
