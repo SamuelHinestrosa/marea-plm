@@ -26,3 +26,28 @@ future recordings. They do not explain the previously observed long-run
 resident-memory outlier by themselves. Whole-Marea sustained measurements and
 their rendering/input checks remain necessary; no RAM reduction is claimed by
 this diagnostic change.
+
+## SDK distribution size and initial preparation
+
+Both Windows installers omit dependency type declarations (`.d.ts`, `.d.mts`,
+`.d.cts`) and compiler source maps. Executable JavaScript and TypeScript,
+arbitrary `.map` assets, prompts, manifests, native modules and license/notice
+files remain. The source checkout and its development dependencies are unchanged.
+The distribution therefore does not include SDK source-map debugging metadata.
+
+For the pinned SDK 0.84.4 / Node 22.23.3 bundle, this removes 7,263 files and
+50,762,864 uncompressed bytes (48.4 MiB). An owned, uninstalled comparison on
+Windows on 2026-10-07 used identical host/worker/runtime bytes and fresh
+validation profiles. Initial signed-out readiness was 90.953 s with the full
+inventory and 45.531 s with the smaller inventory; the permission trace located
+most of that cost in checking the package paths. The second launch in each
+package was 1.625 s and 1.750 s respectively. These are individual local samples,
+not a general startup-speed guarantee. Installation normally prepares package
+permissions before interactive use.
+
+Both SDK variants reached the real signed-out protocol state, exited their
+owned Node child and removed their validation profile. In the two five-second
+idle samples per variant, private resident memory remained around 65–67 MiB
+and the process reported 114 handles. This packaging change reduces disk size
+and initial preparation work; no steady-state RAM improvement is claimed.
+Signed-in model flows and whole-Marea sustained measurements remain separate.

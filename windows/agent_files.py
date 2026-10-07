@@ -13,6 +13,13 @@ SOURCES = ('worker.mjs', 'tools.mjs', 'auth-interaction.mjs', 'state-image.mjs',
            'desktop-policy.mjs', 'package.json', 'package-lock.json')
 
 
+def runtime_dependency(name):
+    # Type declarations and compiler source maps are development metadata.
+    # Keep executable TypeScript, arbitrary .map assets, prompts and licenses.
+    return not name.endswith(('.d.ts', '.d.mts', '.d.cts', '.js.map', '.mjs.map',
+                              '.cjs.map', '.ts.map', '.mts.map', '.cts.map'))
+
+
 def x64(path):
     with path.open('rb') as stream:
         header = stream.read(64)
@@ -83,7 +90,8 @@ def collect(host, node_directory, root=ROOT):
             ordinary(source)
             if directory == modules and name != '.package-lock.json':
                 raise ValueError(f'Unrecorded dependency-root file: {name}; run npm ci.')
-            files['app/agent/' + source.relative_to(code).as_posix()] = source
+            if runtime_dependency(name):
+                files['app/agent/' + source.relative_to(code).as_posix()] = source
     for source in files.values():
         if not stat.S_ISREG(ordinary(source).st_mode):
             raise ValueError(f'Missing regular agent input: {source}')
