@@ -3,6 +3,7 @@
 return function(run, hooks, entries, changed, screen, notice, spawn)
     local available, overview, busy, state = false, false, false, nil
     local viewing = false
+    local navigation = {}
     local function publish(value)
         state = value
         available = type(value) == "table" and value.running == true and value.automatic_layouts == true
@@ -17,8 +18,14 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
         if overview then entries[#entries + 1] = { id = "windows.wm.overview", group = "Windows", title = "Window overview" } end
         changed()
     end
-    local function request(command, visible)
-        if busy then return end
+    local function request(command, visible, repeatable)
+        if busy then
+            if repeatable then
+                if #navigation < 16 then navigation[#navigation + 1] = command
+                else notice(tr("Too many pending window shortcuts.")) end
+            end
+            return
+        end
         busy = true
         local completed = false
         local function done(output, code)
@@ -27,11 +34,13 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
             busy = false
             local ok, value = pcall(json.decode, tostring(output or ""))
             if code ~= 0 or not ok or type(value) ~= "table" or value.running ~= true then
+                navigation = {}
                 publish(nil)
                 if visible then notice(tr("The window manager could not complete the action.") .. " " .. tostring(output or ""):sub(1, 180)) end
                 return
             end
             publish(value)
+            if #navigation > 0 then request(table.remove(navigation, 1), true, true) end
         end
         local ok, error = pcall(run, "pleamar-wm", { "--say", "wm", command }, done)
         if not ok then done(tostring(error), 1) end
@@ -60,6 +69,9 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
     end
     hooks.windows_minimize = function() request("emit minimize", true) end
     hooks.windows_restore_last = function() request("emit restore_last", true) end
+    hooks.windows_focus_next = function() request("emit focus_next", true, true) end
+    hooks.windows_focus_previous = function() request("emit focus_previous", true, true) end
+    hooks.windows_close = function() request("emit close", true) end
     hooks.windows_overview = function()
         if not overview then request("status", true); return end
         if viewing then notice(tr("The window view is already open.")); return end

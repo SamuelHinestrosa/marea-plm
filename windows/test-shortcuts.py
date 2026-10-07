@@ -19,10 +19,12 @@ local native={ask=function(n,k) assert(n=="env" and k=="MAREA_SEARCH_HOTKEY");re
     call_async=function(n,a,f) requests[#requests+1]={name=n,args=a,done=f} end,
     ask_async=function(n,a,f) requests[#requests+1]={name=n,args=a,done=f} end}
 local install=(function() __MODULE__ end)()
-local overview,layout,minimized,restored=0,0,0,0
+local overview,layout,minimized,restored,next_window,previous_window,closed=0,0,0,0,0,0,0
 install(native,function(message) notices[#notices+1]=message end,{
     windows_overview=function() overview+=1 end, windows_toggle_layout=function() layout+=1 end,
-    windows_minimize=function() minimized+=1 end, windows_restore_last=function() restored+=1 end})
+    windows_minimize=function() minimized+=1 end, windows_restore_last=function() restored+=1 end,
+    windows_focus_next=function() next_window+=1 end, windows_focus_previous=function() previous_window+=1 end,
+    windows_close=function() closed+=1 end})
 assert(requests[1].name=="hotkeys.bind" and requests[1].args[2]=="Ctrl+Alt+Space")
 requests[1].done("",0)
 assert(requests[2].name=="files.read");requests[2].done(nil,"not found")
@@ -34,14 +36,18 @@ handlers.windows_toggle_key();handlers.windows_toggle_key()
 assert(#requests==5 and requests[5].args[1]["Win"]=="search" and requests[5].args[1]["Win+Shift+A"]=="chat")
 assert(requests[5].args[1]["Win+W"]=="layout")
 assert(requests[5].args[1]["Win+M"]=="minimize" and requests[5].args[1]["Win+Shift+M"]=="restore_last")
+assert(requests[5].args[1]["Win+Q"]=="close")
+assert(requests[5].args[1]["Win+Left"]=="focus_previous" and requests[5].args[1]["Win+Up"]=="focus_previous")
+assert(requests[5].args[1]["Win+Right"]=="focus_next" and requests[5].args[1]["Win+Down"]=="focus_next")
 requests[5].done("",0);requests[6].done({available=true,windows_key=true},nil)
 assert(requests[7].name=="files.write" and requests[7].args[1]=="shortcuts.json" and requests[7].args[2].windows_key)
 requests[7].done("",0)
 assert(fact.windows_key_enabled and not fact.windows_key_busy)
-for i,name in ipairs({"search","chat","controls","settings","notifications","windows","layout","minimize","restore_last"}) do watcher({sequence=i,event=name}) end
+for i,name in ipairs({"search","chat","controls","settings","notifications","windows","layout","minimize","restore_last","focus_next","focus_previous","close"}) do watcher({sequence=i,event=name}) end
 assert(table.concat(events,",")=="search,chat,windows_controls,settings,open_tray" and overview==1 and layout==1)
-watcher({sequence=9,event="restore_last"});watcher({sequence=10,event="unrelated"})
+watcher({sequence=12,event="close"});watcher({sequence=13,event="unrelated"})
 assert(overview==1 and layout==1 and minimized==1 and restored==1 and #events==5)
+assert(next_window==1 and previous_window==1 and closed==1)
 handlers.windows_toggle_key();assert(requests[8].args[1]==false)
 requests[8].done("",0);requests[9].done({available=true,windows_key=false},nil)
 requests[10].done("disk full",1)

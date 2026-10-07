@@ -14,6 +14,9 @@ The switch is off by default. While enabled, Win is dedicated to Marea:
 | Win+W | Toggle tiled/free windows on the monitor under the pointer (requires the native WM session) |
 | Win+M | Minimize the active application on a managed monitor in free-window mode |
 | Win+Shift+M | Restore the last minimized application still inside the native WM session |
+| Win+Left or Win+Up | Previous eligible window on the active application's monitor |
+| Win+Right or Win+Down | Next eligible window on that monitor |
+| Win+Q | Ask the active application or dialog to close |
 
 Unassigned Win combinations are consumed too; Start and Windows' corresponding
 shortcuts are replaced while Marea owns the layer. Disable the switch to restore
@@ -34,6 +37,14 @@ own minimize button; closed or already restored windows are removed. It tracks
 only windows in that session's monitor/process scope, and starts empty after
 a session restart. Restoration uses the native restore state, including a
 window minimized from maximized. Windows still controls foreground permission.
+
+Navigation requires the native WM session too. It preserves a stable cycle in
+free mode and follows the layout order in tiled mode; minimized, hidden and
+disabled windows are skipped. It does not leave an active modal dialog or cross
+the session's monitor/process scope. Rapid navigation requests are serialized
+in a bounded queue; a failure cancels the remaining requests. Closing uses the
+application's normal close request, so unsaved-work prompts remain available.
+These source changes do not establish physical Win-key dispatch acceptance.
 
 ## Verification
 

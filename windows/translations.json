@@ -1,4 +1,7 @@
 {
+  "Previous / next window": "Ventana anterior / siguiente",
+  "Close active window": "Cerrar la ventana activa",
+  "Too many pending window shortcuts.": "Hay demasiados atajos de ventana pendientes.",
   "Keyboard shortcuts": "Atajos de teclado",
   "Chat": "Chat",
   "Notifications": "Notificaciones",
