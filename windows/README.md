@@ -68,6 +68,11 @@ commands when the target is unchanged and ignores stale failures from a previous
 selection. The isolated routing regression covers unplug/replug, a zero-output
 interval and delayed completions; real hardware hotplug still needs validation.
 
+Upstream `a355d17` also keeps the destination surface open before its arrival
+animation starts. This lets its rules bring Marea back when the old surface
+disappears with a disconnected monitor. The generated Windows profile retains
+that condition; it does not depend on the Linux phone transport.
+
 From the repository root, after preparing the native x64/MSVC pleamar build
 with default Luau and its app-local runtime files:
 

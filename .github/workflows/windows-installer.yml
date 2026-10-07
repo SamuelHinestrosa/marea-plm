@@ -54,6 +54,15 @@ jobs:
           repository: ${{ inputs.wm_repository }}
           ref: ${{ inputs.wm_ref }}
           path: pleamar-wm
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          cache-workspace-crates: false
+          cache-bin: false
+          workspaces: |
+            pleamar -> target
+            marea/deriva -> target
+            marea/windows/agent-host -> target
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
