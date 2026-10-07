@@ -146,7 +146,7 @@ The [paired native run](https://github.com/SamuelHinestrosa/marea-plm/actions/ru
 passed Windows/Linux at Marea `3e736149` / engine `a4b5b504`. The three runs used
 one binary and auto retention on Microsoft Basic Render Driver. The generated
 scenes differ only in the visibility guard. Forty-two renderer reports and 282
-resource samples were checked; all 36 PNG checksums were verified. Eight PNGs
+resource samples were checked; all 36 PNG checksums were verified. Nine PNGs
 covering chat, its working/resting states and final controls were inspected.
 
 | Median across intervals | Reference before | Guard enabled | Reference after |
@@ -159,6 +159,10 @@ This improves paint time in the later cycles, not consistently from opening:
 the six optimized intervals were 456.47, 460.54, 171.86, 136.91, 115.01 and 47.99
 ms/round. CPU is nearly unchanged and no RAM saving is established. This is a
 software-adapter fixture, not physical-GPU, authenticated-chat or steady-state
-latency acceptance. One earlier reference resting image has clipped text; the
-optimized and final-reference resting chat-body pixels match exactly. Broader
-text/transition validation and the remaining slow early cycles are still open.
+latency acceptance. Reinspection of the earlier and final resting references
+shows readable messages 8–12, including accented Spanish and Japanese. All five
+text blocks have a best vertical offset of about one pixel; this pair does not
+establish the previously reported clipped-text defect. Animation phase is only
+a hypothesis because capture pose was not recorded. The optimized and final
+reference chat-body pixels match exactly. Broader text/transition validation
+and the remaining slow early cycles are still open.
