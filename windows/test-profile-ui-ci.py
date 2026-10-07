@@ -296,6 +296,11 @@ def exercise(binary, output, root, resource_cycles=0, idle_tide_baseline=False):
             assert any(n.get('label') == 'Cerrar' for n in visible)
             until(lambda: control_title_ready(desktop.pixels(hwnd)), 'visible control title after font loading')
             capture('01-controls')
+            # Keep both states: waiting only for the title exposed overlapping
+            # card labels while their first font measurements were arriving.
+            # No scene command or input should be needed to settle that layout.
+            time.sleep(.75)
+            capture('01-controls-resting')
             response = ask(f'drag {volume["name"]} 0 -30')
             assert 'dragged' in response, response
             assert float(ask('get fixture_volume_calls')) > 0
