@@ -26,8 +26,12 @@ def require_ci():
         raise RuntimeError('Visible fixture requires the explicit step on a disposable GitHub-hosted Windows runner')
 
 
-def fixture_source(root):
+def fixture_source(root, idle_tide_baseline=False):
     source = (root / 'marea-desktop.plm').read_text(encoding='utf-8')
+    if idle_tide_baseline:
+        guard = 'shader chat_tide { show: chat.stir > 0.001; at:'
+        assert source.count(guard) == 1, 'The idle tide optimization changed'
+        source = source.replace(guard, 'shader chat_tide { at:', 1)
     for folder in ('common', 'lang', 'shaders', 'assets', 'wardrobe'):
         source = source.replace('"' + folder + '/', '"' + (root / folder).as_posix() + '/')
     source = re.sub(r'keyboard: on_demand[^\n]*', 'keyboard: none', source)
@@ -177,11 +181,12 @@ on("fixture_stage",function(stage)
         }
     elseif stage==4 then
         fact.open=true;fact.page="settings";fact.section="menu"
-    elseif stage==5 then
+    elseif stage==5 or stage==9 then
         fact.chatting=true;fact["chat.signed_in"]=true;fact["chat.state"]="idle"
         local rows={}
         for i=1,12 do rows[i]={kind=if i%2==0 then 2 else 1,text="Mensaje de ejemplo "..i..": España, café y 日本語. Un párrafo con texto suficiente para comprobar que la altura se mide y la conversación se desplaza sin superponer las líneas.",detail="",state=1} end
         model["chat.rows"]=rows
+        if stage==9 then fact["chat.state"]="thinking" end
     end
 end)
 fact.fixture_ready=true
@@ -213,10 +218,10 @@ def retained_policy(logs, mode):
     assert (count>0 if enabled else count==0), 'The selected retention policy was not exercised'
     return dict(setting=setting,adapter=adapter,enabled=enabled,allocations=count)
 
-def exercise(binary, output, root, resource_cycles=0):
+def exercise(binary, output, root, resource_cycles=0, idle_tide_baseline=False):
     desktop = Desktop()
     scene = output / 'Marea profile ñ 海.plm'
-    scene.write_text(fixture_source(root), encoding='utf-8')
+    scene.write_text(fixture_source(root, idle_tide_baseline), encoding='utf-8')
     scene.with_suffix('.luau').write_text(FIXTURE_LOGIC, encoding='utf-8')
     env = dict(os.environ, APPDATA=str(output / 'state'), LOCALAPPDATA=str(output / 'local'),
                PLEAMAR_CONFIG=str(output / 'config'), PLEAMAR_SOCKET_DIR=f'marea-profile-ci-{os.getpid()}',
@@ -229,6 +234,7 @@ def exercise(binary, output, root, resource_cycles=0):
     flags = subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS
     report = dict(passed=False, fixture_logic=True, fixture_background=True, environment='github-hosted', physical_input=False,
                   device_services=False, real_account=False, full_product_acceptance=False, retained_surface_mode=retention_mode,
+                  idle_tide_baseline=idle_tide_baseline,
                   binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
                   scene_sha256=hashlib.sha256(scene.read_bytes()).hexdigest(), checks=[], images=[])
     process, hwnd = None, None
@@ -319,6 +325,13 @@ def exercise(binary, output, root, resource_cycles=0):
                     assert float(state['chat.length']) > 404, state
                     assert abs(float(state['chat.from_end']) - 404) < 1, state
             report['checks'].append('Six native chat/settings states and long conversation keeps the visible tail')
+            ask('emit fixture_stage 9')
+            until(lambda: float(ask('get chat.stir')) > .99, 'working tide visible')
+            capture('11-conversation-working')
+            ask('emit fixture_stage 5')
+            until(lambda: float(ask('get chat.stir')) <= .001, 'working tide faded out')
+            capture('12-conversation-resting')
+            report['checks'].append('Working chat tide rises and fades; both native states captured')
             if resource_cycles:
                 from profile_resources import Probe, summarize
                 probe = Probe(process, output / 'resources.json')
@@ -379,13 +392,15 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--resource-cycles', type=int, choices=range(0, 13), default=0,
                         help='Optional bounded conversation/closure resource sampling; not a whole-product benchmark')
+    parser.add_argument('--idle-tide-baseline', action='store_true',
+                        help='Render the pre-optimization transparent tide for a same-run comparison')
     args = parser.parse_args()
     require_ci()
     output = args.output.resolve()
     temporary = Path(os.environ['RUNNER_TEMP']).resolve()
     assert output != temporary and output.is_relative_to(temporary), 'Evidence must be in a new runner-temp directory'
     output.mkdir(parents=True, exist_ok=False)
-    exercise(args.binary.resolve(strict=True), output, Path(__file__).resolve().parents[1], args.resource_cycles)
+    exercise(args.binary.resolve(strict=True), output, Path(__file__).resolve().parents[1], args.resource_cycles, args.idle_tide_baseline)
 
 
 if __name__ == '__main__':

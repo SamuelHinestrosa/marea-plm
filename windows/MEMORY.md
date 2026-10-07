@@ -127,3 +127,18 @@ idle samples per variant, private resident memory remained around 65–67 MiB
 and the process reported 114 handles. This packaging change reduces disk size
 and initial preparation work; no steady-state RAM improvement is claimed.
 Signed-in model flows and whole-Marea sustained measurements remain separate.
+
+## Idle conversation repaint
+
+The Windows profile hides `chat_tide` when `chat.stir <= 0.001`, matching the
+shader's transparent early return. Otherwise its time dependency makes the
+entire panel repaint even while the conversation is idle. The original
+working/approval animation and its fade remain enabled above that threshold.
+Upstream Linux scene files are unchanged.
+
+With `measure_resources`, the profile workflow's `performance_comparison:
+idle-chat` brackets the generated profile with two references that omit only
+this visibility guard. All three use the same engine, runner, retention mode,
+fixture data and sampling sequence. Reports identify the baseline explicitly;
+working and resting chat screenshots are also retained. Native results are
+pending; no CPU, frame-time or RAM improvement is claimed yet.

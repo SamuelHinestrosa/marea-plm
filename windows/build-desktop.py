@@ -20,6 +20,11 @@ def remove_between(source, begin, end, replacement=''):
     stop = source.index(end, start)
     return source[:start] + replacement + source[stop:]
 
+# A transparent time-dependent shader still forces full-panel repainting.
+# Match its own early return while preserving the fade and working animation.
+scene = replace_once(scene, 'shader chat_tide { at:',
+    'shader chat_tide { show: chat.stir > 0.001; at:')
+
 scene = remove_between(scene, '    surface lockscreen {', '    // ── the adventure\'s stage')
 # Native output removal changes screens.count even when an old name remains in
 # the scene. Rebuild the live set without overwriting the user's saved home.

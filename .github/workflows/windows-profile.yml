@@ -15,6 +15,13 @@ on:
         description: Also sample the native renderer during six conversation/closure cycles
         default: false
         type: boolean
+      performance_comparison:
+        description: Same-run reference comparison when measuring resources
+        default: retention
+        type: choice
+        options:
+          - retention
+          - idle-chat
       retained_mode:
         description: Renderer policy (auto uses retention only on software adapters)
         default: auto
@@ -108,13 +115,13 @@ jobs:
         working-directory: pleamar
         shell: pwsh
         run: ./scripts/prepare-windows-runtime.ps1 -BinaryDirectory target/release
-      - name: Measure full repaint before the retained experiment
-        if: runner.os == 'Windows' && inputs.retained_mode != 'off' && inputs.measure_resources
+      - name: Measure reference rendering before the experiment
+        if: runner.os == 'Windows' && inputs.measure_resources && (inputs.retained_mode != 'off' || inputs.performance_comparison == 'idle-chat')
         working-directory: marea
         env:
           MAREA_CI_PROFILE_UI: '1'
-          PLEAMAR_RETAINED_SURFACE: '0'
-        run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/release/pleamar.exe --output "${{ runner.temp }}/marea-references/before" --resource-cycles 6
+          PLEAMAR_RETAINED_SURFACE: ${{ inputs.performance_comparison == 'idle-chat' && (inputs.retained_mode == 'on' && '1' || inputs.retained_mode == 'off' && '0' || 'auto') || '0' }}
+        run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/release/pleamar.exe --output "${{ runner.temp }}/marea-references/before" --resource-cycles 6 ${{ inputs.performance_comparison == 'idle-chat' && '--idle-tide-baseline' || '' }}
       - name: Render Marea controls, settings and chat on the disposable CI desktop
         if: runner.os == 'Windows'
         working-directory: marea
@@ -130,15 +137,15 @@ jobs:
           path: ${{ runner.temp }}/marea-profile-ui
           if-no-files-found: warn
           retention-days: 14
-      - name: Measure full repaint after the retained experiment
-        if: runner.os == 'Windows' && inputs.retained_mode != 'off' && inputs.measure_resources
+      - name: Measure reference rendering after the experiment
+        if: runner.os == 'Windows' && inputs.measure_resources && (inputs.retained_mode != 'off' || inputs.performance_comparison == 'idle-chat')
         working-directory: marea
         env:
           MAREA_CI_PROFILE_UI: '1'
-          PLEAMAR_RETAINED_SURFACE: '0'
-        run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/release/pleamar.exe --output "${{ runner.temp }}/marea-references/after" --resource-cycles 6
-      - name: Preserve same-run full repaint references
-        if: always() && runner.os == 'Windows' && inputs.retained_mode != 'off' && inputs.measure_resources
+          PLEAMAR_RETAINED_SURFACE: ${{ inputs.performance_comparison == 'idle-chat' && (inputs.retained_mode == 'on' && '1' || inputs.retained_mode == 'off' && '0' || 'auto') || '0' }}
+        run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/release/pleamar.exe --output "${{ runner.temp }}/marea-references/after" --resource-cycles 6 ${{ inputs.performance_comparison == 'idle-chat' && '--idle-tide-baseline' || '' }}
+      - name: Preserve same-run rendering references
+        if: always() && runner.os == 'Windows' && inputs.measure_resources && (inputs.retained_mode != 'off' || inputs.performance_comparison == 'idle-chat')
         uses: actions/upload-artifact@v4
         with:
           name: marea-native-rendering-references
