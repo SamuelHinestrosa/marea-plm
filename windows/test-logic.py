@@ -31,8 +31,8 @@ for event in ['chat_login', 'chat_login_cancel', 'chat_login_open']:
     assert re.search(r'\bevent\s+' + event + r'\s+->', scene), f'{event} must reach its Luau handler'
 settings = scene.split('pages section {', 1)[1].split("// ── the agents' reservoirs", 1)[0]
 assert re.findall(r'page (\w+) "[^"]+" \{', settings) == [
-    'menu', 'home', 'look', 'language', 'lock', 'notices', 'talk', 'tasks', 'keys', 'memory', 'windows_shortcuts']
-assert '"What she remembers", "Keyboard shortcuts") { at: px0' in scene
+    'menu', 'home', 'look', 'language', 'lock', 'notices', 'talk', 'tasks', 'keys', 'memory', 'windows_shortcuts', 'windows_layouts']
+assert '"What she remembers", "Keyboard shortcuts", "Window arrangement") { at: px0' in scene
 run(binary, '--check', root / 'marea-desktop.plm')
 run(runner, '--compile-only', root / 'marea-desktop.luau')
 run(binary, '--check', root / 'tools/windows-overview.plm')

@@ -1,0 +1,14 @@
+                    page windows_layouts "Window arrangement" {
+                        text "Choose how windows share this screen" { at: card.x - 228, card.top + 113; anchor: left center; size: 12; color: st.faint }
+                        repeat k in 0..6 {
+                            let x = card.x - 228 + mod(k, 2) * 233
+                            let y = card.top + 137 + floor(k / 2) * 91
+                            box { from: x, y; size: 223, 79; corner: 14; color: if(windows_wm_layout == k, #304c43, #242628) }
+                            text pick(k, "Free windows", "Main window on the left", "Main window on the right", "Columns", "Rows", "Grid") { at: x + 14, y + 29; width: 194; lines: 2; size: 12; weight: 600; color: ink }
+                            text pick(windows_wm_layout == k, "Select", "Active") { at: x + 14, y + 61; anchor: left center; size: 11; color: mint }
+                            zone box windows_layout_choice.$k { from: x, y; size: 223, 79; corner: 14; cursor: pointer; active: page == settings and section == windows_layouts and paging > 0.9 and windows_wm_available and not windows_wm_busy; label: pick(k, "Free windows", "Main window on the left", "Main window on the right", "Columns", "Rows", "Grid"); role: button }
+                            on press windows_layout_choice.$k { emit windows_choose_layout(k) }
+                        }
+                        text "Drag a window over another to exchange their places." { at: card.x - 228, card.top + 435; width: 456; lines: 2; size: 12; color: st.faint }
+                        text "The window manager is unavailable." { at: card.x - 228, card.top + 471; width: 456; lines: 1; size: 11; color: mint; show: not windows_wm_available }
+                    }

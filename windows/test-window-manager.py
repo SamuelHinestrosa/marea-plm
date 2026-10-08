@@ -115,6 +115,25 @@ assert(#requests==17 and requests[17].command=="emit fullscreen")
 requests[17].done("fullscreen target is outside this WM session",1)
 assert(#notices==10 and notices[10]:find("outside this WM session",1,true))
 hooks.windows_fullscreen();assert(#requests==18);requests[18].done("good",0)
+screen="\\\\.\\DISPLAY2"
+handlers.windows_to_layouts();assert(#requests==19 and fact.windows_wm_busy)
+requests[19].done("good",0)
+assert(fact.windows_wm_available and not fact.windows_wm_busy and fact.windows_wm_layout==0)
+for i,name in ipairs({"free","left","right","columns","rows","grid"}) do
+    handlers.windows_choose_layout(i-1)
+    local request=requests[#requests]
+    assert(request.command==(i==1 and ("free "..screen) or ("layout "..screen.." "..name)))
+    local count=#requests
+    handlers.windows_choose_layout(i-1);assert(#requests==count,"busy layout issued a second operation")
+    replies.good.monitors[1].tiled=i~=1;replies.good.monitors[1].layout=name
+    request.done("good",0)
+    assert(fact.windows_wm_layout==i-1 and not fact.windows_wm_busy)
+end
+local count=#requests
+for _,invalid in ipairs({-1,6,1.5,"grid"}) do handlers.windows_choose_layout(invalid) end
+assert(#requests==count)
+handlers.windows_choose_layout(0);requests[#requests].done("application refused layout",1)
+assert(not fact.windows_wm_available and fact.windows_wm_layout==-1 and not fact.windows_wm_busy)
 log("PASS: native WM capability menus, serialization, monitor scope and failed actions")
 '''
 run_checks(args, checks.replace('__MODULE__', module), 'PASS: native WM capability', 'window-manager')

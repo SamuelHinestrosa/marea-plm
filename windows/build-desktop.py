@@ -75,6 +75,7 @@ logic = replace_once(logic, '''    local base = sys.ask("env", "XDG_STATE_HOME")
 logic = replace_once(logic, 'image = { path = "/state/" .. name }', 'image = { path = STATE .. "/" .. name }')
 scene = replace_once(scene, '    fact language:', (root / 'windows/startup.plm').read_text(encoding='utf-8') + '\n    fact language:')
 scene = replace_once(scene, '    fact language:', (root / 'windows/shortcuts.plm').read_text(encoding='utf-8') + '\n    fact language:')
+scene = replace_once(scene, '    fact language:', (root / 'windows/layouts.plm').read_text(encoding='utf-8') + '\n    fact language:')
 scene = replace_once(scene, '    fact language:', '    event windows_toggle_autohide ->\n    fact language:')
 settings_start = scene.index('                    page menu "Settings" {')
 settings_end = scene.index('                    // ── where she lives ──', settings_start)
@@ -91,7 +92,7 @@ settings_menu = replace_once(settings_menu, '''                        grid {
                             at: 0, 0; columns: 2; gap: 10; width: 456; row: 90''')
 settings_menu = replace_once(settings_menu, '''                        }
                     }
-''', (root / 'windows/startup-row.plm').read_text(encoding='utf-8') + (root / 'windows/shortcuts-row.plm').read_text(encoding='utf-8') + '''                        }
+''', (root / 'windows/startup-row.plm').read_text(encoding='utf-8') + (root / 'windows/shortcuts-row.plm').read_text(encoding='utf-8') + (root / 'windows/layouts-row.plm').read_text(encoding='utf-8') + '''                        }
                         }
                         text "↓" { at: card.x + 239, card.top + 476; anchor: center; size: 15; color: mint; show: windows_settings_list.content - windows_settings_list.scroll > 391 }
                     }
@@ -105,12 +106,12 @@ scene = replace_once(scene, '''                    }
             }
 
             // ── the agents' reservoirs''', '''                    }
-''' + (root / 'windows/shortcuts-page.plm').read_text(encoding='utf-8') + '''                }
+''' + (root / 'windows/shortcuts-page.plm').read_text(encoding='utf-8') + (root / 'windows/layouts-page.plm').read_text(encoding='utf-8') + '''                }
             }
 
             // ── the agents' reservoirs''')
 scene = replace_once(scene, '"What she remembers") { at: px0',
-    '"What she remembers", "Keyboard shortcuts") { at: px0')
+    '"What she remembers", "Keyboard shortcuts", "Window arrangement") { at: px0')
 scene = replace_once(scene, 'text "Reading your windows…" {', 'text windows_agents_status {')
 scene = replace_once(scene, 'She talks with you, and can use your desktop with hands of her own.',
     'She talks with you. Desktop actions share your mouse and keyboard.')

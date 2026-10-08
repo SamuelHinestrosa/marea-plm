@@ -1,0 +1,6 @@
+    fact windows_wm_available = false
+    fact windows_wm_busy = false
+    fact windows_wm_layout = -1
+    event windows_choose_layout ->
+    event windows_to_layouts ->
+    on windows_to_layouts { page = settings; section = windows_layouts; open = true; menu_open = false }

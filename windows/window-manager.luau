@@ -5,11 +5,24 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
     local viewing = false
     local dock_view = nil
     local navigation = {}
+    local layouts = {"free", "left", "right", "columns", "rows", "grid"}
+    local function selection()
+        fact.windows_wm_available = available
+        fact.windows_wm_busy = busy
+        fact.windows_wm_layout = -1
+        for _, monitor in ipairs(state and state.monitors or {}) do
+            if monitor.name == screen() then
+                if monitor.tiled == false then fact.windows_wm_layout = 0
+                else for i, name in ipairs(layouts) do if monitor.layout == name then fact.windows_wm_layout = i - 1 end end end
+            end
+        end
+    end
     local function publish(value)
         state = value
         available = type(value) == "table" and value.running == true and value.automatic_layouts == true
         overview = type(value) == "table" and value.running == true and value.window_overview == true
         dock = type(value) == "table" and value.running == true and value.application_dock == true
+        selection()
         for i = #entries, 1, -1 do
             if entries[i].id == "windows.wm.layout" or entries[i].id == "windows.wm.restore" or entries[i].id == "windows.wm.overview" or entries[i].id == "windows.wm.dock" then table.remove(entries, i) end
         end
@@ -30,6 +43,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
             return
         end
         busy = true
+        selection()
         local completed = false
         local function done(output, code)
             if completed then return end
@@ -96,6 +110,13 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
             {cwd=".", errors=true, env={MAREA_LOCALE=tostring(fact.locale or "en")}})
         if not ok then done(tostring(error), 1) end
     end
+    on("windows_to_layouts", function() request("status", true) end)
+    on("windows_choose_layout", function(index)
+        if not available or busy or type(index) ~= "number" or index % 1 ~= 0 or index < 0 or index > 5 then return end
+        local name = current_screen()
+        if not name then return end
+        request(index == 0 and ("free " .. name) or ("layout " .. name .. " " .. layouts[index + 1]), true)
+    end)
     hooks.windows_dock = function()
         if dock_view then
             local child = dock_view

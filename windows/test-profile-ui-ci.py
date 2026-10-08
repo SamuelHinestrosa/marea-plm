@@ -159,6 +159,7 @@ on("chat_login",function() fact.fixture_login_calls+=1 end)
 on("chat_login_open",function() fact.fixture_login_opens+=1 end)
 on("chat_allow",function(index) fact.fixture_allowed=index end)
 on("chat_deny",function(index) fact.fixture_denied=index end)
+on("windows_choose_layout",function(index) fact.windows_wm_layout=index end)
 on("fixture_stage",function(stage)
     fact.chatting=false;fact.open=false;fact.menu_open=false
     fact["chat.signed_in"]=false;fact["chat.signing"]=false
@@ -170,6 +171,9 @@ on("fixture_stage",function(stage)
         fact.open=true;fact.page="none"
     elseif stage==7 then
         fact.open=true;fact.page="settings";fact.section="windows_shortcuts"
+    elseif stage==11 then
+        fact.open=true;fact.page="settings";fact.section="windows_layouts"
+        fact.windows_wm_available=true;fact.windows_wm_busy=false;fact.windows_wm_layout=0
     elseif stage==0 then
         fact.chatting=true
     elseif stage==1 or stage==10 then
@@ -322,6 +326,18 @@ def exercise(binary, output, root, resource_cycles=0, idle_tide_baseline=False):
             time.sleep(1.2)
             capture('03-shortcuts')
             report['checks'].append('Translated checked Windows-key setting; no hook enabled')
+            ask('emit fixture_stage 11')
+            until(lambda: len([n for n in tree('layout-tree') if n.get('name','').startswith('windows_layout_choice.')])==6, 'layout choices')
+            time.sleep(1.2)
+            visible=tree('layout-tree')
+            choices=[n for n in visible if n.get('name','').startswith('windows_layout_choice.')]
+            assert {n['label'] for n in choices}=={'Ventanas libres','Principal a la izquierda','Principal a la derecha','Columnas','Filas','Cuadrícula'},choices
+            for n in choices:
+                assert not n.get('covered_by'),n
+                ask('press '+n['name'])
+                until(lambda: ask('get windows_wm_layout')==n['name'].rsplit('.',1)[1], 'layout selection reached Luau')
+            capture('14-layout-choices')
+            report['checks'].append('Six translated layout controls reach Luau and remain uncovered; native placement is tested in WM CI')
             labels = ('signed-out', 'login-code', 'account-settings', 'approval-card', 'settings-menu', 'long-conversation')
             report['layout_state'] = {}
             for stage, label in enumerate(labels):
