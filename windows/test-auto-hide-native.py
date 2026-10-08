@@ -77,6 +77,11 @@ def guard():
 def ask(command):
     response = subprocess.check_output([str(binary),'--say',scene.stem,command], env=env,
         encoding='utf-8',stderr=subprocess.DEVNULL,timeout=5,creationflags=flags).strip()
+    # Luau can be ready before the first GPU frame finishes initializing.
+    # Retry this transient query timeout only within until's existing deadline;
+    # an unknown command or a persistently stalled renderer must still fail.
+    if response == '? the render does not answer':
+        raise subprocess.TimeoutExpired(command, 5)
     assert not response.startswith('?'), response
     return response
 def until(check, label):
