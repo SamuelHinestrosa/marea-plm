@@ -12,6 +12,7 @@ p.add_argument('--binary',type=Path,required=True)
 p.add_argument('--monitor',required=True)
 p.add_argument('--output',type=Path,required=True)
 p.add_argument('--ci-activation',action='store_true')
+p.add_argument('--prewarm',action='store_true')
 a=p.parse_args()
 assert os.name=='nt'
 if a.ci_activation:
@@ -41,7 +42,7 @@ u.GetCursorInfo.argtypes=[C.POINTER(CURSOR)];u.GetCursorInfo.restype=W.BOOL
 foreground=u.GetForegroundWindow();owned=[];process=None;cursor_hidden=False
 report=dict(passed=False,monitor=screen['name'],primary=screen['primary'],activation=a.ci_activation,physical_input=False,warm_ms=[])
 env=dict(os.environ,PLEAMAR_CONFIG=str(out/'config'),PLEAMAR_SOCKET_DIR='overview-check-'+str(os.getpid()),
-    MAREA_LOCALE='es',PATH=str(binary.parent)+os.pathsep+os.environ.get('PATH',''))
+    MAREA_LOCALE='es',MAREA_OVERVIEW_WARM='1' if a.prewarm else '0',PATH=str(binary.parent)+os.pathsep+os.environ.get('PATH',''))
 source=(root/'tools/windows-overview.plm').read_text(encoding='utf-8')
 if not a.ci_activation:source=source.replace('keyboard: exclusive while overview_open','keyboard: none')
 (out/'windows-overview.plm').write_text(source,encoding='utf-8')
@@ -100,6 +101,13 @@ try:
         process=subprocess.Popen([str(binary),'--scene',str(out/'windows-overview.plm'),'--screen',a.monitor,
             '--preview-monitor',a.monitor,'--preview-process',str(os.getpid()),'--window-actions','--no-hud','--stall','0'],
             env=env,stdout=log,stderr=log,creationflags=flags)
+        if a.prewarm:
+            until(lambda:ask('get overview_open')=='false','hidden startup')
+            until(lambda:ask('get win.count')=='4','catalog startup')
+            assert all(float(ask(f'get win.{i}.width'))==0 for i in range(4))
+            if a.ci_activation:assert u.GetForegroundWindow()==owned[0],'Prewarming took focus'
+            report['prewarmed_without_captures']=True
+            start=time.perf_counter();ask('emit overview_toggle')
         until(lambda:ask('get overview_open')=='true','cold Luau readiness')
         report['cold_ready_ms']=(time.perf_counter()-start)*1000
         until(captures,'four live window pictures');capture('overview')

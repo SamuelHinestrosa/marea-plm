@@ -35,8 +35,8 @@ scene WindowOverview {
     on overview_next { requested_page = min(page + 1, pages - 1) }
     on overview_previous { requested_page = max(page - 1, 0) }
     on key Escape { emit overview_close }
-    let pw = min(1160, screen.width - 64)
-    let ph = min(800, screen.height - 64)
+    let pw = min(1160, screen.width - 96)
+    let ph = min(800, screen.height - 96)
     let px = (screen.width - pw) / 2
     let py = (screen.height - ph) / 2
     box { from: 0, 0; size: screen.width, screen.height; color: #101211; opacity: 45% }

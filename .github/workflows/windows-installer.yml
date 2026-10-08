@@ -147,12 +147,16 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $screens.Count -eq 0) { throw 'No CI monitor.' }
           python windows/test-overview-native.py --binary $wm --monitor $screens[0].name --ci-activation --output .tools/overview-smoke
           if ($LASTEXITCODE -ne 0) { throw 'Native overview failed.' }
+          python windows/test-overview-native.py --binary $wm --monitor $screens[0].name --ci-activation --prewarm --output .tools/overview-warm-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Prewarmed overview failed.' }
       - name: Keep native overview evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: marea-overview-acceptance
-          path: marea/.tools/overview-smoke
+          path: |
+            marea/.tools/overview-smoke
+            marea/.tools/overview-warm-smoke
           if-no-files-found: warn
       - name: Keep native dock evidence
         if: always()
