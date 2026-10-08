@@ -89,7 +89,9 @@ try:
         endpoint=wait(lambda:say(name,'get endpoint'),'child namespace').strip('"')
         child_env=dict(env,PLEAMAR_SOCKET_DIR=endpoint)
         wait(lambda:say('windows-dock','get dock_ready',child_env) in ('true','1'),'actual dock ready')
-        found=json.loads(command(['agent','scenes'],child_env))
+        # Luau readiness precedes the renderer's first agent snapshot. A busy
+        # software renderer can temporarily omit it from discovery.
+        found=wait(lambda:json.loads(command(['agent','scenes'],child_env)), 'rendered dock discovery')
         assert len(found)==1 and found[0]['endpoint']=='windows-dock',found
         child=dict(pid=found[0]['pid'],endpoint=endpoint,environment=child_env)
         children.append(child);owned.add(child['pid']);guard()
