@@ -77,7 +77,7 @@ logic=logic.replace('__STATUS__',status).replace('__MONITOR__',screen['name']).r
 try:
     for name in ['dock-owner-a','dock-owner-b']:
         path=output/(name+'.plm')
-        path.write_text('scene Owner { surface { size: 2, 2; anchor: center; keyboard: none; reserve: 0 } permissions { run: "pleamar-wm" } fact dock_open = false\n text endpoint = ""\n text notice = ""\n event toggle ->\n }',encoding='utf-8')
+        path.write_text('scene Owner { surface { size: 2, 2; anchor: center; keyboard: none; reserve: 0 } permissions { run: "pleamar-wm" } fact dock_open = false\n fact windows_wm_available = false\n fact windows_wm_busy = false\n fact windows_wm_layout = -1\n text endpoint = ""\n text notice = ""\n event toggle ->\n }',encoding='utf-8')
         path.with_suffix('.luau').write_text(logic,encoding='utf-8')
         subprocess.run([str(binary),'--check',str(path)],env=env,capture_output=True,creationflags=flags,check=True)
         with (output/(name+'.log')).open('wb') as log:
