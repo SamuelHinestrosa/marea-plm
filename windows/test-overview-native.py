@@ -104,13 +104,14 @@ try:
         # is independent of ShowCursor's display count. Establish a mouse
         # baseline on our own window before simulating a game hiding it.
         assert u.SetCursorPos(bounds['x']+110,bounds['y']+110)
-        event=INPUT(type=0,mouse=MOUSE(flags=1))
+        event=INPUT(type=0,mouse=MOUSE(dx=1,dy=1,flags=1))
         assert u.SendInput(1,C.byref(event),C.sizeof(INPUT))==1
         for _ in range(32):
             cursor_adjustment+=1
             if u.ShowCursor(True)>=0:break
         def showing():
             info=CURSOR(size=C.sizeof(CURSOR));assert u.GetCursorInfo(C.byref(info))
+            report['mouse_baseline']=dict(flags=info.flags,mouse_present=bool(u.GetSystemMetrics(19)),point=[info.point.x,info.point.y])
             return info.flags==1
         until(showing,'owned fixture mouse baseline')
         report['synthetic_mouse_setup']=True
