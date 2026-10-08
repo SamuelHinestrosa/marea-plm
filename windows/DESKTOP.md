@@ -3,13 +3,22 @@
 This separate profile uses the native Windows x64/MSVC port of pleamar, with
 Luau, Win32 and DirectComposition/DX12. Windows adapters remain separate from
 the upstream Linux profile.
+
+In **Settings**, **Hide automatically** (Spanish: **Ocultarse automáticamente**)
+lets Marea tuck into the upper edge after 2.6 seconds without interaction, once
+her panels are closed. Approaching her visible face brings her back. Turn it off
+for **Always visible** (**Permanecer visible**). Auto-hide defaults to on, matching
+Linux; the choice is stored as `auto_hide` in the scene's `settings.json` and
+survives restart. A failed write reports an error and leaves the previous choice
+in effect. Sleeping after 45 seconds idle is a separate behavior.
 No WSL, Wayland, Unix shell or Linux helper programs are required.
 
 Integration status (2026-10-06): the current modular upstream profile generates
 and compiles with Luau. The sound, radio and Deriva pages have isolated logic
 and native rendering coverage. Whole-profile installed acceptance and the
 remaining capability gaps below still prevent a complete-port claim. The
-installed preview has not been updated by these source changes.
+installation and revision-specific acceptance evidence are recorded in the PR;
+source changes alone do not update an existing installation.
 
 The mixer binds each press to a native session identity and keeps its row order
 until release. Reordering or ending streams cannot transfer a volume gesture

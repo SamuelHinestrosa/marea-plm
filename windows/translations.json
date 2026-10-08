@@ -1,4 +1,8 @@
 {
+  "Hide automatically": "Ocultarse automáticamente",
+  "Always visible": "Permanecer visible",
+  "Tucks into the top edge": "Se recoge en el borde superior",
+  "Could not save auto-hide preference": "No se pudo guardar el autoocultado",
   "Full screen": "Pantalla completa",
   "Win + F": "Win + F",
   "Previous / next window": "Ventana anterior / siguiente",

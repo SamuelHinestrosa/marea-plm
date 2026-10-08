@@ -75,12 +75,13 @@ logic = replace_once(logic, '''    local base = sys.ask("env", "XDG_STATE_HOME")
 logic = replace_once(logic, 'image = { path = "/state/" .. name }', 'image = { path = STATE .. "/" .. name }')
 scene = replace_once(scene, '    fact language:', (root / 'windows/startup.plm').read_text(encoding='utf-8') + '\n    fact language:')
 scene = replace_once(scene, '    fact language:', (root / 'windows/shortcuts.plm').read_text(encoding='utf-8') + '\n    fact language:')
+scene = replace_once(scene, '    fact language:', '    event windows_toggle_autohide ->\n    fact language:')
 settings_start = scene.index('                    page menu "Settings" {')
 settings_end = scene.index('                    // ── where she lives ──', settings_start)
 settings_menu = scene[settings_start:settings_end]
 assert settings_menu.count(', cell.w, h: 90) {') == 8, 'The settings tile list changed'
 assert 'width: 456; row: 90' in settings_menu
-# Startup and shortcuts make ten Windows settings. Keep every tile reachable
+# Keep every Windows setting reachable
 # inside the card instead of letting the startup control fall below its edge.
 settings_menu = replace_once(settings_menu, '''                        grid {
                             at: card.x - 228, card.top + 98; columns: 2; gap: 10; width: 456; row: 90''', '''                        column windows_settings_list {
@@ -95,6 +96,8 @@ settings_menu = replace_once(settings_menu, '''                        }
                         text "↓" { at: card.x + 239, card.top + 476; anchor: center; size: 15; color: mint; show: windows_settings_list.content - windows_settings_list.scroll > 391 }
                     }
 ''')
+settings_menu = replace_once(settings_menu, '                            Tile("Her look",',
+    (root / 'windows/auto-hide-row.plm').read_text(encoding='utf-8') + '                            Tile("Her look",')
 scene = scene[:settings_start] + settings_menu + scene[settings_end:]
 # Append the page without renumbering the upstream section enum or its titles.
 scene = replace_once(scene, '''                    }
@@ -179,7 +182,7 @@ scene = replace_once(scene, 'image i.icon { at: 3, 3 - rise * 1.5; size: 22, 22 
                 }
             }''')
 assert 'fact skin: lens | liquid | classic = classic' in scene
-scene = replace_once(scene, 'fact hidden = true', 'fact hidden = false')
+assert 'fact hidden = true' in scene
 scene = replace_once(scene, '    service media as playback', '''    model windows_media_cover max 1 { pic: image 112, 112 }
     fact windows_media_has_art = false
     service media as playback''')
@@ -455,6 +458,9 @@ for event, command in [('play_pause', 'toggle'), ('previous', 'previous'), ('nex
 logic = remove_between(logic, '--  And what she had on,', '-- ── the language',
     (root / 'windows/wardrobe.luau').read_text(encoding='utf-8') + '\n')
 logic = replace_once(logic, '    settings.skin = fact.skin', '    settings.skin = fact.skin\n    settings.shelf_folded = fact.windows_shelf_folded == true')
+logic = replace_once(logic, 'on("fact:taking_room", function() save_settings() end)',
+    'on("fact:taking_room", function() save_settings() end)\ndo\n(function()\n' +
+    (root / 'windows/auto-hide.luau').read_text(encoding='utf-8') + '\nend)()(settings, sys, notice)\nend')
 # Lua writes do not echo a fact event back to their own handlers. Rebuild the
 # dynamic labels explicitly after choosing the language, including at startup.
 logic = replace_once(logic, '    fact.locale = LOCALES[fact.language] or system_locale()', '''    fact.locale = LOCALES[fact.language] or system_locale()

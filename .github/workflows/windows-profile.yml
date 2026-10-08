@@ -138,6 +138,19 @@ jobs:
           MAREA_CI_PROFILE_UI: '1'
           PLEAMAR_RETAINED_SURFACE: ${{ inputs.retained_mode == 'on' && '1' || inputs.retained_mode == 'off' && '0' || 'auto' }}
         run: python windows/test-profile-ui-ci.py --binary ../pleamar/target/release/pleamar.exe --output "${{ runner.temp }}/marea-profile-ui" ${{ inputs.measure_resources && '--resource-cycles 6' || '' }}
+      - name: Native auto-hide, settings toggle and persistent choice
+        if: runner.os == 'Windows'
+        working-directory: marea
+        env:
+          MAREA_CI_PROFILE_UI: '1'
+        run: python windows/test-auto-hide-native.py --binary ../pleamar/target/release/pleamar.exe --ci-owned-desktop --output "${{ runner.temp }}/marea-auto-hide"
+      - name: Preserve auto-hide and settings screenshots
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: marea-native-auto-hide
+          path: ${{ runner.temp }}/marea-auto-hide
+          if-no-files-found: warn
       - name: Preserve native Marea screenshots and interaction evidence
         if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@v4

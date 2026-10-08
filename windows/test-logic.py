@@ -43,6 +43,7 @@ run(sys.executable, root / 'windows/test-window-overview.py', '--luau-runner', r
 run(sys.executable, root / 'windows/test-window-dock.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-sound-profile.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-display-routing.py', '--luau-runner', runner)
+run(sys.executable, root / 'windows/test-auto-hide.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-shortcuts.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-chat-credentials.py', '--luau-runner', runner)
 run(sys.executable, root / 'windows/test-chat-tasks.py', '--luau-runner', runner)
