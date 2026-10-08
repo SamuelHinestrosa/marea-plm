@@ -34,6 +34,7 @@ for name,ret,args in [
     ('TranslateMessage',W.BOOL,[C.POINTER(W.MSG)]),('DispatchMessageW',C.c_ssize_t,[C.POINTER(W.MSG)]),
     ('ShowCursor',C.c_int,[W.BOOL]),('ClipCursor',W.BOOL,[C.POINTER(W.RECT)]),
     ('GetClipCursor',W.BOOL,[C.POINTER(W.RECT)]),
+    ('WindowFromPoint',W.HWND,[W.POINT]),
 ]:
     fn=getattr(u,name);fn.restype=ret;fn.argtypes=args
 class CURSOR(C.Structure):
@@ -42,7 +43,7 @@ u.GetCursorInfo.argtypes=[C.POINTER(CURSOR)];u.GetCursorInfo.restype=W.BOOL
 foreground=u.GetForegroundWindow();owned=[];process=None;cursor_hidden=False
 report=dict(passed=False,monitor=screen['name'],primary=screen['primary'],activation=a.ci_activation,physical_input=False,warm_ms=[])
 env=dict(os.environ,PLEAMAR_CONFIG=str(out/'config'),PLEAMAR_SOCKET_DIR='overview-check-'+str(os.getpid()),
-    MAREA_LOCALE='es',MAREA_OVERVIEW_WARM='1' if a.prewarm else '0',PATH=str(binary.parent)+os.pathsep+os.environ.get('PATH',''))
+    PLEAMAR_DEBUG_FOCUS='1',MAREA_LOCALE='es',MAREA_OVERVIEW_WARM='1' if a.prewarm else '0',PATH=str(binary.parent)+os.pathsep+os.environ.get('PATH',''))
 source=(root/'tools/windows-overview.plm').read_text(encoding='utf-8')
 if not a.ci_activation:source=source.replace('keyboard: exclusive while overview_open','keyboard: none')
 (out/'windows-overview.plm').write_text(source,encoding='utf-8')
@@ -115,9 +116,12 @@ try:
         if a.ci_activation:
             until(lambda:desktop.pid(u.GetForegroundWindow())==process.pid,'overview foreground without a click')
             cursor=CURSOR(size=C.sizeof(CURSOR));assert u.GetCursorInfo(C.byref(cursor))
-            report['cursor_visible']=bool(cursor.flags&1);assert report['cursor_visible'],'Cursor stayed hidden'
+            report['cursor_visible']=bool(cursor.flags&1)
+            report['cursor_details']=dict(flags=cursor.flags,point=[cursor.point.x,cursor.point.y],under_pid=desktop.pid(u.WindowFromPoint(cursor.point)),foreground=u.GetForegroundWindow(),overview_pid=process.pid)
             actual=W.RECT();assert u.GetClipCursor(C.byref(actual))
-            report['cursor_released']=(actual.right-actual.left)>20;assert report['cursor_released'],'Cursor stayed confined'
+            report['cursor_released']=(actual.right-actual.left)>20
+            assert report['cursor_visible'],'Cursor stayed hidden'
+            assert report['cursor_released'],'Cursor stayed confined'
             assert u.PostMessageW(u.GetForegroundWindow(),0x100,0x1B,1)
             until(lambda:ask('get overview_open')=='false','Escape delivered to the activated overview')
             report['escape_without_click']=True

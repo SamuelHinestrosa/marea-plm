@@ -1,0 +1,86 @@
+name: Native Windows overview
+on:
+  workflow_dispatch:
+    inputs:
+      pleamar_repository:
+        type: string
+        default: k4ditano/pleamar
+        required: true
+      pleamar_ref:
+        type: string
+        required: true
+      wm_repository:
+        type: string
+        default: k4ditano/pleamar-wm
+        required: true
+      wm_ref:
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  overview:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: marea
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.pleamar_repository }}
+          ref: ${{ inputs.pleamar_ref }}
+          path: pleamar
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.wm_repository }}
+          ref: ${{ inputs.wm_ref }}
+          path: pleamar-wm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          cache-workspace-crates: false
+          cache-bin: false
+          workspaces: pleamar -> target
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Build native overview runtime with Luau
+        working-directory: pleamar-wm
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/pleamar/target
+        run: cargo build --release --locked --bin pleamar-wm
+      - name: Prepare app-local shader compiler
+        working-directory: pleamar
+        run: ./scripts/prepare-windows-runtime.ps1
+      - name: Native overview cursor, activation and reuse
+        working-directory: marea
+        env:
+          MAREA_CI_OVERVIEW: '1'
+        run: |
+          $wm = (Resolve-Path ../pleamar/target/release/pleamar-wm.exe).Path
+          $screens = @(& $wm monitors | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or $screens.Count -eq 0) { throw 'No CI monitor.' }
+          python windows/test-overview-native.py --binary $wm --monitor $screens[0].name --ci-activation --output .tools/overview-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Native overview failed.' }
+          python windows/test-overview-native.py --binary $wm --monitor $screens[0].name --ci-activation --prewarm --output .tools/overview-warm-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Prewarmed overview failed.' }
+      - name: Keep overview evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marea-overview-acceptance
+          path: |
+            marea/.tools/overview-smoke
+            marea/.tools/overview-warm-smoke
+          if-no-files-found: warn
+      - name: Keep runtime for isolated regressions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: overview-runtime
+          path: |
+            pleamar/target/release/pleamar-wm.exe
+            pleamar/target/release/dxcompiler.dll
+            pleamar/target/release/dxil.dll
+          if-no-files-found: warn
