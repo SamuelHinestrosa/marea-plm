@@ -335,18 +335,18 @@ def exercise(binary, output, root, resource_cycles=0, idle_tide_baseline=False):
                     button=next(n for n in visible if n.get('label')=='Iniciar sesión' and n.get('role')=='button')
                     assert not button.get('covered_by'),button
                     ask('press '+button['name'])
-                    assert ask('get fixture_login_calls')==('1' if stage==0 else '2')
+                    until(lambda: ask('get fixture_login_calls')==('1' if stage==0 else '2'), 'login reached Luau')
                 if stage==1:
                     button=next(n for n in visible if n.get('label')=='Abrir página de acceso' and n.get('role')=='button')
                     assert not button.get('covered_by'),button
                     ask('press '+button['name'])
-                    assert ask('get fixture_login_opens')=='1'
+                    until(lambda: ask('get fixture_login_opens')=='1', 'reopen reached Luau')
                 if stage==3:
                     for label,key in [('Permitir','fixture_allowed'),('Esto no','fixture_denied')]:
                         button=next(n for n in visible if n.get('label')==label and n.get('role')=='button')
                         assert not button.get('covered_by'),button
                         ask('press '+button['name'])
-                        assert ask('get '+key)=='2'
+                        until(lambda: ask('get '+key)=='2', 'approval reached the matching Luau row')
                 if label == 'long-conversation':
                     assert state['chat.rows.count'] == '12', state
                     assert state['chat.stuck'] == 'true', state
@@ -358,7 +358,7 @@ def exercise(binary, output, root, resource_cycles=0, idle_tide_baseline=False):
             visible=tree('account-signing-tree')
             button=next(n for n in visible if n.get('label')=='Abrir página de acceso' and n.get('role')=='button')
             ask('press '+button['name'])
-            assert ask('get fixture_login_opens')=='2'
+            until(lambda: ask('get fixture_login_opens')=='2', 'settings reopen reached Luau')
             capture('13-account-signing')
             report['checks'].append('Both login and reopen buttons dispatch their events on the visible monitor; no browser or account used')
             ask('emit fixture_stage 9')
