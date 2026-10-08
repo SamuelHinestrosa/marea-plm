@@ -35,12 +35,18 @@ for name,ret,args in [
     ('ShowCursor',C.c_int,[W.BOOL]),('ClipCursor',W.BOOL,[C.POINTER(W.RECT)]),
     ('GetClipCursor',W.BOOL,[C.POINTER(W.RECT)]),
     ('WindowFromPoint',W.HWND,[W.POINT]),
+    ('SetCursorPos',W.BOOL,[C.c_int,C.c_int]),
 ]:
     fn=getattr(u,name);fn.restype=ret;fn.argtypes=args
 class CURSOR(C.Structure):
     _fields_=[('size',W.DWORD),('flags',W.DWORD),('cursor',W.HANDLE),('point',W.POINT)]
 u.GetCursorInfo.argtypes=[C.POINTER(CURSOR)];u.GetCursorInfo.restype=W.BOOL
-foreground=u.GetForegroundWindow();owned=[];process=None;cursor_hidden=False
+class MOUSE(C.Structure):
+    _fields_=[('dx',W.LONG),('dy',W.LONG),('data',W.DWORD),('flags',W.DWORD),('time',W.DWORD),('extra',C.c_size_t)]
+class INPUT(C.Structure):
+    _fields_=[('type',W.DWORD),('mouse',MOUSE)]
+u.SendInput.argtypes=[W.UINT,C.POINTER(INPUT),C.c_int];u.SendInput.restype=W.UINT
+foreground=u.GetForegroundWindow();owned=[];process=None;cursor_adjustment=0
 report=dict(passed=False,monitor=screen['name'],primary=screen['primary'],activation=a.ci_activation,physical_input=False,warm_ms=[])
 env=dict(os.environ,PLEAMAR_CONFIG=str(out/'config'),PLEAMAR_SOCKET_DIR='overview-check-'+str(os.getpid()),
     PLEAMAR_DEBUG_FOCUS='1',MAREA_LOCALE='es',MAREA_OVERVIEW_WARM='1' if a.prewarm else '0',PATH=str(binary.parent)+os.pathsep+os.environ.get('PATH',''))
@@ -94,7 +100,26 @@ try:
     pump()
     if a.ci_activation:
         assert u.SetForegroundWindow(owned[0])
-        cursor_hidden=u.ShowCursor(False)<0
+        # Hosted Windows can start in touch/pen mode (CURSOR_SUPPRESSED), which
+        # is independent of ShowCursor's display count. Establish a mouse
+        # baseline on our own window before simulating a game hiding it.
+        assert u.SetCursorPos(bounds['x']+110,bounds['y']+110)
+        event=INPUT(type=0,mouse=MOUSE(flags=1))
+        assert u.SendInput(1,C.byref(event),C.sizeof(INPUT))==1
+        for _ in range(32):
+            cursor_adjustment+=1
+            if u.ShowCursor(True)>=0:break
+        def showing():
+            info=CURSOR(size=C.sizeof(CURSOR));assert u.GetCursorInfo(C.byref(info))
+            return info.flags==1
+        until(showing,'owned fixture mouse baseline')
+        report['synthetic_mouse_setup']=True
+        for _ in range(32):
+            cursor_adjustment-=1
+            if u.ShowCursor(False)<0:break
+        info=CURSOR(size=C.sizeof(CURSOR));assert u.GetCursorInfo(C.byref(info))
+        assert info.flags==0,'The fixture must hide a visible mouse cursor, not rely on touch suppression'
+        report['fixture_cursor_hidden']=True
         clip=W.RECT(bounds['x']+100,bounds['y']+100,bounds['x']+120,bounds['y']+120)
         assert u.ClipCursor(C.byref(clip))
     with (out/'scene.log').open('w',encoding='utf-8') as log:
@@ -143,7 +168,7 @@ finally:
         except Exception:process.kill();process.wait(timeout=10)
     if a.ci_activation:
         u.ClipCursor(None)
-        if cursor_hidden:u.ShowCursor(True)
+        for _ in range(abs(cursor_adjustment)):u.ShowCursor(cursor_adjustment<0)
     for hwnd in owned:u.DestroyWindow(hwnd)
     (out/'report.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
 print(json.dumps(report,indent=2))
