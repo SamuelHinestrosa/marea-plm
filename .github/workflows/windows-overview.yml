@@ -16,8 +16,17 @@ on:
       wm_ref:
         type: string
         required: true
+      runtime_run:
+        description: Optional prior run of this workflow, for fixture-only retries
+        type: string
+        default: ''
+      runtime_sha256:
+        description: Independently verified SHA256 of that run's pleamar-wm.exe
+        type: string
+        default: ''
 permissions:
   contents: read
+  actions: read
 jobs:
   overview:
     runs-on: windows-2022
@@ -36,7 +45,9 @@ jobs:
           ref: ${{ inputs.wm_ref }}
           path: pleamar-wm
       - uses: dtolnay/rust-toolchain@stable
+        if: inputs.runtime_run == ''
       - uses: Swatinem/rust-cache@v2
+        if: inputs.runtime_run == ''
         with:
           cache-on-failure: true
           cache-workspace-crates: false
@@ -46,13 +57,39 @@ jobs:
         with:
           python-version: '3.x'
       - name: Build native overview runtime with Luau
+        if: inputs.runtime_run == ''
         working-directory: pleamar-wm
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/pleamar/target
         run: cargo build --release --locked --bin pleamar-wm
+      - uses: actions/download-artifact@v4
+        if: inputs.runtime_run != ''
+        with:
+          name: overview-runtime
+          run-id: ${{ inputs.runtime_run }}
+          github-token: ${{ github.token }}
+          path: pleamar/target/release
+      - name: Verify the reused runtime
+        if: inputs.runtime_run != ''
+        env:
+          EXPECTED_RUNTIME_SHA256: ${{ inputs.runtime_sha256 }}
+        run: |
+          if ($env:EXPECTED_RUNTIME_SHA256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'A verified runtime hash is required.' }
+          $actual = (Get-FileHash -LiteralPath pleamar/target/release/pleamar-wm.exe -Algorithm SHA256).Hash
+          if ($actual -ne $env:EXPECTED_RUNTIME_SHA256) { throw 'Reused runtime hash mismatch.' }
       - name: Prepare app-local shader compiler
-        working-directory: pleamar
-        run: ./scripts/prepare-windows-runtime.ps1
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP 'overview-dxc'
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          $archive = Join-Path $stage 'dxc.zip'
+          Invoke-WebRequest -Uri 'https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2609/dxc_2026_09_29.zip' -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne 'AD31B1FC8443175D204F77A611FDB3EF2EC42759BDC2F1167368DE24A4A7E7F1') { throw 'DXC checksum mismatch' }
+          $unpacked = Join-Path $stage 'unpacked'
+          Expand-Archive -LiteralPath $archive -DestinationPath $unpacked
+          foreach ($name in @('dxcompiler.dll', 'dxil.dll')) {
+            Copy-Item -LiteralPath (Join-Path $unpacked "bin/x64/$name") -Destination (Join-Path 'pleamar/target/release' $name)
+          }
       - name: Native overview cursor, activation and reuse
         working-directory: marea
         env:
