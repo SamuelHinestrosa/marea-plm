@@ -19,7 +19,7 @@ if a.ci_activation:
     assert os.environ.get('GITHUB_ACTIONS')=='true' and os.environ.get('RUNNER_ENVIRONMENT')=='github-hosted'
     assert os.environ.get('MAREA_CI_OVERVIEW')=='1'
 binary=a.binary.resolve(strict=True);root=Path(__file__).resolve().parents[1]
-out=a.output.resolve();out.mkdir(exist_ok=False)
+out=a.output.resolve();out.mkdir(parents=True,exist_ok=False)
 flags=subprocess.CREATE_NO_WINDOW|subprocess.BELOW_NORMAL_PRIORITY_CLASS
 screens=json.loads(subprocess.check_output([str(binary),'monitors'],creationflags=flags,encoding='utf-8'))
 screen=next(s for s in screens if s['name']==a.monitor and (a.ci_activation or not s['primary']))
