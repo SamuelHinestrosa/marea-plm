@@ -107,6 +107,8 @@ part Chat {
         shader chat_tide { at: chat.x, ky0 + 45 + (chat.h - 45) / 2; size: chat.w, chat.h - 45; values: chat.stir; colors: mint }
         //  The thread. It scrolls with the wheel and by dragging, and follows
         //  what arrives while you are at the bottom of it.
+        // Keep drag capture behind the row actions and sign-in controls.
+        zone box chat_area { from: kx0, ky0 + 56; size: 556, 404; active: chatting and chat.signed_in }
         column chat_list ~quick {
             at: kx0, ky0 + 56
             view: 556, 404
@@ -186,7 +188,6 @@ part Chat {
                move 1, 6; line 6, 1; line 11, 6 }
         box { at: kx0 + 532, ky0 + 518; size: 10, 10; corner: 2; color: #0c0f12; show: busy }
         zone ellipse send_btn { at: kx0 + 532, ky0 + 518; radius: 16; cursor: pointer; active: chatting }
-        zone box chat_area { from: kx0, ky0 + 56; size: 556, 404; active: chatting }
     }
     }
     on enter new_chat { new.glow: 1 }

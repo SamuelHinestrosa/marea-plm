@@ -27,8 +27,10 @@ attempt and exited with code 0. No browser was opened and no code or token was
 retained in the evidence. This verifies startup and code delivery from the
 worker, not successful account authorization, model entitlement or a reply.
 
-The reported no-browser/no-code failure from the installed UI has not yet been
-reproduced. Shared logic tests cover browser failure/retry, cancelled callback
+Native CI reproduced a no-browser/no-code cause: the chat's drag zone covered
+the sign-in button (`chat_login_btn is covered by chat_area`), intercepting its
+press before the login event reached the worker. The drag zone now sits behind
+row actions and is disabled on the signed-out page. Shared logic tests cover browser failure/retry, cancelled callback
 retirement and a silent worker followed by a new attempt. Native CI also checks
 the visible chat/settings buttons and renders the translated code instructions
 using isolated fixture data. A real account round trip remains pending.

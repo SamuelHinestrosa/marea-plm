@@ -44,7 +44,7 @@ def fixture_source(root, idle_tide_baseline=False):
     assert count == 1, 'The fixture must deny every external service'
     assert source.count('scene Marea {') == 1
     source = source.replace('scene Marea {', 'scene MareaProfileCI {\n'
-        ' event fixture_stage ->\n fact fixture_ready = false\n fact fixture_volume_calls = 0\n fact fixture_login_calls = 0\n fact fixture_login_opens = 0\n', 1)
+        ' event fixture_stage ->\n fact fixture_ready = false\n fact fixture_volume_calls = 0\n fact fixture_login_calls = 0\n fact fixture_login_opens = 0\n fact fixture_allowed = -1\n fact fixture_denied = -1\n', 1)
     return source
 
 
@@ -157,6 +157,8 @@ on("set_volume",function(v)
 end)
 on("chat_login",function() fact.fixture_login_calls+=1 end)
 on("chat_login_open",function() fact.fixture_login_opens+=1 end)
+on("chat_allow",function(index) fact.fixture_allowed=index end)
+on("chat_deny",function(index) fact.fixture_denied=index end)
 on("fixture_stage",function(stage)
     fact.chatting=false;fact.open=false;fact.menu_open=false
     fact["chat.signed_in"]=false;fact["chat.signing"]=false
@@ -331,12 +333,20 @@ def exercise(binary, output, root, resource_cycles=0, idle_tide_baseline=False):
                 capture(f'{stage + 4:02}-{label}')
                 if stage in (0,2):
                     button=next(n for n in visible if n.get('label')=='Iniciar sesión' and n.get('role')=='button')
+                    assert not button.get('covered_by'),button
                     ask('press '+button['name'])
                     assert ask('get fixture_login_calls')==('1' if stage==0 else '2')
                 if stage==1:
                     button=next(n for n in visible if n.get('label')=='Abrir página de acceso' and n.get('role')=='button')
+                    assert not button.get('covered_by'),button
                     ask('press '+button['name'])
                     assert ask('get fixture_login_opens')=='1'
+                if stage==3:
+                    for label,key in [('Permitir','fixture_allowed'),('Esto no','fixture_denied')]:
+                        button=next(n for n in visible if n.get('label')==label and n.get('role')=='button')
+                        assert not button.get('covered_by'),button
+                        ask('press '+button['name'])
+                        assert ask('get '+key)=='2'
                 if label == 'long-conversation':
                     assert state['chat.rows.count'] == '12', state
                     assert state['chat.stuck'] == 'true', state
