@@ -2,7 +2,7 @@
 -- its dock, rain, ride and agent seat have separate capabilities.
 return function(run, hooks, entries, changed, screen, notice, spawn)
     local available, overview, dock, busy, state = false, false, false, false, nil
-    local viewing = false
+    local viewing = nil
     local dock_view = nil
     local navigation = {}
     local layouts = {"free", "left", "right", "columns", "rows", "grid"}
@@ -90,24 +90,40 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
     hooks.windows_focus_previous = function() request("emit focus_previous", true, true) end
     hooks.windows_close = function() request("emit close", true) end
     hooks.windows_fullscreen = function() request("emit fullscreen", true) end
-    hooks.windows_overview = function()
+    hooks.windows_overview = function(warm)
+        if warm and (viewing or not overview) then return end
         if not overview then request("status", true); return end
-        if viewing then notice(tr("The window view is already open.")); return end
+        if viewing then
+            local child = viewing
+            if child.pending then return end
+            child.pending = true
+            local ok, error = pcall(run, "pleamar-wm", {"--say", "windows-overview", "emit overview_toggle"}, function(output, code)
+                if viewing ~= child then return end
+                child.pending = false
+                if code ~= 0 or tostring(output or ""):sub(1, 1) == "?" then
+                    notice(tr("The window view could not open.") .. " " .. tostring(output or ""):sub(1, 180))
+                end
+            end, {env={PLEAMAR_SOCKET_DIR=child.endpoint}})
+            if not ok then child.pending = false; notice(tostring(error)) end
+            return
+        end
         local name = current_screen()
         if not name then return end
-        viewing = true
+        local child = {endpoint="marea-overview-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 2147483647))}
+        viewing = child
         local last_line = ""
         local finished = false
         local function done(output, code)
             if finished then return end
             finished = true
-            viewing = false
-            if code ~= 0 then notice(tr("The window view could not open.") .. " " .. (output ~= "" and tostring(output) or last_line):sub(1, 180)) end
+            if viewing == child then viewing = nil end
+            if code ~= 0 and not warm then notice(tr("The window view could not open.") .. " " .. (output ~= "" and tostring(output) or last_line):sub(1, 180)) end
         end
         local ok, error = pcall(spawn, "pleamar-wm", {"--scene", "tools/windows-overview.plm", "--screen", name,
             "--preview-monitor", name, "--window-actions", "--no-hud", "--stall", "0"},
             function(line) last_line = tostring(line):sub(1, 180) end, done,
-            {cwd=".", errors=true, env={MAREA_LOCALE=tostring(fact.locale or "en")}})
+            {cwd=".", errors=true, env={MAREA_LOCALE=tostring(fact.locale or "en"), PLEAMAR_SOCKET_DIR=child.endpoint,
+                MAREA_OVERVIEW_WARM=warm and "1" or "0"}})
         if not ok then done(tostring(error), 1) end
     end
     on("windows_to_layouts", function() request("status", true) end)
@@ -167,5 +183,8 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
     end
     on("fact:menu_open", function(open) if open then request("status", false) end end)
     on("fact:searching", function(open) if open then request("status", false) end end)
+    on("fact:windows_initialized", function(ready)
+        if ready then after(3000, function() hooks.windows_overview(true) end) end
+    end)
     request("status", false)
 end

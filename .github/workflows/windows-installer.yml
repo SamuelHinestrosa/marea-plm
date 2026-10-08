@@ -137,6 +137,23 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Native Marea dock ownership failed.' }
           python ../pleamar-wm/tests/windows-fullscreen.py --binary $wm --fixture ../pleamar/target/release/examples/windows-dock-fixture.exe --monitor $screens[0].name --ci-owned-desktop --output .tools/fullscreen-process-smoke
           if ($LASTEXITCODE -ne 0) { throw 'Native cross-process fullscreen failed.' }
+      - name: Native overview activation and warm reopening
+        working-directory: marea
+        env:
+          MAREA_CI_OVERVIEW: '1'
+        run: |
+          $wm = (Resolve-Path ../pleamar/target/release/pleamar-wm.exe).Path
+          $screens = @(& $wm monitors | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or $screens.Count -eq 0) { throw 'No CI monitor.' }
+          python windows/test-overview-native.py --binary $wm --monitor $screens[0].name --ci-activation --output .tools/overview-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Native overview failed.' }
+      - name: Keep native overview evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marea-overview-acceptance
+          path: marea/.tools/overview-smoke
+          if-no-files-found: warn
       - name: Keep native dock evidence
         if: always()
         uses: actions/upload-artifact@v4

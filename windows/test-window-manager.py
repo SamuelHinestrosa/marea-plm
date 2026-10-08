@@ -16,7 +16,7 @@ local function on(name, callback) handlers[name]=callback end
 local changed = 0
 local fact = {locale="es"}
 local screen = "\\\\.\\DISPLAY2"
-local children = {}
+local children, view_requests = {}, {}
 local function spawn(name,args,line,done,options)
     assert(name=="pleamar-wm" and args[1]=="--scene" and args[2]=="tools/windows-overview.plm")
     assert(args[3]=="--screen" and args[4]==screen and args[5]=="--preview-monitor" and args[6]==screen)
@@ -24,7 +24,12 @@ local function spawn(name,args,line,done,options)
     children[#children+1]={line=line,done=done}
     return #children
 end
-local function run(name, args, callback)
+local function run(name, args, callback, options)
+    if args[2]=="windows-overview" then
+        assert(args[3]=="emit overview_toggle" and options.env.PLEAMAR_SOCKET_DIR:find("marea-overview-",1,true)==1)
+        view_requests[#view_requests+1]=callback
+        return
+    end
     assert(name=="pleamar-wm" and args[1]=="--say" and args[2]=="wm")
     requests[#requests+1]={command=args[3],done=callback}
 end
@@ -64,20 +69,20 @@ screen="\\\\.\\DISPLAY1"
 hooks.windows_overview(); assert(#children==0 and #notices==3)
 screen="\\\\.\\DISPLAY2"
 hooks.windows_overview();hooks.windows_overview()
-assert(#children==1 and #notices==4)
+assert(#children==1 and #notices==3 and #view_requests==1)
 children[1].line("capture failed");children[1].done("",1)
-assert(#notices==5 and notices[5]:find("capture failed",1,true))
+assert(#notices==4 and notices[4]:find("capture failed",1,true))
 hooks.windows_overview();assert(#children==2)
 children[1].done("",0);hooks.windows_overview();assert(#children==2)
 children[2].done("",0);hooks.windows_overview();assert(#children==3)
 -- Keyboard layout follows the native pointer monitor, not Marea's home monitor.
 screen="\\\\.\\DISPLAY1"
 hooks.windows_toggle_layout();hooks.windows_toggle_layout()
-assert(#requests==7 and requests[7].command=="emit toggle_free" and #notices==6)
+assert(#requests==7 and requests[7].command=="emit toggle_free" and #notices==4)
 requests[7].done("good",0)
 assert(hooks.windows_wm_allowed("Tiled or free windows"))
 hooks.windows_toggle_layout();requests[8].done("pointer is outside this WM session",1)
-assert(#notices==7 and notices[7]:find("pointer is outside this WM session",1,true))
+assert(#notices==5 and notices[5]:find("pointer is outside this WM session",1,true))
 assert(not hooks.windows_wm_allowed("Tiled or free windows"))
 requests[8].done("good",0)
 assert(not hooks.windows_wm_allowed("Tiled or free windows"))
@@ -85,15 +90,15 @@ assert(not hooks.windows_wm_allowed("Tiled or free windows"))
 hooks.windows_toggle_layout()
 assert(#requests==9 and requests[9].command=="emit toggle_free")
 requests[9].done("good",0)
-assert(hooks.windows_wm_allowed("Tiled or free windows") and #notices==7)
+assert(hooks.windows_wm_allowed("Tiled or free windows") and #notices==5)
 hooks.windows_minimize();hooks.windows_minimize()
 assert(#requests==10 and requests[10].command=="emit minimize")
 requests[10].done("the active window is outside this WM session",1)
-assert(#notices==8 and notices[8]:find("outside this WM session",1,true))
+assert(#notices==6 and notices[6]:find("outside this WM session",1,true))
 hooks.windows_restore_last()
 assert(#requests==11 and requests[11].command=="emit restore_last")
 requests[11].done("good",0)
-assert(hooks.windows_wm_allowed("Tiled or free windows") and #notices==8)
+assert(hooks.windows_wm_allowed("Tiled or free windows") and #notices==6)
 -- Navigation is relative: rapid taps must reach each next window, in order.
 hooks.windows_focus_next();hooks.windows_focus_next();hooks.windows_focus_previous()
 assert(#requests==12 and requests[12].command=="emit focus_next")
@@ -106,14 +111,14 @@ requests[14].done("good",0)
 hooks.windows_focus_next();hooks.windows_focus_next()
 assert(#requests==15)
 requests[15].done("foreground changed",1)
-assert(#requests==15 and #notices==9, "failed navigation continued acting on a different foreground")
+assert(#requests==15 and #notices==7, "failed navigation continued acting on a different foreground")
 hooks.windows_close();hooks.windows_close()
 assert(#requests==16 and requests[16].command=="emit close")
 requests[16].done("good",0)
 hooks.windows_fullscreen();hooks.windows_fullscreen()
 assert(#requests==17 and requests[17].command=="emit fullscreen")
 requests[17].done("fullscreen target is outside this WM session",1)
-assert(#notices==10 and notices[10]:find("outside this WM session",1,true))
+assert(#notices==8 and notices[8]:find("outside this WM session",1,true))
 hooks.windows_fullscreen();assert(#requests==18);requests[18].done("good",0)
 screen="\\\\.\\DISPLAY2"
 handlers.windows_to_layouts();assert(#requests==19 and fact.windows_wm_busy)
