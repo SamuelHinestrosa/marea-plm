@@ -34,6 +34,10 @@ return function(shared)
     local history = {}       -- what is handed back to a fresh worker: { role, text }
     local worker = nil
     local ready = false
+    local startup_timer = nil
+    local function stop_startup_timer()
+        if startup_timer then cancel(startup_timer); startup_timer = nil end
+    end
     local queue = {}         -- lines for the worker until it is ready
     local live = nil         -- the row of her answer arriving
     --  What is seen of it: the model hands the whole answer over in about a
@@ -137,6 +141,26 @@ return function(shared)
     local function status(words)
         text["chat.status"] = words or ""
     end
+    local login_url, login_attempt = nil, 0
+    local function clear_login_link()
+        login_attempt += 1
+        login_url = nil
+        fact["chat.login_link"] = false
+        text["chat.login_help"] = ""
+    end
+    local function open_login_link()
+        if not login_url or fact["chat.signing"] ~= true then return end
+        local attempt = login_attempt
+        run("xdg-open", { login_url }, function(_, code)
+            if attempt ~= login_attempt or fact["chat.signing"] ~= true then return end
+            if code ~= 0 then
+                status(tr("Could not open the browser. Use Open sign-in page to try again."))
+            else
+                status("")
+            end
+        end)
+    end
+    on("chat_login_open", open_login_link)
 
     local function save()
         local keep = {}
@@ -869,6 +893,7 @@ return function(shared)
     local function on_event(m)
         local kind = m.type
         if kind == "ready" then
+            stop_startup_timer()
             ready = true
             usable = m.usable == true
             text["chat.model"] = m.model or ""
@@ -897,15 +922,20 @@ return function(shared)
             if not url:match("^https://auth%.openai%.com/") or (#code > 0 and (#code > 32 or not code:match("^[%w%-]+$"))) then
                 send({ type = "login_cancel" })
                 fact["chat.signing"] = false
+                clear_login_link()
                 status(tr("The sign-in address was not recognized."))
                 rest_later()
                 return
             end
             text["chat.login_hint"] = code ~= "" and (tr("Enter this code in your browser: ") .. code) or tr("Finish signing in, in your browser")
-            run("xdg-open", { url }, function() end)
+            login_url = url
+            fact["chat.login_link"] = true
+            text["chat.login_help"] = code ~= "" and tr("Enable device code login in ChatGPT Settings > Security (or ask your workspace administrator), then enter the code in your browser. Keep this sign-in open until it finishes.") or ""
+            open_login_link()
         elseif kind == "login_done" then
             fact["chat.signing"] = false
             text["chat.login_hint"] = ""
+            clear_login_link()
             if not m.ok and m.reason ~= "cancelled" then
                 status(tr("The sign-in did not finish: ") .. tostring(m.reason or "?"))
             else
@@ -999,6 +1029,7 @@ return function(shared)
             if good and type(m) == "table" then on_event(m) end
         end, function(_, code)
             if serial ~= worker_serial then return end
+            stop_startup_timer()
             worker_serial += 1
             generation += 1
             if chat_desktop then chat_desktop("cancel", {}, function() end) end
@@ -1009,6 +1040,7 @@ return function(shared)
             queue = {}
             fact["chat.signing"] = false
             text["chat.login_hint"] = ""
+            clear_login_link()
             if closing then
                 closing = false
                 if close_timer then cancel(close_timer); close_timer = nil end
@@ -1038,9 +1070,24 @@ return function(shared)
         for k = math.max(1, #history - 40), #history do recent[#recent + 1] = history[k] end
         local line = json.encode({ type = "start", model = chosen(), locale = fact.locale, history = recent, memory = for_her() }) .. "\n"
         write(worker, line)
+        startup_timer = after(60000, function()
+            if serial ~= worker_serial or ready or closing then return end
+            startup_timer = nil
+            pcall(kill, id)
+            worker_serial += 1
+            generation += 1
+            worker, ready, queue = nil, false, {}
+            stop_idle()
+            fact["chat.signing"] = false
+            text["chat.login_hint"] = ""
+            clear_login_link()
+            fact["chat.state"] = "offline"
+            status(tr("Her engine did not respond. Try signing in again."))
+        end)
     end
     close_worker = function()
         if not worker or closing then return end
+        stop_startup_timer()
         stop_idle()
         closing = true
         ready = false
@@ -1048,6 +1095,7 @@ return function(shared)
         generation += 1
         fact["chat.signing"] = false
         text["chat.login_hint"] = ""
+        clear_login_link()
         fact["chat.state"] = "starting"
         status(tr("Closing the previous conversation…"))
         local id, serial = worker, worker_serial
@@ -1472,6 +1520,8 @@ return function(shared)
     on("fact:page", function() if chat_desktop then rest_later() end end)
     on("chat_login", function()
         if closing or fact["chat.signing"] == true then return end
+        clear_login_link()
+        status("")
         start_worker()
         if not worker then return end
         stop_idle()
@@ -1484,6 +1534,7 @@ return function(shared)
         if worker then write(worker, json.encode({ type = "login_cancel" }) .. "\n") end
         fact["chat.signing"] = false
         text["chat.login_hint"] = ""
+        clear_login_link()
         rest_later()
     end)
     on("chat_pick", function(i)

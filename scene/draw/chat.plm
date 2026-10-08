@@ -150,6 +150,13 @@ part Chat {
         on leave chat_login_btn { chat.login.glow: 0 }
         on press chat_login_btn while chat.signing { emit chat_login_cancel }
         on press chat_login_btn while not chat.signing { emit chat_login }
+        group {
+            show: not chat.signed_in and chat.signing and chat.login_link
+            text "Open sign-in page" { at: chat.x, ky0 + 316; anchor: center; size: 12; color: mint }
+            text chat.login_help { at: chat.x, ky0 + 370; anchor: center; size: 11.5; color: #8b8f95; width: 420; lines: 5; align: center }
+        }
+        zone box chat_login_open_btn { at: chat.x, ky0 + 316; size: 220, 32; cursor: pointer; active: chatting and not chat.signed_in and chat.signing and chat.login_link }
+        on press chat_login_open_btn { emit chat_login_open }
         //  Working: the water at the foot of the thread breathes —three waves,
         //  out of phase— and says what she is on.
         group {

@@ -44,7 +44,7 @@ def fixture_source(root, idle_tide_baseline=False):
     assert count == 1, 'The fixture must deny every external service'
     assert source.count('scene Marea {') == 1
     source = source.replace('scene Marea {', 'scene MareaProfileCI {\n'
-        ' event fixture_stage ->\n fact fixture_ready = false\n fact fixture_volume_calls = 0\n', 1)
+        ' event fixture_stage ->\n fact fixture_ready = false\n fact fixture_volume_calls = 0\n fact fixture_login_calls = 0\n fact fixture_login_opens = 0\n', 1)
     return source
 
 
@@ -155,9 +155,12 @@ on("set_volume",function(v)
     fact["sound.volume"]=v
     fact["windows_level_pending.1"]=false
 end)
+on("chat_login",function() fact.fixture_login_calls+=1 end)
+on("chat_login_open",function() fact.fixture_login_opens+=1 end)
 on("fixture_stage",function(stage)
     fact.chatting=false;fact.open=false;fact.menu_open=false
     fact["chat.signed_in"]=false;fact["chat.signing"]=false
+    fact["chat.login_link"]=false;text["chat.login_help"]=""
     fact["chat.state"]="offline";fact["chat.live"]=-1
     model["chat.rows"]={}
     text["chat.input"]=""
@@ -167,9 +170,11 @@ on("fixture_stage",function(stage)
         fact.open=true;fact.page="settings";fact.section="windows_shortcuts"
     elseif stage==0 then
         fact.chatting=true
-    elseif stage==1 then
-        fact.chatting=true;fact["chat.signing"]=true
+    elseif stage==1 or stage==10 then
+        fact.chatting=stage==1;fact["chat.signing"]=true;fact["chat.login_link"]=true
+        if stage==10 then fact.open=true;fact.page="settings";fact.section="talk" end
         text["chat.login_hint"]="Código de ejemplo: ABCD-EFGH. No es una sesión real."
+        text["chat.login_help"]="Activa el acceso con código de dispositivo en ChatGPT → Ajustes → Seguridad (o consulta al administrador). Introduce el código en el navegador y mantén este acceso abierto hasta terminar."
     elseif stage==2 then
         fact.open=true;fact.page="settings";fact.section="talk"
     elseif stage==3 then
@@ -322,14 +327,30 @@ def exercise(binary, output, root, resource_cycles=0, idle_tide_baseline=False):
                 time.sleep(1.5)
                 state = {name: ask('get ' + name) for name in ('chat.rows.count', 'chat.length', 'chat.from_end', 'chat.stuck')}
                 report['layout_state'][label] = state
-                tree(label + '-tree')
+                visible=tree(label + '-tree')
                 capture(f'{stage + 4:02}-{label}')
+                if stage in (0,2):
+                    button=next(n for n in visible if n.get('label')=='Iniciar sesión' and n.get('role')=='button')
+                    ask('press '+button['name'])
+                    assert ask('get fixture_login_calls')==('1' if stage==0 else '2')
+                if stage==1:
+                    button=next(n for n in visible if n.get('label')=='Abrir página de acceso' and n.get('role')=='button')
+                    ask('press '+button['name'])
+                    assert ask('get fixture_login_opens')=='1'
                 if label == 'long-conversation':
                     assert state['chat.rows.count'] == '12', state
                     assert state['chat.stuck'] == 'true', state
                     assert float(state['chat.length']) > 404, state
                     assert abs(float(state['chat.from_end']) - 404) < 1, state
             report['checks'].append('Six native chat/settings states and long conversation keeps the visible tail')
+            ask('emit fixture_stage 10')
+            time.sleep(1.5)
+            visible=tree('account-signing-tree')
+            button=next(n for n in visible if n.get('label')=='Abrir página de acceso' and n.get('role')=='button')
+            ask('press '+button['name'])
+            assert ask('get fixture_login_opens')=='2'
+            capture('13-account-signing')
+            report['checks'].append('Both login and reopen buttons dispatch their events on the visible monitor; no browser or account used')
             ask('emit fixture_stage 9')
             until(lambda: float(ask('get chat.stir')) > .99, 'working tide visible')
             capture('11-conversation-working')

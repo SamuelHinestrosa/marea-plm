@@ -6,6 +6,9 @@
 // «History»— is already in es.plm, and the logic uses those same English words.
 library SpanishLogic {
     translations es {
+        "Her engine did not respond. Try signing in again." = "El asistente no respondió. Vuelve a intentar iniciar sesión."
+        "Could not open the browser. Use Open sign-in page to try again." = "No se pudo abrir el navegador. Pulsa «Abrir página de acceso» para reintentarlo."
+        "Enable device code login in ChatGPT Settings > Security (or ask your workspace administrator), then enter the code in your browser. Keep this sign-in open until it finishes." = "Activa el acceso con código de dispositivo en ChatGPT → Ajustes → Seguridad (o consulta al administrador). Introduce el código en el navegador y mantén este acceso abierto hasta terminar."
         // the finder
         // what is hers, in the finder («Agents», «Settings»… are in es.plm)
         "Lock the screen" = "Bloquear la pantalla"

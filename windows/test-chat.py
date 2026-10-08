@@ -16,6 +16,7 @@ local handlers, jobs, writes, runs, wire, timers, kills = {}, {}, {}, {}, {}, {}
 local settings, apps, hooks = {}, {{name='Fixture App',exec='fixture:app',id='fixture'}}, {language={}}
 local home_dir = 'C:/owned test user'
 local launches = {}
+local browser_code, browser_pending, browser_hold = 0, nil, false
 local chat_desktop = function() return false end
 local open_reply, open_code, hold_open, pending_open = 'no agent socket here', 1, false, nil
 local sys = {ask=function(name) if name=='env' then return 'C:/owned state' end if name=='files.list' then return {} end return nil end,call=function() end,
@@ -37,7 +38,9 @@ json.decode=function(value) local id=tonumber(value:match('^{(%d+)}%s*$'));asser
 local function run(command,args,callback)
     runs[#runs+1]={command=command,args=args}
     if callback then
-        if args[1]=='agent' and args[2]=='open' then
+        if command=='xdg-open' then
+            if browser_hold then browser_pending=callback else callback('',browser_code) end
+        elseif args[1]=='agent' and args[2]=='open' then
             if hold_open then pending_open=callback else callback(open_reply,open_code) end
         else callback('',0) end
     end
@@ -65,12 +68,25 @@ handlers.chat_login();assert(count('login')==1)
 event({type='login_url',url='https://auth.openai.com/codex/device',code='ABCD-EFGH'})
 assert(#runs==1 and runs[1].command=='xdg-open')
 assert(text['chat.login_hint']=='Enter this code in your browser: ABCD-EFGH')
+assert(fact['chat.login_link'] and text['chat.login_help']:find('Security',1,true))
+browser_code=1;handlers.chat_login_open()
+assert(text['chat.status']:find('Could not open the browser',1,true))
+assert(fact['chat.signing'] and text['chat.login_hint']:find('ABCD-EFGH',1,true))
+browser_code=0;handlers.chat_login_open();assert(text['chat.status']=='')
+browser_hold=true;handlers.chat_login_open();assert(browser_pending)
+local login_runs=#runs
+
 handlers.chat_login_cancel()
 assert(text['chat.login_hint']=='' and fact['chat.signing']==false)
+assert(fact['chat.login_link']==false and text['chat.login_help']=='')
+handlers.chat_login_open();assert(#runs==login_runs)
+text['chat.status']='new status';browser_pending('',1)
+assert(text['chat.status']=='new status','late browser failure changed the cancelled login')
+browser_hold=false
 -- Untrusted worker output must never become an arbitrary shell launch.
 handlers.chat_login()
 event({type='login_url',url='file:///C:/Windows/notepad.exe'})
-assert(#runs==1 and fact['chat.signing']==false)
+assert(#runs==login_runs and fact['chat.signing']==false)
 assert(text['chat.status']=='The sign-in address was not recognized.')
 -- Worker death clears sign-in state, its code and pending login messages.
 handlers.chat_login()
@@ -269,6 +285,23 @@ text['chat.input']='Resume the same thread'
 handlers.chat_send()
 assert(#jobs==7 and writes[#writes].message.type=='start')
 assert(writes[#writes].message.history[1].text=='Only this new request')
+-- A silent startup must not leave sign-in preparing forever or replay the queue.
+handlers.chat_login()
+assert(fact['chat.signing'])
+local deadline
+for _,timer in ipairs(timers) do
+    if timer.delay==60000 and not timer.cancelled and not timer.fired then deadline=timer end
+end
+assert(deadline);deadline.run()
+assert(fact['chat.state']=='offline' and not fact['chat.signing'])
+assert(text['chat.status']=='Her engine did not respond. Try signing in again.')
+assert(text['chat.login_hint']=='' and not fact['chat.login_link'])
+local attempts=count('login')
+jobs[7].line(json.encode({type='ready',usable=false,reason='signed_out',models={}}))
+assert(count('login')==attempts,'timed-out worker replayed a login')
+handlers.chat_login();assert(#jobs==8)
+event({type='ready',usable=false,reason='signed_out',models={}})
+assert(count('login')==attempts+1,'retry did not reach the new worker')
 log('PASS: chat login, cancellation, worker retirement and truthful application launch')
 '''.replace('__CHAT__',chat)
 run_checks(args,checks,'PASS: chat login','chat')

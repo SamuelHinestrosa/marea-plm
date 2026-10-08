@@ -11,6 +11,9 @@ part Chat {
     //  Her account and her model (Settings › Talking with her).
     event chat_login                   // sign in: the browser opens
     event chat_login_cancel
+    event chat_login_open
+    fact chat.login_link = false
+    text chat.login_help = ""
     event chat_pick ->                 // `emit chat_pick(2)`: the third model
     event flip_chat_free
     on flip_chat_free { toggle chat.free }

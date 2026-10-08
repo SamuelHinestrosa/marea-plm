@@ -307,14 +307,24 @@ part Settings {
                 on leave login_btn { login.glow: 0 }
                 on press login_btn while chat.signing { emit chat_login_cancel }
                 on press login_btn while not chat.signing { emit chat_login }
-                //  Free hands.
-                box { at: card.x, card.top + 236; size: 456, 64; corner: 16; color: mix(#202021, #2a2519, chat.free) }
-                box { at: card.x, card.top + 236; size: 456, 64; corner: 16; stroke: 1.2; color: amber; opacity: chat.free * 70% }
-                text "Let her use the computer" { at: card.x - 206, card.top + 226; anchor: left center; size: 13; weight: 600; color: ink }
-                text "Without a card for each step. Sending, buying or deleting still asks" { at: card.x - 206, card.top + 245; anchor: left center; size: 11; width: 350; lines: 1; color: st.faint }
-                column { at: card.x + 174, card.top + 224
-                    Switch(chat.free, flip_chat_free, accent: amber)
+                group {
+                    show: not chat.signing
+                    //  Free hands.
+                    box { at: card.x, card.top + 236; size: 456, 64; corner: 16; color: mix(#202021, #2a2519, chat.free) }
+                    box { at: card.x, card.top + 236; size: 456, 64; corner: 16; stroke: 1.2; color: amber; opacity: chat.free * 70% }
+                    text "Let her use the computer" { at: card.x - 206, card.top + 226; anchor: left center; size: 13; weight: 600; color: ink }
+                    text "Without a card for each step. Sending, buying or deleting still asks" { at: card.x - 206, card.top + 245; anchor: left center; size: 11; width: 350; lines: 1; color: st.faint }
+                    column { at: card.x + 174, card.top + 224
+                        Switch(chat.free, flip_chat_free, accent: amber)
+                    }
                 }
+                group {
+                    show: chat.signing and chat.login_link
+                    text "Open sign-in page" { at: card.x, card.top + 220; anchor: center; size: 12; color: mint }
+                    text chat.login_help { at: card.x, card.top + 261; anchor: center; size: 10.5; width: 430; lines: 4; align: center; color: st.faint }
+                }
+                zone box login_open_btn { at: card.x, card.top + 218; size: 220, 30; cursor: pointer; active: chat.signing and chat.login_link }
+                on press login_open_btn { emit chat_login_open }
                 //  Her model.
                 text "HER MODEL" { at: card.x - 228, card.top + 300; anchor: left center; size: 9.5; weight: 700; color: #8b8f95 }
                 component ModelPill(m: record, choose: event) {
