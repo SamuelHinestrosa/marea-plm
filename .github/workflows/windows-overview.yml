@@ -90,6 +90,11 @@ jobs:
           foreach ($name in @('dxcompiler.dll', 'dxil.dll')) {
             Copy-Item -LiteralPath (Join-Path $unpacked "bin/x64/$name") -Destination (Join-Path 'pleamar/target/release' $name)
           }
+          $licenses = Join-Path 'pleamar/target/release' 'licenses/dxc'
+          New-Item -ItemType Directory -Path $licenses -Force | Out-Null
+          foreach ($name in @('LICENCE-MIT.txt', 'LICENSE-LLVM.txt', 'LICENSE-MS.txt')) {
+            Copy-Item -LiteralPath (Join-Path $unpacked $name) -Destination $licenses
+          }
       - name: Native overview cursor, activation and reuse
         working-directory: marea
         env:
@@ -120,4 +125,5 @@ jobs:
             pleamar/target/release/pleamar-wm.exe
             pleamar/target/release/dxcompiler.dll
             pleamar/target/release/dxil.dll
+            pleamar/target/release/licenses/dxc
           if-no-files-found: warn

@@ -25,3 +25,19 @@ Local mode requires an explicit secondary monitor and disables activation.
 The installer CI separately exercises keyboard focus and a confined/hidden
 cursor with owned Win32 windows. That fixture is not acceptance against a real
 game or its anti-cheat software.
+
+Validation on 2026-10-09: the native Windows workflow run
+[37851177356](https://github.com/SamuelHinestrosa/marea-plm/actions/runs/37851177356)
+passed cold and prewarmed activation, cursor visibility and confinement release,
+Escape without a click, three reopenings in the same process and capture
+retirement while hidden. The fixture first establishes a visible mouse on its
+own window, then hides and confines it. Earlier runs could not establish that
+baseline because the hosted desktop reported `CURSOR_SUPPRESSED`; moving the
+synthetic mouse by one pixel during CI setup resolved that fixture limitation.
+No synthetic mouse input is used by Marea or by local nonactivating tests.
+
+On the local secondary display, three warm command round trips measured
+244–281 ms. The shared CI host measured 1.11–1.30 s. These include process startup
+for the command clients and polling, so they do not establish input-to-frame
+latency or animation smoothness. Real-game acceptance remains pending. A view
+on Marea's monitor does not move the pointer there from another monitor.
