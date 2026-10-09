@@ -22,6 +22,16 @@ end
 local function install() __MODULE__ end
 install()
 assert(fact.locale=="es")
+assert(fact.overview_count==2 and fact["overview_place.0"]==0 and fact["overview_place.1"]==1)
+-- Minimized windows remain selectable, including windows on later pages.
+fact["win.9.open"]=true;fact["win.9.minimized"]=true
+handlers["fact:win.9.open"](true)
+assert(fact.overview_count==3 and fact["overview_place.9"]==2)
+fact["win.0.open"]=false;handlers["fact:win.0.open"](false)
+assert(fact.overview_count==2 and fact["overview_place.0"]==-1 and fact["overview_place.1"]==0 and fact["overview_place.9"]==1)
+fact["win.9.open"]=false;handlers["fact:win.9.open"](false)
+fact["win.0.open"]=true;handlers["fact:win.0.open"](true)
+assert(fact.overview_count==2 and fact["overview_place.9"]==-1)
 for _,slot in ipairs({-1,32,0.5,"0",2}) do handlers.overview_select(slot) end
 assert(#timers==0 and #requests==0)
 handlers.overview_select(0);handlers.overview_select(0)

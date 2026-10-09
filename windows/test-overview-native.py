@@ -52,8 +52,14 @@ env=dict(os.environ,PLEAMAR_CONFIG=str(out/'config'),PLEAMAR_SOCKET_DIR='overvie
     PLEAMAR_DEBUG_FOCUS='1',MAREA_LOCALE='es',MAREA_OVERVIEW_WARM='1' if a.prewarm else '0',PATH=str(binary.parent)+os.pathsep+os.environ.get('PATH',''))
 source=(root/'tools/windows-overview.plm').read_text(encoding='utf-8')
 if not a.ci_activation:source=source.replace('keyboard: exclusive while overview_open','keyboard: none')
+# Observe inside the renderer: launching an IPC client can outlast a short
+# animation on a loaded CI machine and miss every intermediate sample.
+source=source.replace('fact overview_open = false', '''fact overview_open = false
+    fact observed_transition = 0
+    on change reveal while reveal > 0.05 and reveal < 0.95 { observed_transition = reveal }''')
 (out/'windows-overview.plm').write_text(source,encoding='utf-8')
 shutil.copyfile(root/'tools/windows-overview.luau',out/'windows-overview.luau')
+subprocess.run([str(binary),'--check',str(out/'windows-overview.plm')],check=True,creationflags=flags)
 
 def pump():
     msg=W.MSG()
@@ -130,7 +136,7 @@ try:
     with (out/'scene.log').open('w',encoding='utf-8') as log:
         start=time.perf_counter()
         process=subprocess.Popen([str(binary),'--scene',str(out/'windows-overview.plm'),'--screen',a.monitor,
-            '--preview-monitor',a.monitor,'--preview-process',str(os.getpid()),'--window-actions','--no-hud','--stall','0'],
+            '--preview-monitor','all','--preview-project','--preview-process',str(os.getpid()),'--window-actions','--no-hud','--stall','0'],
             env=env,stdout=log,stderr=log,creationflags=flags)
         if a.prewarm:
             until(lambda:ask('get overview_open')=='false','hidden startup')
@@ -143,6 +149,15 @@ try:
         report['cold_ready_ms']=(time.perf_counter()-start)*1000
         until(captures,'four live window pictures');capture('overview')
         report['cold_picture_ms']=(time.perf_counter()-start)*1000
+        until(lambda:float(ask('get overview_count'))==4,'complete overview catalogue')
+        report['native_rectangles']=[[float(ask(f'get win.{i}.native.{key}')) for key in ['x','y','width','height']] for i in range(4)]
+        assert all(rect[2]>0 and rect[3]>0 for rect in report['native_rectangles'])
+        actual=json.loads(command('windows'))
+        expected=sorted([[round((w['bounds']['x']-screen['bounds']['x'])/screen['scale'],2),
+                          round((w['bounds']['y']-screen['bounds']['y'])/screen['scale'],2),
+                          round(w['bounds']['width']/screen['scale'],2),round(w['bounds']['height']/screen['scale'],2)]
+                         for w in actual if w['process']==os.getpid()])
+        assert sorted([[round(v,2) for v in rect] for rect in report['native_rectangles']])==expected
         if a.ci_activation:
             until(lambda:desktop.pid(u.GetForegroundWindow())==process.pid,'overview foreground without a click')
             cursor=CURSOR(size=C.sizeof(CURSOR));assert u.GetCursorInfo(C.byref(cursor))
@@ -161,10 +176,19 @@ try:
             start=time.perf_counter();ask('emit overview_toggle')
             until(lambda:ask('get overview_open')=='true','warm opening')
             report['warm_ms'].append((time.perf_counter()-start)*1000)
+            if i==0:
+                until(lambda:.05<float(ask('get observed_transition'))<.95,'renderer observed an intermediate animation state')
+                until(lambda:float(ask('get reveal'))>.99,'settled transition')
+                report['animation_sample']=float(ask('get observed_transition'))
             if a.ci_activation:
                 until(lambda:desktop.pid(u.GetForegroundWindow())==process.pid,'warm foreground without a click')
             until(captures,'fresh captures after reopening')
         capture('overview-reopened')
+        u.ShowWindow(owned[1],7)
+        until(lambda:any(ask(f'get win.{j}.minimized')=='true' for j in range(4)),'native minimization')
+        assert float(ask('get overview_count'))==4,'Minimization removed a selectable window'
+        assert sorted(float(ask(f'get overview_place.{j}')) for j in range(4))==[0,1,2,3]
+        report['minimized_remains_selectable']=True
         ask('emit overview_close');until(lambda:ask('get overview_open')=='false','final close')
         report.update(passed=True,same_process=True,hidden_captures_retired=True,foreground_unchanged=not a.ci_activation)
 finally:

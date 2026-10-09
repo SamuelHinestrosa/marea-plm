@@ -78,7 +78,7 @@ with (out/'scene.log').open('w',encoding='utf-8') as log:
         ask('emit invoke')
         selected=wait(lambda:ask('get selected'))
         assert selected==active and selected!=home,(selected,active,home,ask('get problem'))
-        assert ask('get preview')==active
+        assert ask('get preview')=='all'
         report.update(passed=True,selected_monitor=selected,foreground_unchanged=True)
     finally:
         report['problem']=ask('get problem')

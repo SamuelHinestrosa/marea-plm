@@ -19,8 +19,8 @@ local screen = "\\\\.\\DISPLAY2"
 local children, view_requests = {}, {}
 local function spawn(name,args,line,done,options)
     assert(name=="pleamar-wm" and args[1]=="--scene" and args[2]=="tools/windows-overview.plm")
-    assert(args[3]=="--screen" and args[4]==screen and args[5]=="--preview-monitor" and args[6]==screen)
-    assert(args[7]=="--window-actions" and options.cwd=="." and options.errors==true and options.env.MAREA_LOCALE=="es")
+    assert(args[3]=="--screen" and args[4]==screen and args[5]=="--preview-monitor" and args[6]=="all")
+    assert(args[7]=="--preview-project" and args[8]=="--window-actions" and options.cwd=="." and options.errors==true and options.env.MAREA_LOCALE=="es")
     children[#children+1]={line=line,done=done}
     return #children
 end

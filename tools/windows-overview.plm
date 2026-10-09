@@ -1,7 +1,7 @@
 // Opened on the active application's monitor by the native adapter.
 scene WindowOverview {
     permissions { services: "env"; run: "pleamar-wm" }
-    surface { size: full, full; level: overlay; keyboard: exclusive while overview_open; open: overview_open; rate: 60 }
+    surface { size: full, full; level: overlay; keyboard: exclusive while overview_open; open: overview_visible; rate: 60 }
     translations es {
         "MAREA" = "MAREA"
         "Windows" = "Ventanas"
@@ -13,19 +13,28 @@ scene WindowOverview {
         "Close" = "Cerrar"
         "Previous" = "Anterior"
         "Next" = "Siguiente"
-        "No windows on this screen" = "No hay ventanas en esta pantalla"
+        "No open windows" = "No hay ventanas abiertas"
         "Preview unavailable" = "Vista previa no disponible"
         "Minimized" = "Minimizada"
         "Windows did not activate this window. Try selecting it again." = "Windows no ha activado esta ventana. Prueba a seleccionarla de nuevo."
         "The window view could not close." = "No se ha podido cerrar la vista de ventanas."
-        "Shows up to 32 windows on this screen" = "Muestra hasta 32 ventanas de esta pantalla"
+        "Shows up to 32 windows from every screen" = "Muestra hasta 32 ventanas de todas las pantallas"
     }
     fact overview_open = false
+    // The same glide spring as the Linux session. Only the captured image
+    // moves: the source application retains its native size and position.
+    spring glide = 210, 23
+    prop reveal = 0 ~glide
+    follow reveal = if(overview_open, 1, 0)
+    let progress = clamp(reveal, 0, 1)
+    let overview_visible = overview_open or reveal > 0.005
+    let accepting = overview_open and reveal > 0.97
     fact hovered = -1
     event overview_toggle ->
     windows win max 32
     fact requested_page = 0
-    let pages = max(1, ceil(win.count / 4))
+    fact overview_count = 0
+    let pages = max(1, ceil(overview_count / 4))
     let page = clamp(requested_page, 0, pages - 1)
     text overview_status = ""
     event overview_close ->
@@ -39,28 +48,33 @@ scene WindowOverview {
     let ph = min(800, screen.height - 96)
     let px = (screen.width - pw) / 2
     let py = (screen.height - ph) / 2
-    box { from: 0, 0; size: screen.width, screen.height; color: #101211; opacity: 45% }
+    box { from: 0, 0; size: screen.width, screen.height; color: #101211; opacity: 45% * progress }
     zone box backdrop { from: 0, 0; size: screen.width, screen.height; active: overview_open }
     on press backdrop { emit overview_close }
     body {
-        color: #151616; rim: 5%; shadow: 0, 8, 28, 35%
+        color: #151616; rim: 5%; shadow: 0, 8, 28, 35%; opacity: progress
         box { from: px, py; size: pw, ph; corner: 28 }
         ellipse { at: px, py + 2; radius: 27 }
     }
-    box { from: px - 10, py - 5; size: 5, 14; corner: 2.5; color: #f2f1ed }
-    box { from: px + 5, py - 5; size: 5, 14; corner: 2.5; color: #f2f1ed }
+    box { from: px - 10, py - 5; size: 5, 14; corner: 2.5; color: #f2f1ed; opacity: progress }
+    box { from: px + 5, py - 5; size: 5, 14; corner: 2.5; color: #f2f1ed; opacity: progress }
     zone box panel { from: px, py; size: pw, ph; active: overview_open }
-    text "MAREA" { at: px + 34, py + 25; size: 10; color: #787d7a }
-    text "Windows" { at: px + 34, py + 44; size: 24; color: #f2f1ed }
-    text "Select a window to use it" { at: px + 34, py + 78; size: 13; color: #969c98 }
-    text "×" { at: px + pw - 36, py + 48; anchor: center; size: 30; color: #969c98 }
+    text "MAREA" { at: px + 34, py + 25; size: 10; color: #787d7a; opacity: progress }
+    text "Windows" { at: px + 34, py + 44; size: 24; color: #f2f1ed; opacity: progress }
+    text "Select a window to use it" { at: px + 34, py + 78; size: 13; color: #969c98; opacity: progress }
+    text "×" { at: px + pw - 36, py + 48; anchor: center; size: 30; color: #969c98; opacity: progress }
     zone box leave { from: px + pw - 62, py + 22; size: 50, 50; active: overview_open; cursor: pointer; label: "Close view" }
     on press leave { emit overview_close }
     let cw = (pw - 92) / 2
     let ch = (ph - 208) / 2
     repeat i in 0..32 {
-        let p = win.$i.place
-        let present = overview_open and win.$i.open and p >= page * 4 and p < page * 4 + 4
+        fact overview_place.$i = -1
+        fact win.$i.native.x = 0
+        fact win.$i.native.y = 0
+        fact win.$i.native.width = 0
+        fact win.$i.native.height = 0
+        let p = overview_place.$i
+        let present = overview_visible and win.$i.open and p >= page * 4 and p < page * 4 + 4
         let x = px + 34 + mod(p, 2) * (cw + 24)
         let y = py + 112 + mod(floor(p / 2), 2) * (ch + 18)
         let iw = max(1, win.$i.width)
@@ -68,22 +82,38 @@ scene WindowOverview {
         let fit = min((cw - 32) / iw, (ch - 102) / ih)
         group {
             show: present
+            opacity: progress
             box { from: x, y; size: cw, ch; color: if(hovered == i, #2d3531, #222625); corner: 20 }
             box { from: x, y; size: cw, ch; color: #9ed6bd; stroke: 1; corner: 20; show: hovered == i }
             text win.$i.title { at: x + 16, y + 16; width: cw - 32; lines: 1; size: 15; color: #f2f3f0 }
             text "Preview unavailable" { at: x + cw / 2, y + ch / 2; anchor: center; size: 13; color: #959b98; show: win.$i.width < 1 and not win.$i.minimized }
             text "Minimized" { at: x + cw / 2, y + ch / 2; anchor: center; size: 13; color: #959b98; show: win.$i.width < 1 and win.$i.minimized }
-            window win.$i { at: x + cw / 2 - iw * fit / 2, y + 48 + (ch - 102 - ih * fit) / 2; size: iw * fit, ih * fit; ask: -1, -1 }
             text "Select" { at: x + 16, y + ch - 30; size: 14; color: #9ed6bd }
             text "Minimize" { at: x + cw / 2, y + ch - 30; anchor: top center; size: 14; color: #f2f3f0; show: not win.$i.minimized }
             text "Restore" { at: x + cw / 2, y + ch - 30; anchor: top center; size: 14; color: #f2f3f0; show: win.$i.minimized }
             text "Close" { at: x + cw - 16, y + ch - 30; anchor: top right; size: 14; color: #e8a18d }
         }
-        zone box select.$i { from: x, y; size: cw, ch - 46; active: present; cursor: pointer }
-        zone box select_label.$i { from: x + 8, y + ch - 44; size: cw / 3 - 8, 40; active: present; cursor: pointer }
-        zone box minimize.$i { from: x + cw / 3, y + ch - 44; size: cw / 3, 40; active: present and not win.$i.minimized; cursor: pointer }
-        zone box restore.$i { from: x + cw / 3, y + ch - 44; size: cw / 3, 40; active: present and win.$i.minimized; cursor: pointer }
-        zone box close.$i { from: x + cw * 2 / 3, y + ch - 44; size: cw / 3 - 8, 40; active: present; cursor: pointer }
+        let dx = x + cw / 2 - iw * fit / 2
+        let dy = y + 48 + (ch - 102 - ih * fit) / 2
+        let native = win.$i.native.width > 0 and win.$i.native.height > 0 and not win.$i.minimized
+        let sx = if(native, win.$i.native.x, screen.width / 2)
+        let sy = if(native, win.$i.native.y, screen.height - 40)
+        let sw = if(native, win.$i.native.width, 40)
+        let sh = if(native, win.$i.native.height, 24)
+        group {
+            show: present
+            opacity: if(native, 1, progress)
+            window win.$i {
+                at: sx + (dx - sx) * progress, sy + (dy - sy) * progress
+                size: sw + (iw * fit - sw) * progress, sh + (ih * fit - sh) * progress
+                ask: -1, -1
+            }
+        }
+        zone box select.$i { from: x, y; size: cw, ch - 46; active: present and accepting; cursor: pointer }
+        zone box select_label.$i { from: x + 8, y + ch - 44; size: cw / 3 - 8, 40; active: present and accepting; cursor: pointer }
+        zone box minimize.$i { from: x + cw / 3, y + ch - 44; size: cw / 3, 40; active: present and accepting and not win.$i.minimized; cursor: pointer }
+        zone box restore.$i { from: x + cw / 3, y + ch - 44; size: cw / 3, 40; active: present and accepting and win.$i.minimized; cursor: pointer }
+        zone box close.$i { from: x + cw * 2 / 3, y + ch - 44; size: cw / 3 - 8, 40; active: present and accepting; cursor: pointer }
         on enter select.$i { hovered = i }
         on leave select.$i { hovered = -1 }
         on press select.$i { focus win.$i; emit overview_select(i) }
@@ -92,11 +122,11 @@ scene WindowOverview {
         on press restore.$i { restore win.$i }
         on press close.$i { close win.$i }
     }
-    text "No windows on this screen" { at: screen.width / 2, screen.height / 2; anchor: center; size: 20; color: #959b98; show: win.count < 1 }
-    text overview_status { at: px + 34, py + ph - 72; width: pw - 68; lines: 1; size: 13; color: #e8a18d }
-    text "Previous" { at: px + 34, py + ph - 38; size: 14; color: #9ed6bd; show: page > 0 }
-    text "{page + 1, 0} / {pages, 0}" { at: screen.width / 2, py + ph - 38; anchor: top center; size: 14; color: #f2f3f0 }
-    text "Next" { at: px + pw - 34, py + ph - 38; anchor: top right; size: 14; color: #9ed6bd; show: page < pages - 1 }
+    text "No open windows" { at: screen.width / 2, screen.height / 2; anchor: center; size: 20; color: #959b98; show: overview_count < 1; opacity: progress }
+    text overview_status { at: px + 34, py + ph - 72; width: pw - 68; lines: 1; size: 13; color: #e8a18d; opacity: progress }
+    text "Previous" { at: px + 34, py + ph - 38; size: 14; color: #9ed6bd; show: page > 0; opacity: progress }
+    text "{page + 1, 0} / {pages, 0}" { at: screen.width / 2, py + ph - 38; anchor: top center; size: 14; color: #f2f3f0; opacity: progress }
+    text "Next" { at: px + pw - 34, py + ph - 38; anchor: top right; size: 14; color: #9ed6bd; show: page < pages - 1; opacity: progress }
     zone box previous { from: px + 20, py + ph - 54; size: 180, 48; active: overview_open and page > 0; cursor: pointer }
     zone box next { from: px + pw - 200, py + ph - 54; size: 180, 48; active: overview_open and page < pages - 1; cursor: pointer }
     on press previous { emit overview_previous }

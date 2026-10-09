@@ -1,6 +1,17 @@
 local language = tostring(sys.ask("env", "MAREA_LOCALE") or "en")
 fact.locale = language == "es" and "es" or "en"
 fact.overview_open = sys.ask("env", "MAREA_OVERVIEW_WARM") ~= "1"
+local function catalogue()
+    local place = 0
+    for i = 0, 31 do
+        local open = fact["win." .. i .. ".open"] == true
+        fact["overview_place." .. i] = open and place or -1
+        if open then place += 1 end
+    end
+    fact.overview_count = place
+end
+for i = 0, 31 do on("fact:win." .. i .. ".open", catalogue) end
+catalogue()
 local selected, attempt, idle = nil, 0, 0
 local function close()
     if not fact.overview_open then return end

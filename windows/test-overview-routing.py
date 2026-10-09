@@ -24,7 +24,7 @@ local function run(command, argv, done, options)
 end
 local function spawn(command, argv, line, done, options)
     assert(command=="pleamar-wm" and argv[2]=="tools/windows-overview.plm")
-    assert(argv[3]=="--screen" and argv[5]=="--preview-monitor" and argv[4]==argv[6])
+    assert(argv[3]=="--screen" and argv[5]=="--preview-monitor" and argv[6]=="all" and argv[7]=="--preview-project")
     children[#children+1]={screen=argv[4],done=done,warm=options.env.MAREA_OVERVIEW_WARM,
         endpoint=options.env.PLEAMAR_SOCKET_DIR}
 end

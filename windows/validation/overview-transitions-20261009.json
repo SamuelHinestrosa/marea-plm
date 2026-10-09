@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-09",
+  "native": {
+    "passed": true,
+    "monitor": "\\\\.\\DISPLAY2",
+    "primary": false,
+    "activation": false,
+    "physical_input": false,
+    "warm_ms": [
+      218.9001999795437,
+      233.90719993039966,
+      231.5976999234408
+    ],
+    "prewarmed_without_captures": true,
+    "cold_ready_ms": 231.28460021689534,
+    "cold_picture_ms": 1210.7180000748485,
+    "native_rectangles": [
+      [
+        132.0,
+        116.0,
+        288.0,
+        192.0
+      ],
+      [
+        104.0,
+        96.0,
+        288.0,
+        192.0
+      ],
+      [
+        76.0,
+        76.0,
+        288.0,
+        192.0
+      ],
+      [
+        48.0,
+        56.0,
+        288.0,
+        192.0
+      ]
+    ],
+    "animation_sample": 0.93037635,
+    "minimized_remains_selectable": true,
+    "same_process": true,
+    "hidden_captures_retired": true,
+    "foreground_unchanged": true
+  },
+  "wm_unit": {
+    "passed": 59,
+    "failed": 0,
+    "ignored": 20
+  },
+  "default_luau_build": true,
+  "logic_suite_passed": true,
+  "sources": {
+    "pleamar": {
+      "base": "c2840aeb5815a053726305803c13ef45e0269f7a",
+      "sha256": {
+        "src/scene.rs": "b2b0e55b0f4f671fa0d952aed2bceb370b1f9fd45122f72ea6cc12ac16740eb9",
+        "src/render.rs": "572edd6b67ffba5e32a4ebf50beca867e253ea135871ae25d8b92d91ffb27bc9"
+      }
+    },
+    "pleamar-wm": {
+      "base": "c9a4321c8526d129e859206d89cef7e7e4687b24",
+      "sha256": {
+        "src/windows_preview.rs": "5a9a23ab328400d64a12b156655085a886393058930f909ab08fba461f4d0cf1",
+        "src/windows_backend.rs": "fb62ab518994157d5b97efc9a616368ad058d8fb18d04c1ff7562313163dc570"
+      }
+    },
+    "marea-plm": {
+      "base": "73ce0a67d62c464963b20ccc8e5a696fe312e0d6",
+      "sha256": {
+        "tools/windows-overview.plm": "6c9700be96ef6eeb9db7ee4c427fdfee2b13d847301b36492aadda70cd7cba51",
+        "tools/windows-overview.luau": "226924f139c09410823db23c1c2c25b0ab441609d0a31834885cce0eccbbb6c0",
+        "windows/window-manager.luau": "a69235385ac4bd9ed7f0d80d9478b3a71c898d43893d6a565fea9b6cf32f4a67",
+        "windows/test-overview-native.py": "45c4193444ed6f1da9ebbb203d98eb743a1480700440bda591b77315e52c7c4e"
+      }
+    }
+  },
+  "installed": false,
+  "global_window_transitions_implemented": false,
+  "linux_runtime_tested": false,
+  "upstream_fetched": {
+    "pleamar": "548b1e6",
+    "marea": "75a26cf",
+    "wm": "263249e"
+  },
+  "upstream_new_changes_merged": false
+}

@@ -139,7 +139,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn, active_scre
             elseif code ~= 0 and not warm then notice(tr("The window view could not open.") .. " " .. (output ~= "" and tostring(output) or last_line):sub(1, 180)) end
         end
         local ok, error = pcall(spawn, "pleamar-wm", {"--scene", "tools/windows-overview.plm", "--screen", name,
-            "--preview-monitor", name, "--window-actions", "--no-hud", "--stall", "0"},
+            "--preview-monitor", "all", "--preview-project", "--window-actions", "--no-hud", "--stall", "0"},
             function(line) last_line = tostring(line):sub(1, 180) end, done,
             {cwd=".", errors=true, env={MAREA_LOCALE=tostring(fact.locale or "en"), PLEAMAR_SOCKET_DIR=child.endpoint,
                 MAREA_OVERVIEW_WARM=warm and "1" or "0"}})

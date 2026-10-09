@@ -102,6 +102,10 @@ tied to the exact Marea process. Full Marea UI acceptance and compositor-effect
 parity remain pending. Updating these sources does not update an existing
 installed preview.
 
+The overview's desktop-position animation and all-monitor catalogue are
+documented separately in [Window transitions](WINDOW-TRANSITIONS.md), including
+native validation and the still-missing global opening/minimize/restore effects.
+
 Settings > Keyboard shortcuts offers an optional dedicated Windows-key layer,
 off by default. It reserves Win and its combinations for Marea while she runs.
 See the [shortcut behavior and validation](SHORTCUTS.md); physical shortcut and
