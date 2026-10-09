@@ -102,7 +102,7 @@ def release_without_foreground_grant():
 class BackgroundChild:
     def __init__(self,argv,log):
         pidfile=out/'background-child.pid'
-        code='import subprocess,sys; from pathlib import Path; p=subprocess.Popen(sys.argv[2:],creationflags=subprocess.CREATE_NO_WINDOW); Path(sys.argv[1]).write_text(str(p.pid)); sys.exit(p.wait())'
+        code='import subprocess,sys; from pathlib import Path; p=subprocess.Popen(sys.argv[2:],stdout=sys.stdout,stderr=sys.stderr,creationflags=subprocess.CREATE_NO_WINDOW); tmp=Path(sys.argv[1]+".tmp"); tmp.write_text(str(p.pid)); tmp.replace(sys.argv[1]); sys.exit(p.wait())'
         self.parent=subprocess.Popen([sys.executable,'-c',code,str(pidfile),*argv],env=env,stdout=log,stderr=log,creationflags=flags)
         end=time.monotonic()+10
         while not pidfile.exists():
