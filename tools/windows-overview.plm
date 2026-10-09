@@ -5,7 +5,7 @@ scene WindowOverview {
     translations es {
         "MAREA" = "MAREA"
         "Windows" = "Ventanas"
-        "Hold Win and press Tab to select; release Win to switch" = "Mantén Win y pulsa Tab para elegir; suelta Win para cambiar"
+        "Hold Win and press Tab to select; release Win to switch" = "MantÃ©n Win y pulsa Tab para elegir; suelta Win para cambiar"
         "Close view" = "Cerrar vista"
         "Select" = "Seleccionar"
         "Minimize" = "Minimizar"
