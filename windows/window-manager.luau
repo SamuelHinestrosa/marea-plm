@@ -92,12 +92,13 @@ return function(run, hooks, entries, changed, screen, notice, spawn, active_scre
     hooks.windows_close = function() request("emit close", true) end
     hooks.windows_fullscreen = function() request("emit fullscreen", true) end
     local open_overview
-    open_overview = function(name, warm)
+    open_overview = function(name, warm, prepare_cycle)
         if viewing then
             local child = viewing
-            if child.retiring then child.next_screen = name; return end
+            if child.retiring then child.next_screen, child.next_warm = name, warm; return end
             if child.screen ~= name then
-                if warm then return end
+                if warm and not prepare_cycle then return end
+                child.next_warm = warm
                 child.retiring, child.next_screen = true, name
                 local problem = ""
                 -- A quit acknowledgement may precede process teardown. Only
@@ -135,7 +136,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn, active_scre
             finished = true
             if viewing ~= child then return end
             viewing = nil
-            if child.next_screen then open_overview(child.next_screen, false)
+            if child.next_screen then open_overview(child.next_screen, child.next_warm)
             elseif code ~= 0 and not warm then notice(tr("The window view could not open.") .. " " .. (output ~= "" and tostring(output) or last_line):sub(1, 180)) end
         end
         local ok, error = pcall(spawn, "pleamar-wm", {"--scene", "tools/windows-overview.plm", "--screen", name,
@@ -171,6 +172,84 @@ return function(run, hooks, entries, changed, screen, notice, spawn, active_scre
         if not ok then resolved(nil, error) end
         if not completed then after(2000, function() resolved(nil, tr("Active window lookup timed out.")) end) end
     end
+    -- One ordered stream per held-Win gesture. The active monitor is resolved
+    -- once; a slow lookup, cold renderer or IPC reply must not drop Tab presses.
+    local cycle_session = nil
+    local function cycle_fail(session, problem)
+        if cycle_session ~= session then return end
+        cycle_session = nil
+        notice(tr("The window view could not open.") .. " " .. tostring(problem or ""):sub(1, 180))
+    end
+    local pump_cycle
+    pump_cycle = function(session)
+        if cycle_session ~= session or session.pending or not session.screen then return end
+        local child = viewing
+        if not child or child.retiring or child.screen ~= session.screen then
+            session.waits += 1
+            if session.waits > 50 then cycle_fail(session, "Window view startup timed out."); return end
+            after(100, function() pump_cycle(session) end)
+            return
+        end
+        local command = session.queue[1]
+        if not command then return end
+        session.pending = true
+        local probe = not session.ready
+        local ok, error = pcall(run, "pleamar-wm", {"--say", "windows-overview", probe and "get overview_open" or command}, function(output, code)
+            if cycle_session ~= session then return end
+            session.pending = false
+            if code ~= 0 or tostring(output or ""):sub(1, 1) == "?" then
+                if probe and session.waits < 50 then
+                    session.waits += 1
+                    after(100, function() pump_cycle(session) end)
+                else cycle_fail(session, output) end
+                return
+            end
+            if probe then session.ready = true
+            else
+                table.remove(session.queue, 1)
+                if #session.queue == 0 and session.ending then cycle_session = nil; return end
+            end
+            pump_cycle(session)
+        end, {env={PLEAMAR_SOCKET_DIR=child.endpoint}})
+        if not ok then session.pending = false; cycle_fail(session, error) end
+    end
+    hooks.windows_overview_cycle = function(direction)
+        local session = cycle_session
+        if session then
+            if #session.queue >= 128 then cycle_fail(session, "Too many pending window shortcuts."); return end
+            session.ending = false
+        else
+            if not overview then request("status", true); return end
+            session = {queue={}, waits=0, pending=false, ready=false}
+            cycle_session = session
+        end
+        session.queue[#session.queue + 1] = direction == -1 and "emit overview_cycle_backward" or "emit overview_cycle_forward"
+        if session.screen then pump_cycle(session); return end
+        if session.resolving then return end
+        session.resolving = true
+        local function resolved(name, problem)
+            if cycle_session ~= session or not session.resolving then return end
+            session.resolving = false
+            if problem then cycle_fail(session, problem); return end
+            name = managed_screen(name, true)
+            if not name then cycle_fail(session, "Active screen is unavailable."); return end
+            session.screen = name
+            open_overview(name, true, true)
+            pump_cycle(session)
+        end
+        local ok, error = pcall(active_screen, resolved)
+        if not ok then resolved(nil, error) end
+        after(2000, function() if session.resolving then resolved(nil, "Active window lookup timed out.") end end)
+    end
+    local function finish_cycle(command)
+        local session = cycle_session
+        if not session or session.ending then return end
+        session.ending = true
+        session.queue[#session.queue + 1] = command
+        pump_cycle(session)
+    end
+    hooks.windows_overview_commit = function() finish_cycle("emit overview_commit") end
+    hooks.windows_overview_cancel = function() finish_cycle("emit overview_close") end
     on("windows_to_layouts", function() request("status", true) end)
     on("windows_choose_layout", function(index)
         if not available or busy or type(index) ~= "number" or index % 1 ~= 0 or index < 0 or index > 5 then return end

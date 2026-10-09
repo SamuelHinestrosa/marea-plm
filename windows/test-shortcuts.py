@@ -20,8 +20,10 @@ local native={ask=function(n,k) assert(n=="env" and k=="MAREA_SEARCH_HOTKEY");re
     ask_async=function(n,a,f) requests[#requests+1]={name=n,args=a,done=f} end}
 local install=(function() __MODULE__ end)()
 local overview,layout,minimized,restored,next_window,previous_window,closed,dock,fullscreen=0,0,0,0,0,0,0,0,0
+local commits,cancels=0,0
 install(native,function(message) notices[#notices+1]=message end,{
-    windows_overview=function() overview+=1 end, windows_toggle_layout=function() layout+=1 end,
+    windows_overview_cycle=function(direction) overview+=direction end,
+    windows_overview_commit=function() commits+=1 end, windows_overview_cancel=function() cancels+=1 end, windows_toggle_layout=function() layout+=1 end,
     windows_minimize=function() minimized+=1 end, windows_restore_last=function() restored+=1 end,
     windows_focus_next=function() next_window+=1 end, windows_focus_previous=function() previous_window+=1 end,
     windows_close=function() closed+=1 end, windows_dock=function() dock+=1 end, windows_fullscreen=function() fullscreen+=1 end})
@@ -51,6 +53,10 @@ assert(overview==1 and layout==1 and minimized==1 and restored==1 and #events==5
 assert(next_window==1 and previous_window==1 and closed==1)
 watcher({sequence=14,event="dock"});watcher({sequence=14,event="dock"});assert(dock==1)
 watcher({sequence=15,event="fullscreen"});watcher({sequence=15,event="fullscreen"});assert(fullscreen==1)
+assert(requests[5].args[1]["Win+Shift+Tab"]=="windows_previous" and requests[5].args[1]["Win+Release"]=="windows_commit")
+watcher({sequence=16,event="windows_previous"});assert(overview==0)
+watcher({sequence=17,event="windows_commit"});watcher({sequence=18,event="windows_cancel"})
+assert(commits==1 and cancels==1)
 handlers.windows_toggle_key();assert(requests[8].args[1]==false)
 requests[8].done("",0);requests[9].done({available=true,windows_key=false},nil)
 requests[10].done("disk full",1)

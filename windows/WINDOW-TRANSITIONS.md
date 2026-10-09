@@ -30,6 +30,13 @@ Keyboard ownership ends when closing starts. Capture resources retire after the
 closing animation; the warm process retires after its existing idle timeout.
 The regular dock retains its existing monitor scope.
 
+Win+Tab is a held-key switcher: repeated Tab presses advance the highlighted
+window without toggling the view, Shift+Tab reverses, releasing the final Win
+key confirms, and Escape cancels. The selected page follows the highlight.
+The adapter preserves ordered steps and an early release through monitor lookup
+and cold renderer startup. The menu still opens a persistent overview. These
+changes require the engine's optional `Win+Release` shortcut binding.
+
 This requires matching engine and WM builds: the engine publishes optional
 `win.$i.native.{x,y,width,height}` facts, and WM accepts
 `--preview-monitor all --preview-project`. Do not update only Marea's scripts

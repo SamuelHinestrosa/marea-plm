@@ -9,7 +9,10 @@ The switch is off by default. While enabled, Win is dedicated to Marea:
 | Win+Shift+A | Chat |
 | Win+A | Control center |
 | Win+I | Settings |
-| Win+Tab | Window overview (requires the native WM session) |
+| Win+Tab | Open the switcher and advance its highlighted window; keep holding Win |
+| Win+Shift+Tab | Move the highlight backwards |
+| Release Win / Win+Enter | Activate the highlighted window |
+| Escape / Win+Escape | Cancel without activating the highlight |
 | Win+D | Show/hide the application dock on Marea's home monitor |
 | Win+N | Notifications |
 | Win+W | Toggle tiled/free windows on the monitor under the pointer (requires the native WM session) |
@@ -18,6 +21,13 @@ The switch is off by default. While enabled, Win is dedicated to Marea:
 | Win+Left or Win+Up | Previous eligible window on the active application's monitor |
 | Win+Right or Win+Down | Next eligible window on that monitor |
 | Win+Q | Ask the active application or dialog to close |
+
+The switcher stays open throughout a held-Win gesture, includes eligible windows
+from all monitors (including minimized windows), wraps at either end and follows
+the selected page. Repeated presses are queued through a cold renderer startup;
+releasing Win early confirms after the catalogue becomes ready. Escape discards
+the selection. Opening the overview through the menu remains a persistent view;
+plain Tab / Shift+Tab and Enter also navigate it.
 
 Unassigned Win combinations are consumed too; Start and Windows' corresponding
 shortcuts are replaced while Marea owns the layer. Disable the switch to restore

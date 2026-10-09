@@ -5,7 +5,7 @@ scene WindowOverview {
     translations es {
         "MAREA" = "MAREA"
         "Windows" = "Ventanas"
-        "Select a window to use it" = "Selecciona una ventana para usarla"
+        "Hold Win and press Tab to select; release Win to switch" = "Mantén Win y pulsa Tab para elegir; suelta Win para cambiar"
         "Close view" = "Cerrar vista"
         "Select" = "Seleccionar"
         "Minimize" = "Minimizar"
@@ -30,6 +30,14 @@ scene WindowOverview {
     let overview_visible = overview_open or reveal > 0.005
     let accepting = overview_open and reveal > 0.97
     fact hovered = -1
+    fact keyboard_slot = -1
+    event overview_cycle_forward ->
+    event overview_cycle_backward ->
+    event overview_commit ->
+    event overview_activate
+    on key Tab { emit overview_cycle_forward }
+    on key Shift+Tab { emit overview_cycle_backward }
+    on key Enter { emit overview_commit }
     event overview_toggle ->
     windows win max 32
     fact requested_page = 0
@@ -61,7 +69,7 @@ scene WindowOverview {
     zone box panel { from: px, py; size: pw, ph; active: overview_open }
     text "MAREA" { at: px + 34, py + 25; size: 10; color: #787d7a; opacity: progress }
     text "Windows" { at: px + 34, py + 44; size: 24; color: #f2f1ed; opacity: progress }
-    text "Select a window to use it" { at: px + 34, py + 78; size: 13; color: #969c98; opacity: progress }
+    text "Hold Win and press Tab to select; release Win to switch" { at: px + 34, py + 78; size: 13; color: #969c98; opacity: progress }
     text "Ã—" { at: px + pw - 36, py + 48; anchor: center; size: 30; color: #969c98; opacity: progress }
     zone box leave { from: px + pw - 62, py + 22; size: 50, 50; active: overview_open; cursor: pointer; label: "Close view" }
     on press leave { emit overview_close }
@@ -83,8 +91,8 @@ scene WindowOverview {
         group {
             show: present
             opacity: progress
-            box { from: x, y; size: cw, ch; color: if(hovered == i, #2d3531, #222625); corner: 20 }
-            box { from: x, y; size: cw, ch; color: #9ed6bd; stroke: 1; corner: 20; show: hovered == i }
+            box { from: x, y; size: cw, ch; color: if(hovered == i or keyboard_slot == i, #2d3531, #222625); corner: 20 }
+            box { from: x, y; size: cw, ch; color: #9ed6bd; stroke: 1; corner: 20; show: hovered == i or keyboard_slot == i }
             text win.$i.title { at: x + 16, y + 16; width: cw - 32; lines: 1; size: 15; color: #f2f3f0 }
             text "Preview unavailable" { at: x + cw / 2, y + ch / 2; anchor: center; size: 13; color: #959b98; show: win.$i.width < 1 and not win.$i.minimized }
             text "Minimized" { at: x + cw / 2, y + ch / 2; anchor: center; size: 13; color: #959b98; show: win.$i.width < 1 and win.$i.minimized }
@@ -116,6 +124,7 @@ scene WindowOverview {
         zone box close.$i { from: x + cw * 2 / 3, y + ch - 44; size: cw / 3 - 8, 40; active: present and accepting; cursor: pointer }
         on enter select.$i { hovered = i }
         on leave select.$i { hovered = -1 }
+        on overview_activate while keyboard_slot == i and win.$i.open { focus win.$i; emit overview_select(i) }
         on press select.$i { focus win.$i; emit overview_select(i) }
         on press select_label.$i { focus win.$i; emit overview_select(i) }
         on press minimize.$i { minimize win.$i }

@@ -197,7 +197,36 @@ try:
         assert float(ask('get overview_count'))==4,'Minimization removed a selectable window'
         assert sorted(float(ask(f'get overview_place.{j}')) for j in range(4))==[0,1,2,3]
         report['minimized_remains_selectable']=True
+        ask('emit overview_close');until(lambda:ask('get overview_open')=='false','close before cycling')
+        ask('emit overview_cycle_forward')
+        until(lambda:int(float(ask('get keyboard_slot')))>=0,'first keyboard preselection')
+        first=int(float(ask('get keyboard_slot')))
+        before_cycle_focus=u.GetForegroundWindow()
+        for step in range(1,5):
+            ask('key Tab' if a.ci_activation else 'emit overview_cycle_forward')
+            until(lambda:int(float(ask('get keyboard_slot')))==(first+step)%4,'successive Tab preselection')
+            assert ask('get overview_open')=='true','Tab toggled the overview closed'
+            assert u.GetForegroundWindow()==before_cycle_focus,'Preselection activated a window early'
+        ask('key Shift+Tab' if a.ci_activation else 'emit overview_cycle_backward')
+        until(lambda:int(float(ask('get keyboard_slot')))==(first-1)%4,'reverse preselection')
+        capture('overview-keyboard-selection')
+        report['keyboard_cycle_without_closing']=True
+        report['keyboard_reverse']=True
+        if a.ci_activation:
+            chosen=int(float(ask('get keyboard_slot')))
+            expected_title=ask(f'get win.{chosen}.title')
+            ask('emit overview_commit')
+            until(lambda:ask('get overview_open')=='false','release activates the preselected window')
+            until(lambda:u.GetForegroundWindow() in owned,'release transfers native foreground')
+            title=C.create_unicode_buffer(1024);u.GetWindowTextW(u.GetForegroundWindow(),title,len(title))
+            assert title.value==expected_title,'Release activated a different window'
+            assert desktop.pid(u.GetForegroundWindow())==os.getpid()
+            report['keyboard_commit_native_focus']=True
+            report['keyboard_committed_title']=expected_title
         ask('emit overview_close');until(lambda:ask('get overview_open')=='false','final close')
+        ask('emit overview_commit')
+        assert ask('get overview_open')=='false','Release after cancellation reopened the overview'
+        report['keyboard_cancel_ignores_release']=True
         report.update(passed=True,same_process=True,hidden_captures_retired=True,foreground_unchanged=not a.ci_activation)
 finally:
     if process and process.poll() is None:
