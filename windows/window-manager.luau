@@ -334,8 +334,5 @@ return function(run, hooks, entries, changed, screen, notice, spawn, primary_scr
     end
     on("fact:menu_open", function(open) if open then request("status", false) end end)
     on("fact:searching", function(open) if open then request("status", false) end end)
-    on("fact:windows_initialized", function(ready)
-        if ready then after(3000, function() hooks.windows_overview(true) end) end
-    end)
     request("status", false)
 end

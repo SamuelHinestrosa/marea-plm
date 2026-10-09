@@ -540,7 +540,7 @@ devices = (root / 'windows/device-controls.luau').read_text(encoding='utf-8')
 adapter = 'local install_notification_controls = (function()\n' + (root / 'windows/notifications.luau').read_text(encoding='utf-8') + '\nend)()\n' + adapter
 adapter = 'local install_device_controls = (function()\n' + devices + '\nend)()\n' + adapter
 adapter = 'local install_level_controls = (function()\n' + levels + '\nend)()\n' + adapter
-logic = 'fact.windows_initialized = false\n' + adapter + '\n' + logic + '\nfact.demo = false\nfact.windows_initialized = true\n'
+logic = 'fact.windows_initialized = false\n' + adapter + '\n' + logic + '\nfact.demo = false\nfact.windows_initialized = true\nafter(3000, function() hooks.windows_overview(true) end)\n'
 # Windows UI uses the same language table as the portable scene.
 windows_translations = json.loads((root / 'windows/translations.json').read_text(encoding='utf-8'))
 old_labels = {"Abrir app": "Open app", "Actualizar": "Refresh", "Anterior": "Previous", "Buscar redes": "Find networks",

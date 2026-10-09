@@ -1,4 +1,4 @@
-"""Active-window routing and cached renderer retirement, without desktop input."""
+"""Primary-display routing and cached renderer retirement, without desktop input."""
 from pathlib import Path
 import argparse
 from logic_test import runner_arguments, run_checks
@@ -7,6 +7,12 @@ p = argparse.ArgumentParser(description=__doc__)
 runner_arguments(p)
 args = p.parse_args()
 module = Path(__file__).with_name('window-manager.luau').read_text(encoding='utf-8')
+# Lua-originated fact writes do not echo their own fact events. Preparation
+# must be scheduled directly after initialization, not from that subscriber.
+generated = Path(__file__).resolve().parents[1].joinpath('marea-desktop.luau').read_text(encoding='utf-8')
+assert 'fact.windows_initialized = true\nafter(3000, function() hooks.windows_overview(true) end)' in generated
+assert 'on("fact:windows_initialized"' not in module
+
 checks = r'''
 local A, B = "\\\\.\\DISPLAY1", "\\\\.\\DISPLAY2"
 local fact, hooks, entries, handlers = {locale="es"}, {}, {}, {}
@@ -73,7 +79,7 @@ assert(#children==3 and #calls==4 and #notices==3)
 hooks.windows_overview();timers[#timers]()
 lookups[8](B)
 assert(#children==3 and #calls==4 and #notices==4)
--- A hidden prewarmed view also follows a later change of active monitor.
+-- A hidden prewarmed view also follows a later change of primary monitor.
 children[3].done("",0)
 hooks.windows_overview(true);lookups[9](B)
 assert(children[4].screen==B and children[4].warm=="1")
