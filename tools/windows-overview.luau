@@ -19,7 +19,10 @@ for i = 0, 31 do on("fact:win." .. i .. ".open", catalogue) end
 catalogue()
 local selected, attempt, idle = nil, 0, 0
 local cycling, pending_steps, cycle_generation = false, {}, 0
-local function close()
+local committed_slot = nil
+local function close(hold_keyboard)
+    fact.overview_committing = hold_keyboard == true
+    committed_slot = nil
     if not fact.overview_open then cycle_generation += 1; return end
     fact.overview_open = false
     report_state()
@@ -31,13 +34,16 @@ local function close()
     idle += 1
     local mine = idle
     -- Keep the renderer warm for another shortcut, but release it after a minute.
-    -- The closed surface owns no keyboard, hit regions, or window captures.
+    -- After a pending focus handoff, the closed surface owns no keyboard,
+    -- hit regions, or window captures.
     if not keep_warm then after(60000, function()
         if mine ~= idle or fact.overview_open then return end
         run("pleamar-wm", {"--say", "windows-overview", "quit"}, function() end)
     end) end
 end
 local function open()
+    fact.overview_committing = false
+    committed_slot = nil
     idle += 1
     attempt += 1
     selected = nil
@@ -104,13 +110,20 @@ on("overview_commit", function()
     if current == nil or current < 0 then current = fact["win.focus"] end
     -- Releasing Win always dismisses the switcher, even if Windows denies
     -- foreground activation. Preserve the target independently of the highlight.
-    close()
+    close(true)
     local mine = cycle_generation
+    -- Hide the panel immediately, but retain its foreground permission until
+    -- the chosen window takes focus. Returning to the old application first
+    -- can make Windows reject a background IPC client's activation request.
+    after(2500, function()
+        if mine == cycle_generation then fact.overview_committing = false; committed_slot = nil end
+    end)
     local function confirm(remaining)
         if mine ~= cycle_generation or fact.overview_open then return end
         local list = slots()
         if #list == 0 or #list ~= fact["win.count"] then
             if remaining > 0 then after(50, function() confirm(remaining - 1) end) end
+            if remaining == 0 then fact.overview_committing = false end
             return
         end
         local position = nil
@@ -122,11 +135,16 @@ on("overview_commit", function()
         -- Luau emit() carries only the event name. Keep the chosen slot in a
         -- separate fact, since closing already cleared the visible highlight.
         fact.accepted_slot = list[position or 1]
+        committed_slot = fact.accepted_slot
         emit("overview_accept")
     end
     confirm(40)
 end)
 local function focused()
+    if committed_slot ~= nil and fact["win.focus"] == committed_slot then
+        fact.overview_committing = false
+        committed_slot = nil
+    end
     if selected ~= nil and fact["win.focus"] == selected then close() end
 end
 on("overview_close", close)

@@ -14,6 +14,7 @@ local function after(ms,fn) timers[#timers+1]=fn end
 local function run() end
 local function emit(event,...)
     assert(event=="overview_accept" and not fact.overview_open)
+    assert(fact.overview_committing, "native focus permission must survive visual dismissal")
     assert(select("#",...)==0, "Luau emit only carries the event name")
     activated[#activated+1]=fact.accepted_slot
 end
@@ -27,10 +28,12 @@ assert(fact.requested_page==1 and #activated==0)
 handlers.overview_cycle_forward();assert(fact.keyboard_slot==0 and fact.requested_page==0)
 handlers.overview_cycle_backward();assert(fact.keyboard_slot==5 and fact.requested_page==1)
 handlers.overview_commit();assert(#activated==1 and activated[1]==5 and not fact.overview_open)
+assert(fact.overview_committing)
 fact["win.focus"]=5;handlers["fact:win.focus"]()
-assert(not fact.overview_open and fact.keyboard_slot==-1)
+assert(not fact.overview_open and fact.keyboard_slot==-1 and not fact.overview_committing)
 handlers.overview_cycle_forward();assert(fact.keyboard_slot==0)
 handlers.overview_close();handlers.overview_commit();assert(#activated==1)
+assert(not fact.overview_committing)
 -- A highlighted window disappearing never focuses a now-invalid slot.
 handlers.overview_cycle_backward();assert(fact.keyboard_slot==4)
 fact["win.4.open"]=false;fact["win.count"]=5;handlers["fact:win.4.open"]()
@@ -51,6 +54,9 @@ assert(not fact.overview_open and #activated==2)
 -- No focus acknowledgement is necessary to close, including a denied action.
 handlers.overview_cycle_forward();handlers.overview_commit()
 assert(not fact.overview_open and #activated==3)
+assert(fact.overview_committing)
+timers[#timers]()
+assert(not fact.overview_committing, "a denied activation must release the keyboard")
 -- Escape invalidates a release whose target is still waiting for its catalogue.
 for i=0,5 do fact["win."..i..".open"]=false end
 fact["win.count"]=0

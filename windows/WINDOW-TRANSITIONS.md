@@ -25,7 +25,12 @@ The view always opens on the Windows primary monitor and gathers windows from
 every monitor. Minimized windows retain a selectable catalogue entry. The
 32-window limit and four-card pages remain explicit limitations.
 
-Keyboard ownership ends when closing starts. Capture resources retire after the
+On cancellation, keyboard ownership ends when closing starts. On acceptance,
+the visual closes immediately but the selector retains its native foreground
+permission until the chosen window gains focus, with a 2.5-second upper bound
+covering a cold catalogue and a failed activation. Returning to the old app
+before requesting the chosen one can lose Windows foreground permission when
+the IPC sender runs in the background. Capture resources retire after the
 closing animation. Marea keeps its owned renderer warm until Marea exits;
 standalone invocations retain the 60-second idle timeout. Changing the active
 application or its monitor no longer recreates the renderer. The retained

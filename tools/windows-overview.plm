@@ -1,7 +1,7 @@
 // Opened on the primary monitor by the native adapter.
 scene WindowOverview {
     permissions { services: "env"; run: "pleamar-wm" }
-    surface { size: full, full; level: overlay; keyboard: exclusive while overview_open; open: overview_visible; rate: 60 }
+    surface { size: full, full; level: overlay; keyboard: exclusive while overview_open or overview_committing; open: overview_visible or overview_committing; rate: 60 }
     translations es {
         "MAREA" = "MAREA"
         "Windows" = "Ventanas"
@@ -21,6 +21,7 @@ scene WindowOverview {
         "Shows up to 32 windows from every screen" = "Muestra hasta 32 ventanas de todas las pantallas"
     }
     fact overview_open = false
+    fact overview_committing = false
     // Captures arrive asynchronously; use a short, damped panel entrance
     // rather than flying late textures across multiple desktop outputs.
     prop reveal = 0 ~220ms
