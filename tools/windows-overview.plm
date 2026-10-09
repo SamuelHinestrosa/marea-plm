@@ -21,6 +21,9 @@ scene WindowOverview {
         "Shows up to 32 windows from every screen" = "Muestra hasta 32 ventanas de todas las pantallas"
     }
     fact overview_open = false
+    fact overview_has_focus = false
+    on focus { overview_has_focus = true }
+    on blur { overview_has_focus = false }
     // Captures arrive asynchronously; use a short, damped panel entrance
     // rather than flying late textures across multiple desktop outputs.
     prop reveal = 0 ~220ms

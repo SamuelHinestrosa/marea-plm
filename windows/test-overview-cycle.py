@@ -58,6 +58,14 @@ for i=0,5 do fact["win."..i..".open"]=true end
 fact["win.count"]=6
 for _,fn in ipairs(timers) do fn() end
 assert(not fact.overview_open and #activated==3)
+-- Native keyboard return must finish before activation of the selected target.
+fact.overview_has_focus=true
+handlers.overview_cycle_forward();local chosen=fact.keyboard_slot
+handlers.overview_commit()
+assert(not fact.overview_open and #activated==3)
+timers[#timers]();assert(#activated==3)
+fact.overview_has_focus=false;timers[#timers]()
+assert(#activated==4 and activated[4]==chosen)
 log("PASS: held-key selection, wraparound, reverse, paging, disappearing window, early release and cancellation")
 '''
 run_checks(args,checks.replace('__SCENE__',(r/'tools/windows-overview.luau').read_text(encoding='utf-8')),'PASS: held-key selection','overview-cycle')

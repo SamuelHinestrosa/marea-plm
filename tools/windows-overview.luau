@@ -109,7 +109,10 @@ on("overview_commit", function()
     local function confirm(remaining)
         if mine ~= cycle_generation or fact.overview_open then return end
         local list = slots()
-        if #list == 0 or #list ~= fact["win.count"] then
+        -- Returning the panel's keyboard restores its previous foreground.
+        -- Let that handoff finish before requesting the chosen window, or the
+        -- two asynchronous foreground requests can overwrite one another.
+        if fact.overview_has_focus == true or #list == 0 or #list ~= fact["win.count"] then
             if remaining > 0 then after(50, function() confirm(remaining - 1) end) end
             return
         end
