@@ -100,6 +100,7 @@ try:
     pump()
     if a.ci_activation:
         assert u.SetForegroundWindow(owned[0])
+        until(lambda:u.GetForegroundWindow()==owned[0], 'owned fixture foreground')
         # Hosted Windows can start in touch/pen mode (CURSOR_SUPPRESSED), which
         # is independent of ShowCursor's display count. Establish a mouse
         # baseline on our own window before simulating a game hiding it.
@@ -118,8 +119,11 @@ try:
         for _ in range(32):
             cursor_adjustment-=1
             if u.ShowCursor(False)<0:break
-        info=CURSOR(size=C.sizeof(CURSOR));assert u.GetCursorInfo(C.byref(info))
-        assert info.flags==0,'The fixture must hide a visible mouse cursor, not rely on touch suppression'
+        def hidden():
+            info=CURSOR(size=C.sizeof(CURSOR));assert u.GetCursorInfo(C.byref(info))
+            report['hidden_mouse_baseline']=dict(flags=info.flags,foreground=u.GetForegroundWindow(),expected_foreground=owned[0])
+            return info.flags==0
+        until(hidden,'fixture hides a visible mouse cursor without touch suppression')
         report['fixture_cursor_hidden']=True
         clip=W.RECT(bounds['x']+100,bounds['y']+100,bounds['x']+120,bounds['y']+120)
         assert u.ClipCursor(C.byref(clip))
