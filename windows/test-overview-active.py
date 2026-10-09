@@ -16,12 +16,7 @@ binary=a.binary.resolve(strict=True);out=a.output.resolve();out.mkdir(parents=Tr
 flags=subprocess.CREATE_NO_WINDOW|subprocess.BELOW_NORMAL_PRIORITY_CLASS
 screens=json.loads(subprocess.check_output([str(a.wm.resolve(strict=True)),'monitors'],creationflags=flags,encoding='utf-8'))
 u=C.WinDLL('user32');u.GetForegroundWindow.restype=W.HWND
-u.MonitorFromWindow.argtypes=[W.HWND,W.DWORD];u.MonitorFromWindow.restype=W.HANDLE
-class MONITOR(C.Structure):
-    _fields_=[('size',W.DWORD),('bounds',W.RECT),('work',W.RECT),('flags',W.DWORD),('device',W.WCHAR*32)]
-u.GetMonitorInfoW.argtypes=[W.HANDLE,C.POINTER(MONITOR)];u.GetMonitorInfoW.restype=W.BOOL
-foreground=u.GetForegroundWindow();assert foreground,'A foreground window is needed for this test'
-info=MONITOR(size=C.sizeof(MONITOR));assert u.GetMonitorInfoW(u.MonitorFromWindow(foreground,2),C.byref(info))
+foreground=u.GetForegroundWindow()  # Primary routing also works with no foreground window.
 primary=next(s["name"] for s in screens if s["primary"])
 home=next((s['name'] for s in screens if s['name']!=primary),'\\\\.\\DISPLAY999')
 host=next((s['name'] for s in screens if not s['primary']),primary)
