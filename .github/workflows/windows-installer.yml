@@ -149,6 +149,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Native overview failed.' }
           python windows/test-overview-native.py --binary $wm --monitor $screens[0].name --ci-activation --prewarm --keep-warm --output .tools/overview-warm-smoke
           if ($LASTEXITCODE -ne 0) { throw 'Prewarmed overview failed.' }
+          python windows/build-desktop.py
+          if ($LASTEXITCODE -ne 0) { throw 'Windows profile generation failed.' }
           python windows/test-overview-exclusion.py --binary ../pleamar/target/release/pleamar.exe --monitor $screens[0].name --output .tools/overview-exclusion
           if ($LASTEXITCODE -ne 0) { throw 'Native overview exclusion failed.' }
           python windows/test-overview-active.py --binary ../pleamar/target/release/pleamar.exe --wm $wm --output .tools/overview-primary
