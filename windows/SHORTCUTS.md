@@ -27,7 +27,8 @@ panels and suppresses their reopening while the switcher is active.
 It stays open throughout a held-Win gesture, includes eligible windows
 from all monitors (including minimized windows), wraps at either end and follows
 the selected page. Repeated presses are queued through a cold renderer startup;
-releasing Win early confirms after the catalogue becomes ready. Escape discards
+releasing Win closes immediately, even if activation fails. An early release can
+finish choosing from a cold catalogue while the view stays closed. Escape discards
 the selection. Opening the overview through the menu remains a persistent view;
 plain Tab / Shift+Tab and Enter also navigate it.
 

@@ -60,6 +60,8 @@ if not a.ci_activation:source=source.replace('keyboard: exclusive while overview
 # animation on a loaded CI machine and miss every intermediate sample.
 source=source.replace('fact overview_open = false', '''fact overview_open = false
     fact observed_transition = 0
+    fact observed_preview = 0
+    on change preview.0 while preview.0 > 0.01 and preview.0 < 0.99 { observed_preview = preview.0 }
     on change reveal while reveal > 0.05 and reveal < 0.95 { observed_transition = reveal }''')
 (out/'windows-overview.plm').write_text(source,encoding='utf-8')
 shutil.copyfile(root/'tools/windows-overview.luau',out/'windows-overview.luau')
@@ -140,7 +142,7 @@ try:
     with (out/'scene.log').open('w',encoding='utf-8') as log:
         start=time.perf_counter()
         process=subprocess.Popen([str(binary),'--scene',str(out/'windows-overview.plm'),'--screen',a.monitor,
-            '--preview-monitor','all','--preview-project','--preview-process',str(os.getpid()),'--window-actions','--no-hud','--stall','0'],
+            '--preview-monitor','all','--preview-project','--preview-process',str(os.getpid()),*(['--window-actions'] if a.ci_activation else []),'--no-hud','--stall','0'],
             env=env,stdout=log,stderr=log,creationflags=flags)
         if a.prewarm:
             until(lambda:ask('get overview_open')=='false','hidden startup')
@@ -151,7 +153,11 @@ try:
             start=time.perf_counter();ask('emit overview_toggle')
         until(lambda:ask('get overview_open')=='true','cold Luau readiness')
         report['cold_ready_ms']=(time.perf_counter()-start)*1000
-        until(captures,'four live window pictures');capture('overview')
+        until(captures,'four live window pictures')
+        until(lambda:all(float(ask(f'get preview.{i}'))>.99 for i in range(4)),'thumbnail fade completed')
+        report['thumbnail_fade_sample']=float(ask('get observed_preview'))
+        assert 0.01<report['thumbnail_fade_sample']<0.99
+        capture('overview')
         report['cold_picture_ms']=(time.perf_counter()-start)*1000
         until(lambda:float(ask('get overview_count'))==4,'complete overview catalogue')
         report['native_rectangles']=[[float(ask(f'get win.{i}.native.{key}')) for key in ['x','y','width','height']] for i in range(4)]
@@ -224,6 +230,14 @@ try:
             assert desktop.pid(u.GetForegroundWindow())==os.getpid()
             report['keyboard_commit_native_focus']=True
             report['keyboard_committed_title']=expected_title
+        else:
+            # A view-only native backend rejects activation. Releasing Win must
+            # still dismiss its UI; do not activate anything on the user's desktop.
+            ask('emit overview_commit')
+            until(lambda:ask('get overview_open')=='false','release closes despite native action refusal')
+            until(lambda:'window actions require --window-actions' in (out/'scene.log').read_text(encoding='utf-8'),'native action refused')
+            assert u.GetForegroundWindow()==foreground
+            report['release_closes_on_activation_denial']=True
         ask('emit overview_close');until(lambda:ask('get overview_open')=='false','final close')
         ask('emit overview_commit')
         assert ask('get overview_open')=='false','Release after cancellation reopened the overview'

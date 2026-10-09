@@ -12,10 +12,9 @@ local function tr(s) return s end
 local function on(name,fn) handlers[name]=fn end
 local function after(ms,fn) timers[#timers+1]=fn end
 local function run() end
-local function emit(event)
-    assert(event=="overview_activate")
-    activated[#activated+1]=fact.keyboard_slot
-    handlers.overview_select(fact.keyboard_slot)
+local function emit(event,slot)
+    assert(event=="overview_accept" and not fact.overview_open)
+    activated[#activated+1]=slot
 end
 __SCENE__
 assert(not fact.overview_open)
@@ -26,7 +25,7 @@ end
 assert(fact.requested_page==1 and #activated==0)
 handlers.overview_cycle_forward();assert(fact.keyboard_slot==0 and fact.requested_page==0)
 handlers.overview_cycle_backward();assert(fact.keyboard_slot==5 and fact.requested_page==1)
-handlers.overview_commit();assert(#activated==1 and activated[1]==5)
+handlers.overview_commit();assert(#activated==1 and activated[1]==5 and not fact.overview_open)
 fact["win.focus"]=5;handlers["fact:win.focus"]()
 assert(not fact.overview_open and fact.keyboard_slot==-1)
 handlers.overview_cycle_forward();assert(fact.keyboard_slot==0)
@@ -40,7 +39,7 @@ handlers.overview_close()
 for i=0,5 do fact["win."..i..".open"]=false end
 fact["win.count"]=0;fact["win.focus"]=0
 handlers.overview_cycle_forward();handlers.overview_cycle_forward();handlers.overview_cycle_backward();handlers.overview_commit()
-assert(#activated==1 and fact.overview_open)
+assert(#activated==1 and not fact.overview_open)
 for i=0,5 do fact["win."..i..".open"]=true;handlers["fact:win."..i..".open"]() end
 fact["win.count"]=6
 timers[#timers]()
@@ -48,9 +47,20 @@ assert(#activated==2 and activated[2]==1)
 handlers.overview_close()
 for _,fn in ipairs(timers) do fn() end
 assert(not fact.overview_open and #activated==2)
+-- No focus acknowledgement is necessary to close, including a denied action.
+handlers.overview_cycle_forward();handlers.overview_commit()
+assert(not fact.overview_open and #activated==3)
+-- Escape invalidates a release whose target is still waiting for its catalogue.
+for i=0,5 do fact["win."..i..".open"]=false end
+fact["win.count"]=0
+handlers.overview_cycle_forward();handlers.overview_commit();handlers.overview_close()
+for i=0,5 do fact["win."..i..".open"]=true end
+fact["win.count"]=6
+for _,fn in ipairs(timers) do fn() end
+assert(not fact.overview_open and #activated==3)
 log("PASS: held-key selection, wraparound, reverse, paging, disappearing window, early release and cancellation")
 '''
-run_checks(args,checks.replace('__SCENE__',(r/'tools/windows-overview.luau').read_text()),'PASS: held-key selection','overview-cycle')
+run_checks(args,checks.replace('__SCENE__',(r/'tools/windows-overview.luau').read_text(encoding='utf-8')),'PASS: held-key selection','overview-cycle')
 checks=r'''
 local A="\\\\.\\DISPLAY1"
 local fact,hooks,entries,handlers={locale="en"},{},{},{}
@@ -91,4 +101,4 @@ assert(calls[9].command=="emit overview_close");calls[9].done("",0)
 assert(#calls==9 and #children==1)
 log("PASS: queued Tab/Shift+Tab/release through slow lookup and cold IPC, no toggles, ordered cancellation")
 '''
-run_checks(args,checks.replace('__ADAPTER__',(r/'windows/window-manager.luau').read_text()),'PASS: queued Tab','overview-cycle-routing')
+run_checks(args,checks.replace('__ADAPTER__',(r/'windows/window-manager.luau').read_text(encoding='utf-8')),'PASS: queued Tab','overview-cycle-routing')

@@ -18,13 +18,13 @@ end
 for i = 0, 31 do on("fact:win." .. i .. ".open", catalogue) end
 catalogue()
 local selected, attempt, idle = nil, 0, 0
-local cycling, pending_steps, release_pending, cycle_generation = false, {}, false, 0
+local cycling, pending_steps, cycle_generation = false, {}, 0
 local function close()
-    if not fact.overview_open then return end
+    if not fact.overview_open then cycle_generation += 1; return end
     fact.overview_open = false
     report_state()
     fact.keyboard_slot = -1
-    cycling, pending_steps, release_pending = false, {}, false
+    cycling, pending_steps = false, {}
     cycle_generation += 1
     selected = nil
     attempt += 1
@@ -66,11 +66,6 @@ repair_selection = function()
         highlight(slots()[1])
     end
 end
-local function activate()
-    if not fact.overview_open then return end
-    if fact.keyboard_slot ~= nil and fact.keyboard_slot >= 0 then emit("overview_activate")
-    else close() end
-end
 local function drain(remaining)
     local list = slots()
     -- The cold catalogue arrives asynchronously. Do not consume the first Tab
@@ -90,7 +85,6 @@ local function drain(remaining)
         highlight(list[(position - 1 + direction) % #list + 1])
     end
     pending_steps = {}
-    if release_pending then release_pending = false; activate() end
 end
 local function cycle(direction)
     if not cycling then
@@ -106,9 +100,28 @@ on("overview_cycle_forward", function() cycle(1) end)
 on("overview_cycle_backward", function() cycle(-1) end)
 on("overview_commit", function()
     if not cycling then return end
-    release_pending = true
-    cycle_generation += 1
-    drain(40)
+    local steps, current = pending_steps, fact.keyboard_slot
+    if current == nil or current < 0 then current = fact["win.focus"] end
+    -- Releasing Win always dismisses the switcher, even if Windows denies
+    -- foreground activation. Preserve the target independently of the highlight.
+    close()
+    local mine = cycle_generation
+    local function confirm(remaining)
+        if mine ~= cycle_generation or fact.overview_open then return end
+        local list = slots()
+        if #list == 0 or #list ~= fact["win.count"] then
+            if remaining > 0 then after(50, function() confirm(remaining - 1) end) end
+            return
+        end
+        local position = nil
+        for at, slot in ipairs(list) do if slot == current then position = at; break end end
+        for _, direction in ipairs(steps) do
+            if not position then position = direction == 1 and 0 or 1 end
+            position = (position - 1 + direction) % #list + 1
+        end
+        emit("overview_accept", list[position or 1])
+    end
+    confirm(40)
 end)
 local function focused()
     if selected ~= nil and fact["win.focus"] == selected then close() end

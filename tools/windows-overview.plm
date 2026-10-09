@@ -21,10 +21,9 @@ scene WindowOverview {
         "Shows up to 32 windows from every screen" = "Muestra hasta 32 ventanas de todas las pantallas"
     }
     fact overview_open = false
-    // The same glide spring as the Linux session. Only the captured image
-    // moves: the source application retains its native size and position.
-    spring glide = 210, 23
-    prop reveal = 0 ~glide
+    // Captures arrive asynchronously; use a short, damped panel entrance
+    // rather than flying late textures across multiple desktop outputs.
+    prop reveal = 0 ~220ms
     follow reveal = if(overview_open, 1, 0)
     let progress = clamp(reveal, 0, 1)
     let overview_visible = overview_open or reveal > 0.005
@@ -34,7 +33,7 @@ scene WindowOverview {
     event overview_cycle_forward ->
     event overview_cycle_backward ->
     event overview_commit ->
-    event overview_activate
+    event overview_accept
     on key Tab { emit overview_cycle_forward }
     on key Shift+Tab { emit overview_cycle_backward }
     on key Enter { emit overview_commit }
@@ -59,6 +58,9 @@ scene WindowOverview {
     box { from: 0, 0; size: screen.width, screen.height; color: #101211; opacity: 45% * progress }
     zone box backdrop { from: 0, 0; size: screen.width, screen.height; active: overview_open }
     on press backdrop { emit overview_close }
+    group {
+        pivot: px, py + 2
+        scale: 0.97 + 0.03 * progress, 0.97 + 0.03 * progress
     body {
         color: #151616; rim: 5%; shadow: 0, 8, 28, 35%; opacity: progress
         box { from: px, py; size: pw, ph; corner: 28 }
@@ -103,17 +105,15 @@ scene WindowOverview {
         }
         let dx = x + cw / 2 - iw * fit / 2
         let dy = y + 48 + (ch - 102 - ih * fit) / 2
-        let native = win.$i.native.width > 0 and win.$i.native.height > 0 and not win.$i.minimized
-        let sx = if(native, win.$i.native.x, screen.width / 2)
-        let sy = if(native, win.$i.native.y, screen.height - 40)
-        let sw = if(native, win.$i.native.width, 40)
-        let sh = if(native, win.$i.native.height, 24)
+        prop preview.$i = 0 ~160ms
+        follow preview.$i = if(present and win.$i.width > 0 and win.$i.height > 0, 1, 0)
         group {
             show: present
-            opacity: if(native, 1, progress)
+            // Keep the capture request alive before its first texture arrives.
+            opacity: max(0.002, preview.$i) * progress
             window win.$i {
-                at: sx + (dx - sx) * progress, sy + (dy - sy) * progress
-                size: sw + (iw * fit - sw) * progress, sh + (ih * fit - sh) * progress
+                at: dx, dy + 6 * (1 - preview.$i)
+                size: iw * fit, ih * fit
                 ask: -1, -1
             }
         }
@@ -124,7 +124,7 @@ scene WindowOverview {
         zone box close.$i { from: x + cw * 2 / 3, y + ch - 44; size: cw / 3 - 8, 40; active: present and accepting; cursor: pointer }
         on enter select.$i { hovered = i }
         on leave select.$i { hovered = -1 }
-        on overview_activate while keyboard_slot == i and win.$i.open { focus win.$i; emit overview_select(i) }
+        on overview_accept(slot) while slot == i and win.$i.open { focus win.$i }
         on press select.$i { focus win.$i; emit overview_select(i) }
         on press select_label.$i { focus win.$i; emit overview_select(i) }
         on press minimize.$i { minimize win.$i }
@@ -140,4 +140,5 @@ scene WindowOverview {
     zone box next { from: px + pw - 200, py + ph - 54; size: 180, 48; active: overview_open and page < pages - 1; cursor: pointer }
     on press previous { emit overview_previous }
     on press next { emit overview_next }
+    }
 }

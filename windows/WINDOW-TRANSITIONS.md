@@ -7,7 +7,7 @@ scope. A passing overview test does not establish global compositor parity.
 ## Linux reference
 
 `pleamar-wm/examples/session.plm` is the reference, reviewed through upstream
-`263249e` (0.3.2). Its overview uses the `glide = 210, 23` spring. New windows
+`1bddbd5` (0.3.4). Its overview uses the `glide = 210, 23` spring. New windows
 emerge as liquid from their monitor's nearest edge. Minimization melts a window
 into a droplet heading to its monitor's shore/dock; restoration reverses that
 path. The current upstream destination is **not** Marea's island. The content
@@ -15,13 +15,12 @@ is scaled without asking the application to resize throughout the transition.
 
 ## Implemented foundation
 
-The Windows overview uses the same glide spring to move captured images from
-their desktop rectangles into the view and back. Native rectangles are expressed
-in the destination output's logical coordinates, including its origin and DPI;
-source capture retains the source monitor's DPI. It does not resize applications.
-The origin and dimensions use DWM's visible frame, excluding the invisible
-resize borders in `GetWindowRect`. Native validation also compares these
-dimensions with the captured image to avoid stretching its first frame.
+The Windows overview is a native capture-based panel, not the Linux compositor.
+Its 220 ms critically damped entrance expands subtly from Marea's eyes; individual
+thumbnails fade in over 160 ms once a real capture arrives. It no longer moves
+late-arriving images from distant desktop coordinates across the panel. Native
+DWM frame geometry and per-monitor DPI remain available for accurate capture
+aspect and diagnostics; applications retain their own size and position.
 The view always opens on the Windows primary monitor and gathers windows from
 every monitor. Minimized windows retain a selectable catalogue entry. The
 32-window limit and four-card pages remain explicit limitations.
@@ -36,12 +35,16 @@ Marea closes its panels before opening the selector and suppresses its own
 surfaces, keyboard requests and delayed panel writes until it closes. Foreground
 acknowledgement uses the exact window identity before its owner and is delivered
 before catalogue refresh; another monitor is not an activation error. A real
-Windows foreground denial still reports an unconfirmed activation.
+Windows foreground denial still reports an unconfirmed activation for a mouse
+selection. A keyboard release dismisses the switcher regardless of native
+activation success; it does not claim that the target acquired foreground.
 The regular dock retains its existing monitor scope.
 
 Win+Tab is a held-key switcher: repeated Tab presses advance the highlighted
 window without toggling the view, Shift+Tab reverses, releasing the final Win
-key confirms, and Escape cancels. The selected page follows the highlight.
+key requests activation and immediately dismisses the view, and Escape cancels.
+A cold catalogue can delay the activation request without keeping or reopening
+the view. A later cancellation or new view invalidates that pending request. The selected page follows the highlight.
 The adapter preserves ordered steps and an early release through monitor lookup
 and cold renderer startup. The menu still opens a persistent overview. These
 changes require the engine's optional `Win+Release` shortcut binding.
