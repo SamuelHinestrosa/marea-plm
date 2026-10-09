@@ -22,7 +22,7 @@ home=next((s['name'] for s in screens if s['name']!=primary),'\\\\.\\DISPLAY999'
 host=next((s['name'] for s in screens if not s['primary']),primary)
 module=(root/'windows/window-manager.luau').read_text(encoding='utf-8')
 generated=(root/'marea-desktop.luau').read_text(encoding='utf-8')
-provider=generated.split('end, notice, native_spawn, function(done)\n',1)[1].split('\nend)\nend\ninstall_shortcuts',1)[0]
+provider=generated.split('end, notice, native_spawn, function(done)\n',1)[1].split('\nend, function(namespace, scene, command, done)',1)[0]
 status=json.dumps(dict(running=True,automatic_layouts=True,window_overview=True,monitors=screens))
 logic='''local native_sys = sys
 local hooks, entries = {}, {}
