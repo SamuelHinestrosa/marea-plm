@@ -44,6 +44,11 @@ window owned by its caller but returns `0x80070005` for another ordinary process
 under the same user. Adding `WS_EX_LAYERED`, setting alpha to zero and restoring
 the original style did succeed on our own hidden cross-process Win32 fixture.
 That proves one API operation, not a working animation or general compatibility.
+An additional visible secondary-display probe captured the owned window before
+and during zero-alpha presentation: both read-only PNG captures retained the
+fixture's opaque content, and its style and foreground were restored/preserved.
+This establishes a possible capture path for that window, not a continuous
+GPU animation or a guarantee about other applications.
 Layered windows, applications using `UpdateLayeredWindow`, protected content,
 elevated applications and exclusive-fullscreen games need separate handling.
 
@@ -73,6 +78,11 @@ References: [WinEvent delivery](https://learn.microsoft.com/en-us/windows/win32/
   on multiple differently scaled monitors, physical shortcuts, arbitrary app
   activation and global opening/minimize/restore effects were not validated by
   that local test.
+- A separate native cross-monitor probe projected one owned DISPLAY2 source
+  onto a closed DISPLAY1 destination. Its negative destination-relative
+  coordinates matched the native catalogue; no destination input, source
+  capture or foreground change occurred. This is routing/geometry evidence,
+  not a visible overview on the primary monitor.
 
 An initial native test failed because it expected `win.count` to exclude a
 minimized window. That count includes it; the corrected assertion checks its
