@@ -21,9 +21,6 @@ scene WindowOverview {
         "Shows up to 32 windows from every screen" = "Muestra hasta 32 ventanas de todas las pantallas"
     }
     fact overview_open = false
-    fact overview_has_focus = false
-    on focus { overview_has_focus = true }
-    on blur { overview_has_focus = false }
     // Captures arrive asynchronously; use a short, damped panel entrance
     // rather than flying late textures across multiple desktop outputs.
     prop reveal = 0 ~220ms
@@ -33,6 +30,7 @@ scene WindowOverview {
     let accepting = overview_open and reveal > 0.97
     fact hovered = -1
     fact keyboard_slot = -1
+    fact accepted_slot = -1
     event overview_cycle_forward ->
     event overview_cycle_backward ->
     event overview_commit ->
@@ -127,7 +125,7 @@ scene WindowOverview {
         zone box close.$i { from: x + cw * 2 / 3, y + ch - 44; size: cw / 3 - 8, 40; active: present and accepting; cursor: pointer }
         on enter select.$i { hovered = i }
         on leave select.$i { hovered = -1 }
-        on overview_accept(slot) while slot == i and win.$i.open { focus win.$i }
+        on overview_accept while accepted_slot == i and win.$i.open { focus win.$i }
         on press select.$i { focus win.$i; emit overview_select(i) }
         on press select_label.$i { focus win.$i; emit overview_select(i) }
         on press minimize.$i { minimize win.$i }

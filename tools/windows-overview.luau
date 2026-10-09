@@ -109,10 +109,7 @@ on("overview_commit", function()
     local function confirm(remaining)
         if mine ~= cycle_generation or fact.overview_open then return end
         local list = slots()
-        -- Returning the panel's keyboard restores its previous foreground.
-        -- Let that handoff finish before requesting the chosen window, or the
-        -- two asynchronous foreground requests can overwrite one another.
-        if fact.overview_has_focus == true or #list == 0 or #list ~= fact["win.count"] then
+        if #list == 0 or #list ~= fact["win.count"] then
             if remaining > 0 then after(50, function() confirm(remaining - 1) end) end
             return
         end
@@ -122,7 +119,10 @@ on("overview_commit", function()
             if not position then position = direction == 1 and 0 or 1 end
             position = (position - 1 + direction) % #list + 1
         end
-        emit("overview_accept", list[position or 1])
+        -- Luau emit() carries only the event name. Keep the chosen slot in a
+        -- separate fact, since closing already cleared the visible highlight.
+        fact.accepted_slot = list[position or 1]
+        emit("overview_accept")
     end
     confirm(40)
 end)

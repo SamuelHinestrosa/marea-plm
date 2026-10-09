@@ -44,9 +44,10 @@ Win+Tab is a held-key switcher: repeated Tab presses advance the highlighted
 window without toggling the view, Shift+Tab reverses, releasing the final Win
 key requests activation and immediately dismisses the view, and Escape cancels.
 A cold catalogue can delay the activation request without keeping or reopening
-the view. Activation also waits for the panel to release its native keyboard,
-so returning to the previous application cannot overwrite the chosen target.
-A later cancellation or new view invalidates that pending request. The selected page follows the highlight.
+the view. A later cancellation or new view invalidates that pending request.
+The accepted slot is stored independently of the cleared highlight: Luau's
+`emit()` carries only an event name, not a selection payload.
+The selected page follows the highlight.
 The adapter preserves ordered steps and an early release through monitor lookup
 and cold renderer startup. The menu still opens a persistent overview. These
 changes require the engine's optional `Win+Release` shortcut binding.

@@ -62,7 +62,7 @@ source=source.replace('fact overview_open = false', '''fact overview_open = fals
     fact observed_transition = 0
     fact observed_preview = 0
     fact observed_accept = -1
-    on overview_accept(slot) { observed_accept = slot }
+    on overview_accept { observed_accept = accepted_slot }
     on change preview.0 while preview.0 > 0.01 and preview.0 < 0.99 { observed_preview = preview.0 }
     on change reveal while reveal > 0.05 and reveal < 0.95 { observed_transition = reveal }''')
 (out/'windows-overview.plm').write_text(source,encoding='utf-8')
@@ -221,13 +221,12 @@ try:
         capture('overview-keyboard-selection')
         report['keyboard_cycle_without_closing']=True
         report['keyboard_reverse']=True
+        chosen=int(float(ask('get keyboard_slot')))
+        expected_title=ask(f'get win.{chosen}.title')
+        report['expected_commit']=dict(slot=chosen,title=expected_title)
         if a.ci_activation:
-            chosen=int(float(ask('get keyboard_slot')))
-            expected_title=ask(f'get win.{chosen}.title')
-            report['expected_commit']=dict(slot=chosen,title=expected_title)
             ask('emit overview_commit')
             until(lambda:ask('get overview_open')=='false','release activates the preselected window')
-            until(lambda:ask('get overview_has_focus')=='false','native keyboard ownership released')
             until(lambda:int(float(ask('get observed_accept')))==chosen,'selected target dispatched after release')
             # Closing can transiently restore the previous foreground while
             # an asynchronously requested minimized target is being restored.
@@ -249,6 +248,7 @@ try:
             # still dismiss its UI; do not activate anything on the user's desktop.
             ask('emit overview_commit')
             until(lambda:ask('get overview_open')=='false','release closes despite native action refusal')
+            until(lambda:int(float(ask('get observed_accept')))==chosen,'selected target survives payloadless Luau event')
             until(lambda:'window actions require --window-actions' in (out/'scene.log').read_text(encoding='utf-8'),'native action refused')
             assert u.GetForegroundWindow()==foreground
             report['release_closes_on_activation_denial']=True
