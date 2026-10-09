@@ -11,7 +11,7 @@ adapter = (root / 'windows/desktop-adapter.luau').read_text(encoding='utf-8')
 brightness = adapter[adapter.index('local brightness_monitor,'):adapter.index('on("windows_display_info"')]
 generated = (root / 'marea-desktop.luau').read_text(encoding='utf-8')
 monitor = generated.split('end)()(native_run, hooks, plugin_entries, set_menu, function()', 1)[1].split('end, notice, native_spawn', 1)[0]
-active = generated.split('end, notice, native_spawn, function(done)\n', 1)[1].split('\nend)\nend\ninstall_shortcuts', 1)[0]
+active = generated.split('end, notice, native_spawn, function(done)\n', 1)[1].split('\nend, function(namespace, scene, command, done)', 1)[0]
 decision = generated[generated.index('local function decide()'):generated.index('--  Her wardrobe\'s pieces')]
 placement = generated[generated.index('local function place()'):generated.index('local stone_slots')]
 checks = r'''

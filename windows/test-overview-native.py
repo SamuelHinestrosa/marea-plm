@@ -80,24 +80,43 @@ def command(*args):
     pump()
     if r.returncode or r.stdout.startswith('?'):raise RuntimeError(r.stdout+r.stderr)
     return r.stdout.strip()
-def ask(line):return command('--say','windows-overview',line)
+def ask(line):
+    if a.prewarm and process is not None:
+        return raw_ask(line)
+    return command('--say','windows-overview',line)
 
-def release_without_foreground_grant():
-    # The real Marea sender is in the background. Do not let a foreground test
-    # launcher grant the selector extra activation rights through --say.
+pipe_path=None
+def raw_ask(line):
+    global pipe_path
     kernel=C.WinDLL('kernel32')
     kernel.GetNamedPipeServerProcessId.argtypes=[W.HANDLE,C.POINTER(W.DWORD)]
-    for name in os.listdir('\\\\.\\pipe\\'):
-        if not (name.startswith('pleamar-') and name.endswith('-windows-overview')):continue
-        with open('\\\\.\\pipe\\'+name,'r+b',buffering=0) as pipe:
-            pid=W.DWORD()
-            assert kernel.GetNamedPipeServerProcessId(msvcrt.get_osfhandle(pipe.fileno()),C.byref(pid))
+    kernel.PeekNamedPipe.argtypes=[W.HANDLE,W.LPVOID,W.DWORD,W.LPVOID,C.POINTER(W.DWORD),W.LPVOID]
+    names=[pipe_path] if pipe_path else ["\\\\.\\pipe\\"+name for name in os.listdir("\\\\.\\pipe\\")
+        if name.startswith('pleamar-') and name.endswith('-windows-overview')]
+    for name in names:
+        with open(name,'r+b',buffering=0) as pipe:
+            handle=msvcrt.get_osfhandle(pipe.fileno());pid=W.DWORD()
+            assert kernel.GetNamedPipeServerProcessId(handle,C.byref(pid))
             if pid.value!=process.pid:continue
-            pipe.write(b'emit overview_commit\n')
-            assert not pipe.readline().startswith(b'?'),'Commit was rejected'
-            report['release_ipc_grants_foreground']=False
-            return
-    raise AssertionError('Owned overview command pipe missing')
+            pipe_path=name
+            pipe.write((line+'\n').encode('utf-8'))
+            end=time.monotonic()+3;data=b''
+            while b'\n' not in data:
+                available=W.DWORD()
+                if not kernel.PeekNamedPipe(handle,None,0,None,C.byref(available),None):raise RuntimeError('Scene pipe closed')
+                if available.value:data+=pipe.read(available.value)
+                else:
+                    if time.monotonic()>=end:raise RuntimeError('Scene reply timeout')
+                    pump();time.sleep(.002)
+            pipe.write(b'ack\n')
+            answer=json.loads(data.split(b'\n',1)[0])
+            if answer.startswith('?'):raise RuntimeError(answer)
+            return answer.strip()
+    raise RuntimeError('Owned overview pipe is not ready')
+
+def release_without_foreground_grant():
+    raw_ask('emit overview_commit')
+    report['release_ipc_grants_foreground']=False
 
 class BackgroundChild:
     def __init__(self,argv,log):
@@ -186,6 +205,7 @@ try:
         if a.ci_activation and a.prewarm:
             process=BackgroundChild(argv,log)
             report['background_launcher']=True
+            report['opening_ipc_grants_foreground']=False
         else:process=subprocess.Popen(argv,env=env,stdout=log,stderr=log,creationflags=flags)
         if a.prewarm:
             until(lambda:ask('get overview_open')=='false','hidden startup')
@@ -193,6 +213,13 @@ try:
             assert all(float(ask(f'get win.{i}.width'))==0 for i in range(4))
             if a.ci_activation:assert u.GetForegroundWindow()==owned[0],'Prewarming took focus'
             report['prewarmed_without_captures']=True
+            samples={"cli_read_ms":[],"direct_read_ms":[]}
+            for _ in range(8):
+                start_read=time.perf_counter();command('--say','windows-overview','get overview_open')
+                samples["cli_read_ms"].append((time.perf_counter()-start_read)*1000)
+                start_read=time.perf_counter();raw_ask('get overview_open')
+                samples["direct_read_ms"].append((time.perf_counter()-start_read)*1000)
+            report['transport_benchmark']=samples
             start=time.perf_counter();ask('emit overview_toggle')
         until(lambda:ask('get overview_open')=='true','cold Luau readiness')
         report['cold_ready_ms']=(time.perf_counter()-start)*1000

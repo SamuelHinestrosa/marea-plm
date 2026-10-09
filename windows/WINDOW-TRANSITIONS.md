@@ -133,3 +133,28 @@ Latest upstream refs were fetched for review: pleamar `548b1e6`, Marea `75a26cf`
 WM `263249e`. Fetching them is not a claim that their new changes have all been
 integrated. In particular the newer engine wake/process fixes and Marea task
 changes still need reconciliation with the port branch.
+
+
+### Background shortcut activation and transport (preview.69 candidate)
+
+The preview.68 local log showed repeated foreground activation denials. Its CI
+fixture revoked the grant only at commit, after opening had already activated
+the selector, so it did not cover the reported background-launch failure.
+The warm fixture now uses grant-free raw IPC for opening, cycling and commit,
+with an intermediate launcher. It still requires actual foreground activation,
+cursor release and the exact selected target; a closing panel alone is insufficient.
+
+The native backend now requests `SwitchToThisWindow` when `SetForegroundWindow`
+is refused for an exclusive panel or a scope-checked window selection. It does
+not attach input queues, inject Alt, or change the system foreground-lock policy.
+This specialized task-switch API is documented by Microsoft as potentially subject
+to change; Windows acceptance must be rerun on supported releases. A request is
+not treated as proof of activation: the actual foreground event remains the ack.
+
+Marea sends overview commands through the asynchronous `scene.send` service.
+Each Tab previously launched a CLI subprocess and waited for its exit before
+sending the next action. The ordered stream, cold-start read probe, cancellation
+and namespace isolation are retained. Native tests compare direct/CLI read
+latency on the same process; these measurements are transport latency, not total
+physical-key-to-visible-frame latency. Physical Win+Tab acceptance is still a
+separate check and must not be inferred from command-based fixture results.

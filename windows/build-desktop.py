@@ -491,6 +491,8 @@ end, notice, native_spawn, function(done)
     native_sys.ask_async("window.primary", {}, function(name, error)
         done(type(name) == "string" and name or nil, error)
     end)
+end, function(namespace, scene, command, done)
+    native_sys.call_async("scene.send", {namespace, scene, command}, done)
 end)
 end
 install_shortcuts(native_sys, notice, hooks)

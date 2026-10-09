@@ -109,3 +109,12 @@ assert(#calls==9 and #children==1)
 log("PASS: queued Tab/Shift+Tab/release through slow lookup and cold IPC, no toggles, ordered cancellation")
 '''
 run_checks(args,checks.replace('__ADAPTER__',(r/'windows/window-manager.luau').read_text(encoding='utf-8')),'PASS: queued Tab','overview-cycle-routing')
+
+# The production adapter injects a service transport; no executable is launched
+# per key, and the same ordered/cancelled gesture assertions must still pass.
+direct=checks.replace('lookups[#lookups+1]=done end)', '''lookups[#lookups+1]=done end,
+function(namespace,scene,command,done)
+    assert(scene=="windows-overview" and namespace:match("^marea%-overview%-"))
+    calls[#calls+1]={command=command,done=done}
+end)''').replace('calls[#calls+1]={command=argv[3],done=done}', 'error("overview spawned a CLI process")')
+run_checks(args,direct.replace('__ADAPTER__',(r/'windows/window-manager.luau').read_text(encoding='utf-8')),'PASS: queued Tab','overview-direct-routing')

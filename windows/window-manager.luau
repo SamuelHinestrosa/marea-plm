@@ -1,6 +1,6 @@
 -- The native companion reports its actual session. Keep Linux's in_wm false:
 -- its dock, rain, ride and agent seat have separate capabilities.
-return function(run, hooks, entries, changed, screen, notice, spawn, primary_screen)
+return function(run, hooks, entries, changed, screen, notice, spawn, primary_screen, scene_send)
     local available, overview, dock, busy, state = false, false, false, false, nil
     local viewing = nil
     local dock_view = nil
@@ -106,6 +106,12 @@ return function(run, hooks, entries, changed, screen, notice, spawn, primary_scr
             end)
         end
     end
+    local function send(child, command, done)
+        if scene_send then
+            return scene_send(child.endpoint, "windows-overview", command, done)
+        end
+        return run("pleamar-wm", {"--say", "windows-overview", command}, done, {env={PLEAMAR_SOCKET_DIR=child.endpoint}})
+    end
     local open_overview
     open_overview = function(name, warm, prepare_cycle)
         if viewing then
@@ -123,23 +129,23 @@ return function(run, hooks, entries, changed, screen, notice, spawn, primary_scr
                     child.retiring, child.next_screen = false, nil
                     notice(tr("The window view could not close.") .. " " .. problem)
                 end)
-                local ok, error = pcall(run, "pleamar-wm", {"--say", "windows-overview", "quit"}, function(output, code)
+                local ok, error = pcall(send, child, "quit", function(output, code)
                     if code ~= 0 then problem = tostring(output or ""):sub(1, 180) end
-                end, {env={PLEAMAR_SOCKET_DIR=child.endpoint}})
+                end)
                 if not ok then problem = tostring(error) end
                 return
             end
             if warm then return end
             if child.pending then return end
             child.pending = true
-            local ok, error = pcall(run, "pleamar-wm", {"--say", "windows-overview", "emit overview_toggle"}, function(output, code)
+            local ok, error = pcall(send, child, "emit overview_toggle", function(output, code)
                 if viewing ~= child then return end
                 child.pending = false
                 if code ~= 0 or tostring(output or ""):sub(1, 1) == "?" then
                     exclusive(false)
                     notice(tr("The window view could not open.") .. " " .. tostring(output or ""):sub(1, 180))
                 end
-            end, {env={PLEAMAR_SOCKET_DIR=child.endpoint}})
+            end)
             if not ok then child.pending = false; exclusive(false); notice(tostring(error)) end
             return
         end
@@ -221,7 +227,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn, primary_scr
         if not command then return end
         session.pending = true
         local probe = not session.ready
-        local ok, error = pcall(run, "pleamar-wm", {"--say", "windows-overview", probe and "get overview_open" or command}, function(output, code)
+        local ok, error = pcall(send, child, probe and "get overview_open" or command, function(output, code)
             if cycle_session ~= session then return end
             session.pending = false
             if code ~= 0 or tostring(output or ""):sub(1, 1) == "?" then
@@ -237,7 +243,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn, primary_scr
                 if #session.queue == 0 and session.ending then cycle_session = nil; return end
             end
             pump_cycle(session)
-        end, {env={PLEAMAR_SOCKET_DIR=child.endpoint}})
+        end)
         if not ok then session.pending = false; cycle_fail(session, error) end
     end
     hooks.windows_overview_cycle = function(direction)
