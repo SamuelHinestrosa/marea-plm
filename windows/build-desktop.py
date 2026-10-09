@@ -487,7 +487,11 @@ logic += '\ndo\n(function()\n' + (root / 'windows/window-manager.luau').read_tex
 end)()(native_run, hooks, plugin_entries, set_menu, function()
     for k = 0, 2 do if fact["hosts." .. k] == true then return monitors[k + 1] end end
     return nil
-end, notice, native_spawn)
+end, notice, native_spawn, function(done)
+    native_sys.ask_async("window.state", {}, function(state, error)
+        done(type(state) == "table" and state.monitor or nil, error)
+    end)
+end)
 end
 install_shortcuts(native_sys, notice, hooks)
 '''

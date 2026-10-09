@@ -1,4 +1,4 @@
-"""Route brightness and the WM overview to Marea's third native monitor."""
+"""Keep Marea's home controls separate from the active-program overview monitor."""
 from pathlib import Path
 import argparse
 from logic_test import runner_arguments, run_checks
@@ -10,7 +10,8 @@ root = Path(__file__).resolve().parents[1]
 adapter = (root / 'windows/desktop-adapter.luau').read_text(encoding='utf-8')
 brightness = adapter[adapter.index('local brightness_monitor,'):adapter.index('on("windows_display_info"')]
 generated = (root / 'marea-desktop.luau').read_text(encoding='utf-8')
-monitor = generated.split('end)()(native_run, hooks, plugin_entries, set_menu, function()', 1)[1].split('end, notice, native_spawn)', 1)[0]
+monitor = generated.split('end)()(native_run, hooks, plugin_entries, set_menu, function()', 1)[1].split('end, notice, native_spawn', 1)[0]
+active = generated.split('end, notice, native_spawn, function(done)\n', 1)[1].split('\nend)\nend\ninstall_shortcuts', 1)[0]
 decision = generated[generated.index('local function decide()'):generated.index('--  Her wardrobe\'s pieces')]
 placement = generated[generated.index('local function place()'):generated.index('local stone_slots')]
 checks = r'''
@@ -33,7 +34,17 @@ for k = 0, 2 do
 end
 assert(#calls == 1 and calls[1] == monitors[3], "third monitor did not select its own brightness")
 local function current_monitor() __MONITOR__ end
-assert(current_monitor() == monitors[3], "overview was routed away from the third monitor")
+assert(current_monitor() == monitors[3], "home controls were routed away from the third monitor")
+local function active_monitor(done) __ACTIVE__ end
+local active_reply, selected
+native_sys.ask_async = function(name, args, done)
+    assert(name == "window.state" and #args == 0)
+    active_reply = done
+end
+active_monitor(function(name, error) assert(error == nil); selected = name end)
+assert(selected == nil)
+active_reply({monitor=monitors[1]}, nil)
+assert(selected == monitors[1] and selected ~= current_monitor(), "overview followed Marea instead of the active program")
 text["screen.2.name"] = "Replacement monitor 海"
 handlers["text:screen.2.name"]()
 assert(calls[2] == "Replacement monitor 海")
@@ -89,5 +100,5 @@ decide()
 assert(#calls == before + 1 and #notices == 1)
 pending[4]("", 0)
 log("PASS: all three native monitor routes, late names and changing home")
-'''.replace('__BRIGHTNESS__', brightness).replace('__MONITOR__', monitor).replace('__DECISION__', decision).replace('__PLACEMENT__', placement)
+'''.replace('__BRIGHTNESS__', brightness).replace('__MONITOR__', monitor).replace('__ACTIVE__', active).replace('__DECISION__', decision).replace('__PLACEMENT__', placement)
 run_checks(args, checks, 'PASS: all three native monitor routes', 'display-routing')

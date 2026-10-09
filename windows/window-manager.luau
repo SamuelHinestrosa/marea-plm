@@ -1,6 +1,6 @@
 -- The native companion reports its actual session. Keep Linux's in_wm false:
 -- its dock, rain, ride and agent seat have separate capabilities.
-return function(run, hooks, entries, changed, screen, notice, spawn)
+return function(run, hooks, entries, changed, screen, notice, spawn, active_screen)
     local available, overview, dock, busy, state = false, false, false, false, nil
     local viewing = nil
     local dock_view = nil
@@ -65,15 +65,16 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
     hooks.windows_wm_allowed = function(title)
         return (overview and title == "Window overview") or ((dock or dock_view ~= nil) and title == "Application dock") or (available and (title == "Tiled or free windows" or title == "Bring back every window"))
     end
-    local function current_screen()
-        local name = screen()
+    local function managed_screen(name, quiet)
         local found = false
-        for _, monitor in ipairs(state.monitors or {}) do if monitor.name == name then found = true; break end end
+        for _, monitor in ipairs((state and state.monitors) or {}) do if monitor.name == name then found = true; break end end
         if not found or type(name) ~= "string" or not name:match("^\\\\%.\\DISPLAY%d+$") then
-            notice(tr("The window manager is not managing this screen.")); return nil
+            if not quiet then notice(tr("The window manager is not managing this screen.")) end
+            return nil
         end
         return name
     end
+    local function current_screen() return managed_screen(screen()) end
     hooks.wm_free = function()
         if not available then request("status", true); return end
         local name = current_screen()
@@ -90,11 +91,29 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
     hooks.windows_focus_previous = function() request("emit focus_previous", true, true) end
     hooks.windows_close = function() request("emit close", true) end
     hooks.windows_fullscreen = function() request("emit fullscreen", true) end
-    hooks.windows_overview = function(warm)
-        if warm and (viewing or not overview) then return end
-        if not overview then request("status", true); return end
+    local open_overview
+    open_overview = function(name, warm)
         if viewing then
             local child = viewing
+            if child.retiring then child.next_screen = name; return end
+            if child.screen ~= name then
+                if warm then return end
+                child.retiring, child.next_screen = true, name
+                local problem = ""
+                -- A quit acknowledgement may precede process teardown. Only
+                -- the owned child's exit callback may start its replacement.
+                after(2000, function()
+                    if viewing ~= child or not child.retiring then return end
+                    child.retiring, child.next_screen = false, nil
+                    notice(tr("The window view could not close.") .. " " .. problem)
+                end)
+                local ok, error = pcall(run, "pleamar-wm", {"--say", "windows-overview", "quit"}, function(output, code)
+                    if code ~= 0 then problem = tostring(output or ""):sub(1, 180) end
+                end, {env={PLEAMAR_SOCKET_DIR=child.endpoint}})
+                if not ok then problem = tostring(error) end
+                return
+            end
+            if warm then return end
             if child.pending then return end
             child.pending = true
             local ok, error = pcall(run, "pleamar-wm", {"--say", "windows-overview", "emit overview_toggle"}, function(output, code)
@@ -107,17 +126,17 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
             if not ok then child.pending = false; notice(tostring(error)) end
             return
         end
-        local name = current_screen()
-        if not name then return end
-        local child = {endpoint="marea-overview-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 2147483647))}
+        local child = {screen=name, endpoint="marea-overview-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 2147483647))}
         viewing = child
         local last_line = ""
         local finished = false
         local function done(output, code)
             if finished then return end
             finished = true
-            if viewing == child then viewing = nil end
-            if code ~= 0 and not warm then notice(tr("The window view could not open.") .. " " .. (output ~= "" and tostring(output) or last_line):sub(1, 180)) end
+            if viewing ~= child then return end
+            viewing = nil
+            if child.next_screen then open_overview(child.next_screen, false)
+            elseif code ~= 0 and not warm then notice(tr("The window view could not open.") .. " " .. (output ~= "" and tostring(output) or last_line):sub(1, 180)) end
         end
         local ok, error = pcall(spawn, "pleamar-wm", {"--scene", "tools/windows-overview.plm", "--screen", name,
             "--preview-monitor", name, "--window-actions", "--no-hud", "--stall", "0"},
@@ -125,6 +144,32 @@ return function(run, hooks, entries, changed, screen, notice, spawn)
             {cwd=".", errors=true, env={MAREA_LOCALE=tostring(fact.locale or "en"), PLEAMAR_SOCKET_DIR=child.endpoint,
                 MAREA_OVERVIEW_WARM=warm and "1" or "0"}})
         if not ok then done(tostring(error), 1) end
+    end
+    local resolving = false
+    hooks.windows_overview = function(warm)
+        if resolving then
+            if not warm then resolving.warm = false end
+            return
+        end
+        if warm and (viewing or not overview) then return end
+        if not overview then request("status", true); return end
+        local lookup = {warm=warm}
+        resolving = lookup
+        local completed = false
+        local function resolved(name, problem)
+            if completed then return end
+            completed, resolving = true, false
+            local warm = lookup.warm
+            if problem then
+                if not warm then notice(tr("The window view could not open.") .. " " .. tostring(problem):sub(1, 180)) end
+                return
+            end
+            name = managed_screen(name, warm)
+            if name then open_overview(name, warm) end
+        end
+        local ok, error = pcall(active_screen, resolved)
+        if not ok then resolved(nil, error) end
+        if not completed then after(2000, function() resolved(nil, tr("Active window lookup timed out.")) end) end
     end
     on("windows_to_layouts", function() request("status", true) end)
     on("windows_choose_layout", function(index)

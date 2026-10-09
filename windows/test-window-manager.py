@@ -34,7 +34,7 @@ local function run(name, args, callback, options)
     requests[#requests+1]={command=args[3],done=callback}
 end
 local install=(function() __MODULE__ end)()
-install(run,hooks,entries,function() changed+=1 end,function() return screen end,function(message) notices[#notices+1]=message end,spawn)
+install(run,hooks,entries,function() changed+=1 end,function() return screen end,function(message) notices[#notices+1]=message end,spawn,function(done) done(screen) end)
 assert(#requests==1 and requests[1].command=="status")
 requests[1].done("not installed",1)
 assert(#entries==1 and #notices==0 and not hooks.windows_wm_allowed("Tiled or free windows"))

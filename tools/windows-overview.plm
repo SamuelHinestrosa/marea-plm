@@ -1,4 +1,4 @@
-// Opened on Marea's monitor by the native window-manager adapter.
+// Opened on the active application's monitor by the native adapter.
 scene WindowOverview {
     permissions { services: "env"; run: "pleamar-wm" }
     surface { size: full, full; level: overlay; keyboard: exclusive while overview_open; open: overview_open; rate: 60 }

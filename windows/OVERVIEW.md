@@ -13,10 +13,25 @@ closed. The process remains warm for up to a minute, then exits. Opening after
 that idle timeout still requires renderer startup. Each owner has a separate
 command namespace and its child ends with Marea.
 
-The view currently shows four windows per page on Marea's selected monitor.
+The view shows four windows per page on the active application's monitor,
+queried from Windows at each invocation, independently of Marea's home or the
+pointer position. A cached view is reused only on that monitor. When the active
+application is on a different monitor, the old child must exit before its
+replacement opens there. Failed or expired lookups never fall back to Marea's
+home, and failed retirement leaves the old child owned and retryable.
 It is not an in-preview application input surface or a virtual desktop manager.
 An application using exclusive fullscreen, foreground locking or elevated
 input may still prevent activation; we do not bypass Windows' restrictions.
+
+`windows/test-overview-routing.py` exercises monitor changes, warm reuse,
+replacement ordering, lookup failures and stale callbacks in the real adapter.
+`windows/test-overview-active.py --binary <pleamar.exe> --wm <pleamar-wm.exe>
+--output <new-directory>` checks the generated provider against the native
+foreground monitor, keeping its test surface closed and recording child launch
+arguments. Run `python windows/build-desktop.py` first. On 2026-10-09 the local
+native check selected DISPLAY1 with a simulated Marea home on DISPLAY2, with
+the foreground HWND unchanged and no physical input. This verifies native
+routing, not a visible end-to-end transition between monitors.
 
 `windows/test-overview-native.py` measures cold readiness and warm command
 round trips, checks four native captures, retirement while hidden and reuse.
@@ -39,5 +54,5 @@ No synthetic mouse input is used by Marea or by local nonactivating tests.
 On the local secondary display, three warm command round trips measured
 244–281 ms. The shared CI host measured 1.11–1.30 s. These include process startup
 for the command clients and polling, so they do not establish input-to-frame
-latency or animation smoothness. Real-game acceptance remains pending. A view
-on Marea's monitor does not move the pointer there from another monitor.
+latency or animation smoothness. Real-game acceptance remains pending. Opening
+the view does not move the pointer to a different monitor.
