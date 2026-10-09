@@ -79,8 +79,8 @@ def command(*args):
     if r.returncode or r.stdout.startswith('?'):raise RuntimeError(r.stdout+r.stderr)
     return r.stdout.strip()
 def ask(line):return command('--say','windows-overview',line)
-def until(fn,label):
-    end=time.monotonic()+35;last=None
+def until(fn,label,timeout=35):
+    end=time.monotonic()+timeout;last=None
     while time.monotonic()<end:
         pump()
         if process and process.poll() is not None:raise RuntimeError('Overview exited: '+(out/'scene.log').read_text())
@@ -224,9 +224,18 @@ try:
             expected_title=ask(f'get win.{chosen}.title')
             ask('emit overview_commit')
             until(lambda:ask('get overview_open')=='false','release activates the preselected window')
-            until(lambda:u.GetForegroundWindow() in owned,'release transfers native foreground')
-            title=C.create_unicode_buffer(1024);u.GetWindowTextW(u.GetForegroundWindow(),title,len(title))
-            assert title.value==expected_title,'Release activated a different window'
+            # Closing can transiently restore the previous foreground while
+            # an asynchronously requested minimized target is being restored.
+            # Require the exact target, not merely any owned foreground window.
+            report['focus_after_release']=[]
+            def chosen_foreground():
+                hwnd=u.GetForegroundWindow()
+                title=C.create_unicode_buffer(1024);u.GetWindowTextW(hwnd,title,len(title))
+                observed=title.value if hwnd in owned else "outside fixture"
+                if not report['focus_after_release'] or report['focus_after_release'][-1]!=observed:
+                    report['focus_after_release'].append(observed)
+                return hwnd in owned and title.value==expected_title
+            until(chosen_foreground,'release transfers foreground to the exact selected window',timeout=5)
             assert desktop.pid(u.GetForegroundWindow())==os.getpid()
             report['keyboard_commit_native_focus']=True
             report['keyboard_committed_title']=expected_title
