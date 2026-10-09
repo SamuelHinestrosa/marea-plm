@@ -226,7 +226,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn, primary_scr
         local command = session.queue[1]
         if not command then return end
         session.pending = true
-        local probe = not session.ready
+        local probe = not (session.ready or child.ready)
         local ok, error = pcall(send, child, probe and "get overview_open" or command, function(output, code)
             if cycle_session ~= session then return end
             session.pending = false
@@ -237,7 +237,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn, primary_scr
                 else cycle_fail(session, output) end
                 return
             end
-            if probe then session.ready = true
+            if probe then session.ready = true; child.ready = true
             else
                 table.remove(session.queue, 1)
                 if #session.queue == 0 and session.ending then cycle_session = nil; return end

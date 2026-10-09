@@ -55,10 +55,14 @@ report=dict(passed=False,monitor=screen['name'],primary=screen['primary'],activa
 env=dict(os.environ,PLEAMAR_CONFIG=str(out/'config'),PLEAMAR_SOCKET_DIR='overview-check-'+str(os.getpid()),
     PLEAMAR_DEBUG_FOCUS='1',MAREA_LOCALE='es',MAREA_OVERVIEW_KEEP_WARM='1' if a.keep_warm else '0',MAREA_OVERVIEW_WARM='1' if a.prewarm else '0',PATH=str(binary.parent)+os.pathsep+os.environ.get('PATH',''))
 source=(root/'tools/windows-overview.plm').read_text(encoding='utf-8')
+source=source.replace('services: "env"', 'services: "env", "scene.send"')
 if not a.ci_activation:source=source.replace('keyboard: exclusive while overview_open or overview_committing','keyboard: none')
 # Observe inside the renderer: launching an IPC client can outlast a short
 # animation on a loaded CI machine and miss every intermediate sample.
 source=source.replace('fact overview_open = false', '''fact overview_open = false
+    fact direct_done = 0
+    fact direct_error = false
+    event direct_selftest ->
     fact observed_transition = 0
     fact observed_preview = 0
     fact observed_accept = -1
@@ -66,7 +70,21 @@ source=source.replace('fact overview_open = false', '''fact overview_open = fals
     on change preview.0 while preview.0 > 0.01 and preview.0 < 0.99 { observed_preview = preview.0 }
     on change reveal while reveal > 0.05 and reveal < 0.95 { observed_transition = reveal }''')
 (out/'windows-overview.plm').write_text(source,encoding='utf-8')
-shutil.copyfile(root/'tools/windows-overview.luau',out/'windows-overview.luau')
+logic=(root/'tools/windows-overview.luau').read_text(encoding='utf-8')
+logic+='''
+on("direct_selftest", function()
+    for i=1,3 do
+        sys.call_async("scene.send", {sys.ask("env", "PLEAMAR_SOCKET_DIR"), "windows-overview", "get overview_open"}, function(output, code)
+            assert(code==0, tostring(output))
+            fact.direct_done = fact.direct_done + 1
+        end)
+    end
+    sys.call_async("scene.send", {sys.ask("env", "PLEAMAR_SOCKET_DIR"), "windows-overview", "get nonexistent_transport_fact"}, function(output, code)
+        fact.direct_error = code ~= 0 and output:sub(1,1) == "?"
+    end)
+end)
+'''
+(out/'windows-overview.luau').write_text(logic,encoding='utf-8')
 subprocess.run([str(binary),'--check',str(out/'windows-overview.plm')],check=True,creationflags=flags)
 
 def pump():
@@ -213,6 +231,9 @@ try:
             assert all(float(ask(f'get win.{i}.width'))==0 for i in range(4))
             if a.ci_activation:assert u.GetForegroundWindow()==owned[0],'Prewarming took focus'
             report['prewarmed_without_captures']=True
+            ask('emit direct_selftest')
+            until(lambda:ask('get direct_done')=='3' and ask('get direct_error')=='true','native asynchronous scene transport and callback errors')
+            report['native_async_transport']=True
             samples={"cli_read_ms":[],"direct_read_ms":[]}
             for _ in range(8):
                 start_read=time.perf_counter();command('--say','windows-overview','get overview_open')

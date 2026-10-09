@@ -173,7 +173,7 @@ keys = replace_once(keys, '                        //  A new one:', '''         
 scene = scene[:keys_start] + keys + scene[keys_end:]
 for first, windows in [('"dolphin"', '"explorer", "file explorer"'), ('"kitty"', '"windows terminal", "powershell", "command prompt"'), ('"zen"', '"microsoft edge"'), ('"gnome-text-editor"', '"notepad", "bloc de notas"')]:
     logic = replace_once(logic, 'apps = { ' + first, 'apps = { ' + windows + ', ' + first)
-scene = scene.replace('"apps.*",', '"apps.*", "search.*", "shell.open", "hotkeys", "hotkeys.*", "wallpaper.*", "screenshot.*", "recording.*", "clipboard.set",')
+scene = scene.replace('"apps.*",', '"apps.*", "search.*", "shell.open", "scene.send", "hotkeys", "hotkeys.*", "wallpaper.*", "screenshot.*", "recording.*", "clipboard.set",')
 scene = replace_once(scene, 'model icons max 8 { icon: image 22, 22; title: text }', 'model icons max 8 { icon: image 22, 22; title: text; more: bool }')
 scene = replace_once(scene, 'image i.icon { at: 3, 3 - rise * 1.5; size: 22, 22 }', '''image i.icon { at: 3, 3 - rise * 1.5; size: 22, 22; show: not i.more }
             group {

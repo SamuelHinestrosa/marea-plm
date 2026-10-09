@@ -27,6 +27,7 @@ def run(*command):
 run(sys.executable, root / 'windows/build-desktop.py')
 run(sys.executable, root / 'windows/test-profile-source.py')
 scene = (root / 'marea-desktop.plm').read_text(encoding='utf-8')
+assert '"scene.send"' in scene.split('permissions {', 1)[1].split('}', 1)[0], 'Direct overview transport needs its write permission'
 for event in ['chat_login', 'chat_login_cancel', 'chat_login_open']:
     assert re.search(r'\bevent\s+' + event + r'\s+->', scene), f'{event} must reach its Luau handler'
 settings = scene.split('pages section {', 1)[1].split("// ── the agents' reservoirs", 1)[0]

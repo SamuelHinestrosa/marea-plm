@@ -102,10 +102,10 @@ assert(#children==1 and #notices==0)
 -- Releasing after Escape cannot resurrect or activate a cancelled session.
 hooks.windows_overview_cycle(1);lookups[2](A)
 hooks.windows_overview_cancel();hooks.windows_overview_commit()
-assert(calls[7].command=="get overview_open");calls[7].done("false",0)
-assert(calls[8].command=="emit overview_cycle_forward");calls[8].done("",0)
-assert(calls[9].command=="emit overview_close");calls[9].done("",0)
-assert(#calls==9 and #children==1)
+-- The same live child was already probed; the next gesture has no extra read.
+assert(calls[7].command=="emit overview_cycle_forward");calls[7].done("",0)
+assert(calls[8].command=="emit overview_close");calls[8].done("",0)
+assert(#calls==8 and #children==1)
 log("PASS: queued Tab/Shift+Tab/release through slow lookup and cold IPC, no toggles, ordered cancellation")
 '''
 run_checks(args,checks.replace('__ADAPTER__',(r/'windows/window-manager.luau').read_text(encoding='utf-8')),'PASS: queued Tab','overview-cycle-routing')
