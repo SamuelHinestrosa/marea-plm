@@ -158,3 +158,29 @@ and namespace isolation are retained. Native tests compare direct/CLI read
 latency on the same process; these measurements are transport latency, not total
 physical-key-to-visible-frame latency. Physical Win+Tab acceptance is still a
 separate check and must not be inferred from command-based fixture results.
+
+
+### Physical Win release correction (2026-10-09)
+
+The user reproduced the failure after preview.69. Its log showed that the
+selection reached native `Focus`, `SetForegroundWindow` was denied, and
+`SwitchToThisWindow` did not activate the target. Passing the raw-IPC fixture
+was therefore insufficient evidence for physical Win+Tab acceptance.
+
+For an explicit, scope-validated selection only, the WM now retries activation
+with the zeroed mouse-input handoff also used by
+[Microsoft PowerToys](https://github.com/microsoft/PowerToys/blob/main/src/common/ManagedCommon/WindowHelpers.cs).
+It sends no button, wheel, movement or keyboard event; it does not attach input
+queues, change the foreground-lock policy or elevate permissions. Failed input
+submission or a refused retry remains an error. The scene acknowledges only the
+actual selected foreground slot and logs requested/confirmed/timeout states.
+Windows integrity restrictions and applications that lock foreground remain
+limitations; this is not evidence of compatibility with every elevated app or game.
+
+Local validation used the actual installed program and physical Win+Tab. The
+user confirmed switching without a click. The log recorded selection 2 using
+the new fallback and receiving the matching foreground acknowledgement,
+followed by confirmed selections 4, 0 and 1. No activation timeout occurred in
+that sequence. The release build, overview parse check and complete Windows
+profile logic suite passed. The logic regression also verifies that an
+unrelated foreground event cannot acknowledge the selected window.

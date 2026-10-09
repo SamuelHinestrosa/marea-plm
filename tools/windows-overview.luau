@@ -116,7 +116,10 @@ on("overview_commit", function()
     -- the chosen window takes focus. Returning to the old application first
     -- can make Windows reject a background IPC client's activation request.
     after(2500, function()
-        if mine == cycle_generation then fact.overview_committing = false; committed_slot = nil end
+        if mine == cycle_generation then
+            if committed_slot ~= nil then log("marea-overview-activation:timeout:" .. committed_slot) end
+            fact.overview_committing = false; committed_slot = nil
+        end
     end)
     local function confirm(remaining)
         if mine ~= cycle_generation or fact.overview_open then return end
@@ -136,12 +139,14 @@ on("overview_commit", function()
         -- separate fact, since closing already cleared the visible highlight.
         fact.accepted_slot = list[position or 1]
         committed_slot = fact.accepted_slot
+        log("marea-overview-activation:requested:" .. committed_slot)
         emit("overview_accept")
     end
     confirm(40)
 end)
 local function focused()
     if committed_slot ~= nil and fact["win.focus"] == committed_slot then
+        log("marea-overview-activation:confirmed:" .. committed_slot)
         fact.overview_committing = false
         committed_slot = nil
     end

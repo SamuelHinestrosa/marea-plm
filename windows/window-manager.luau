@@ -169,7 +169,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn, primary_scr
             function(line)
                 if viewing ~= child then return end
                 last_line = tostring(line):sub(1, 180)
-                if last_line:find("windows preview:", 1, true) == 1 then log("overview · " .. last_line) end
+                if last_line:find("windows preview:", 1, true) == 1 or last_line:find("marea-overview-activation:", 1, true) then log("overview · " .. last_line) end
                 if last_line == "luau   · marea-overview-state:open" then child.active = true; exclusive(true)
                 elseif last_line == "luau   · marea-overview-state:closed" and child.active then child.active = false; exclusive(false) end
             end, done,

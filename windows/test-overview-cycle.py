@@ -29,6 +29,9 @@ handlers.overview_cycle_forward();assert(fact.keyboard_slot==0 and fact.requeste
 handlers.overview_cycle_backward();assert(fact.keyboard_slot==5 and fact.requested_page==1)
 handlers.overview_commit();assert(#activated==1 and activated[1]==5 and not fact.overview_open)
 assert(fact.overview_committing)
+-- Closing the panel or activating an unrelated slot is not selection acceptance.
+fact["win.focus"]=2;handlers["fact:win.focus"]()
+assert(fact.overview_committing, "unrelated foreground event acknowledged selection")
 fact["win.focus"]=5;handlers["fact:win.focus"]()
 assert(not fact.overview_open and fact.keyboard_slot==-1 and not fact.overview_committing)
 handlers.overview_cycle_forward();assert(fact.keyboard_slot==0)
