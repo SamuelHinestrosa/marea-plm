@@ -19,6 +19,9 @@ The Windows overview uses the same glide spring to move captured images from
 their desktop rectangles into the view and back. Native rectangles are expressed
 in the destination output's logical coordinates, including its origin and DPI;
 source capture retains the source monitor's DPI. It does not resize applications.
+The origin and dimensions use DWM's visible frame, excluding the invisible
+resize borders in `GetWindowRect`. Native validation also compares these
+dimensions with the captured image to avoid stretching its first frame.
 The view opens on the active application's monitor and gathers windows from
 every monitor. Minimized windows retain a selectable catalogue entry. The
 32-window limit and four-card pages remain explicit limitations.
@@ -72,7 +75,7 @@ References: [WinEvent delivery](https://learn.microsoft.com/en-us/windows/win32/
   passed; rectangle readback matched native geometry, intermediate spring state
   observed, three warm reopenings, captures retired when hidden, minimized window
   remained selectable. No input injection or foreground change.
-- Warm IPC acknowledgement measurements were approximately 215–234 ms. These
+- Warm IPC acknowledgement measurements were approximately 203–234 ms. These
   include CLI startup/query overhead and are not end-to-end presentation latency.
 - Mixed-DPI/negative-origin coordinate conversion: unit-tested. Actual windows
   on multiple differently scaled monitors, physical shortcuts, arbitrary app

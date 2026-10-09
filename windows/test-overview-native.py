@@ -26,6 +26,9 @@ screen=next(s for s in screens if s['name']==a.monitor and (a.ci_activation or n
 spec=importlib.util.spec_from_file_location('profile_ui',root/'windows/test-profile-ui-ci.py')
 ui=importlib.util.module_from_spec(spec);spec.loader.exec_module(ui)
 desktop=ui.Desktop();u=desktop.user
+dwm=C.WinDLL('dwmapi')
+dwm.DwmGetWindowAttribute.argtypes=[W.HWND,W.DWORD,W.LPVOID,W.DWORD]
+dwm.DwmGetWindowAttribute.restype=C.c_long
 for name,ret,args in [
     ('CreateWindowExW',W.HWND,[W.DWORD,W.LPCWSTR,W.LPCWSTR,W.DWORD,C.c_int,C.c_int,C.c_int,C.c_int,W.HWND,W.HMENU,W.HINSTANCE,W.LPVOID]),
     ('ShowWindow',W.BOOL,[W.HWND,C.c_int]),('DestroyWindow',W.BOOL,[W.HWND]),
@@ -152,12 +155,17 @@ try:
         until(lambda:float(ask('get overview_count'))==4,'complete overview catalogue')
         report['native_rectangles']=[[float(ask(f'get win.{i}.native.{key}')) for key in ['x','y','width','height']] for i in range(4)]
         assert all(rect[2]>0 and rect[3]>0 for rect in report['native_rectangles'])
-        actual=json.loads(command('windows'))
-        expected=sorted([[round((w['bounds']['x']-screen['bounds']['x'])/screen['scale'],2),
-                          round((w['bounds']['y']-screen['bounds']['y'])/screen['scale'],2),
-                          round(w['bounds']['width']/screen['scale'],2),round(w['bounds']['height']/screen['scale'],2)]
-                         for w in actual if w['process']==os.getpid()])
+        expected=[]
+        for hwnd in owned:
+            rect=W.RECT();assert dwm.DwmGetWindowAttribute(hwnd,9,C.byref(rect),C.sizeof(rect))==0
+            expected.append([round((rect.left-screen['bounds']['x'])/screen['scale'],2),
+                             round((rect.top-screen['bounds']['y'])/screen['scale'],2),
+                             round((rect.right-rect.left)/screen['scale'],2),round((rect.bottom-rect.top)/screen['scale'],2)])
+        expected.sort()
         assert sorted([[round(v,2) for v in rect] for rect in report['native_rectangles']])==expected
+        for i,rect in enumerate(report['native_rectangles']):
+            for at,key in [(2,'width'),(3,'height')]:
+                assert abs(rect[at]-float(ask(f'get win.{i}.{key}')))<=1,'Captured image and native frame differ'
         if a.ci_activation:
             until(lambda:desktop.pid(u.GetForegroundWindow())==process.pid,'overview foreground without a click')
             cursor=CURSOR(size=C.sizeof(CURSOR));assert u.GetCursorInfo(C.byref(cursor))

@@ -7,40 +7,40 @@
     "activation": false,
     "physical_input": false,
     "warm_ms": [
-      218.9001999795437,
-      233.90719993039966,
-      231.5976999234408
+      220.56229994632304,
+      234.14269997738302,
+      202.73789996281266
     ],
     "prewarmed_without_captures": true,
-    "cold_ready_ms": 231.28460021689534,
-    "cold_picture_ms": 1210.7180000748485,
+    "cold_ready_ms": 234.87410019151866,
+    "cold_picture_ms": 1241.0271000117064,
     "native_rectangles": [
       [
-        132.0,
+        138.4,
         116.0,
-        288.0,
-        192.0
+        275.2,
+        185.6
       ],
       [
-        104.0,
+        110.4,
         96.0,
-        288.0,
-        192.0
+        275.2,
+        185.6
       ],
       [
+        82.4,
         76.0,
-        76.0,
-        288.0,
-        192.0
+        275.2,
+        185.6
       ],
       [
-        48.0,
+        54.4,
         56.0,
-        288.0,
-        192.0
+        275.2,
+        185.6
       ]
     ],
-    "animation_sample": 0.93037635,
+    "animation_sample": 0.9288409,
     "minimized_remains_selectable": true,
     "same_process": true,
     "hidden_captures_retired": true,
@@ -55,26 +55,26 @@
   "logic_suite_passed": true,
   "sources": {
     "pleamar": {
-      "base": "c2840aeb5815a053726305803c13ef45e0269f7a",
+      "base": "48a08df525a8fa40abe786cd9a00070aae825736",
       "sha256": {
         "src/scene.rs": "b2b0e55b0f4f671fa0d952aed2bceb370b1f9fd45122f72ea6cc12ac16740eb9",
         "src/render.rs": "572edd6b67ffba5e32a4ebf50beca867e253ea135871ae25d8b92d91ffb27bc9"
       }
     },
     "pleamar-wm": {
-      "base": "c9a4321c8526d129e859206d89cef7e7e4687b24",
+      "base": "fa698ff7d9059762373bd0ef38d8edf853cb8d93",
       "sha256": {
-        "src/windows_preview.rs": "5a9a23ab328400d64a12b156655085a886393058930f909ab08fba461f4d0cf1",
+        "src/windows_preview.rs": "b3069207ff38548545064e355f5cf9ae7b9027479a68dfeea5d0609f8d903b57",
         "src/windows_backend.rs": "fb62ab518994157d5b97efc9a616368ad058d8fb18d04c1ff7562313163dc570"
       }
     },
     "marea-plm": {
-      "base": "73ce0a67d62c464963b20ccc8e5a696fe312e0d6",
+      "base": "202be3392dceccf1f2da9840e51484c5e489c117",
       "sha256": {
         "tools/windows-overview.plm": "6c9700be96ef6eeb9db7ee4c427fdfee2b13d847301b36492aadda70cd7cba51",
         "tools/windows-overview.luau": "226924f139c09410823db23c1c2c25b0ab441609d0a31834885cce0eccbbb6c0",
         "windows/window-manager.luau": "a69235385ac4bd9ed7f0d80d9478b3a71c898d43893d6a565fea9b6cf32f4a67",
-        "windows/test-overview-native.py": "45c4193444ed6f1da9ebbb203d98eb743a1480700440bda591b77315e52c7c4e"
+        "windows/test-overview-native.py": "186427d0f511c058edc20236bd471b2dbc4f3e4672719a58f9fa6f4ea407b4d2"
       }
     }
   },
@@ -86,5 +86,70 @@
     "marea": "75a26cf",
     "wm": "263249e"
   },
-  "upstream_new_changes_merged": false
+  "upstream_new_changes_merged": false,
+  "projection": {
+    "passed": true,
+    "source": "\\\\.\\DISPLAY2",
+    "destination": "\\\\.\\DISPLAY1",
+    "input_injected": false,
+    "expected": [
+      -1489.6,
+      208.0,
+      307.2,
+      201.6
+    ],
+    "actual": [
+      -1489.6,
+      208.0,
+      307.2,
+      201.6
+    ],
+    "no_capture": true,
+    "destination_closed": true,
+    "foreground_unchanged": true
+  },
+  "presentation_probe": {
+    "monitor": "\\\\.\\DISPLAY2",
+    "user_windows_changed": false,
+    "input_injected": false,
+    "global_animations": false,
+    "normal": {
+      "exit": 0,
+      "elapsed_ms": 464.04639980755746,
+      "size": [
+        384,
+        252
+      ],
+      "center": [
+        255,
+        255,
+        255,
+        255
+      ]
+    },
+    "foreign_cloak": "0x80070005",
+    "alpha_zero": {
+      "exit": 0,
+      "elapsed_ms": 452.52689998596907,
+      "size": [
+        384,
+        252
+      ],
+      "center": [
+        255,
+        255,
+        255,
+        255
+      ]
+    },
+    "style_restored": true,
+    "foreground_unchanged": true
+  },
+  "ci_profile_run": {
+    "url": "https://github.com/SamuelHinestrosa/marea-plm/actions/runs/37920662243",
+    "head": "79a1c908fd300d7add7594628f0891437f5d7e29",
+    "windows": "success",
+    "linux": "success",
+    "note": "Subsequent Marea changes only affect native diagnostic tests and validation documentation."
+  }
 }
