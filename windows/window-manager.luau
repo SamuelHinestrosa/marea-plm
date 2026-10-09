@@ -173,7 +173,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn, primary_scr
     local resolving = false
     hooks.windows_overview = function(warm)
         if resolving then
-            if not warm then resolving.warm = false end
+            if not warm then resolving.warm = false; exclusive(true) end
             return
         end
         if warm and (viewing or not overview) then return end

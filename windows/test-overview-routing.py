@@ -40,7 +40,7 @@ install(run,hooks,entries,function() end,function() return B end,
     function(done) lookups[#lookups+1]=done end)
 -- A real request arriving during preparation must promote the pending lookup.
 hooks.windows_overview(true);hooks.windows_overview()
-assert(#lookups==1 and #children==0)
+assert(#lookups==1 and #children==0 and fact.windows_overview_active)
 lookups[1](A)
 assert(#children==1 and children[1].screen==A and children[1].warm=="0", "used Marea's home instead of the primary display")
 hooks.windows_overview();lookups[2](A)
