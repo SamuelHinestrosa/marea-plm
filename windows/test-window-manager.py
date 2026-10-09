@@ -10,6 +10,8 @@ module = Path(__file__).with_name('window-manager.luau').read_text(encoding='utf
 checks = r'''
 local handlers, requests, notices, entries, hooks = {}, {}, {}, {{id="desktop"}}, {in_wm=false}
 local replies = {}
+local timers = {}
+local function after(ms, callback) timers[#timers+1]={ms=ms, callback=callback} end
 local json = {decode=function(key) assert(replies[key]); return replies[key] end}
 local function tr(s) return s end
 local function on(name, callback) handlers[name]=callback end

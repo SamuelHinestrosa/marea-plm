@@ -1,4 +1,4 @@
-"""Check the real native foreground-monitor service through Marea's adapter.
+"""Check the real native primary-monitor service through Marea's adapter.
 
 The owner surface stays closed and child spawning is recorded rather than
 performed. This checks native data and routing, not multi-monitor rendering.
@@ -22,9 +22,9 @@ class MONITOR(C.Structure):
 u.GetMonitorInfoW.argtypes=[W.HANDLE,C.POINTER(MONITOR)];u.GetMonitorInfoW.restype=W.BOOL
 foreground=u.GetForegroundWindow();assert foreground,'A foreground window is needed for this test'
 info=MONITOR(size=C.sizeof(MONITOR));assert u.GetMonitorInfoW(u.MonitorFromWindow(foreground,2),C.byref(info))
-active=info.device
-home=next((s['name'] for s in screens if s['name']!=active),'\\\\.\\DISPLAY999')
-host=next((s['name'] for s in screens if not s['primary']),active)
+primary=next(s["name"] for s in screens if s["primary"])
+home=next((s['name'] for s in screens if s['name']!=primary),'\\\\.\\DISPLAY999')
+host=next((s['name'] for s in screens if not s['primary']),primary)
 module=(root/'windows/window-manager.luau').read_text(encoding='utf-8')
 generated=(root/'marea-desktop.luau').read_text(encoding='utf-8')
 provider=generated.split('end, notice, native_spawn, function(done)\n',1)[1].split('\nend)\nend\ninstall_shortcuts',1)[0]
@@ -39,16 +39,24 @@ local function spawn(command, args, line, done, options)
     text.selected = args[4]
     text.preview = args[6]
 end
-local function active_monitor(done) __PROVIDER__ end
+local function primary_monitor(done) __PROVIDER__ end
 local install = (function() __MODULE__ end)()
 install(run, hooks, entries, function() end, function() return [==[__HOME__]==] end,
-    function(message) text.problem = message end, spawn, active_monitor)
+    function(message) text.problem = message end, spawn, primary_monitor)
 on("invoke", function() hooks.windows_overview() end)
 '''.replace('__STATUS__',status).replace('__PROVIDER__',provider).replace('__MODULE__',module).replace('__HOME__',home)
 scene=out/'active-monitor.plm'
 scene.write_text('''scene Probe {
 surface { size: 2, 2; open: false; keyboard: none; reserve: 0 }
-permissions { services: "window" }
+permissions { services: "window.*" }
+fact windows_overview_active = false
+fact open = false
+fact menu_open = false
+fact searching = false
+fact chatting = false
+fact tray_open = false
+fact reel_open = false
+fact note = false
 fact windows_wm_available = false
 fact windows_wm_busy = false
 fact windows_wm_layout = -1
@@ -70,14 +78,14 @@ def wait(fn):
         if result:return result
         time.sleep(.03)
     raise TimeoutError((ask('get problem'), (out/'scene.log').read_text(encoding='utf-8')))
-report=dict(passed=False,active_monitor=active,marea_home=home,host_monitor=host,physical_input=False,child_windows_spawned=False)
+report=dict(passed=False,primary_monitor=primary,marea_home=home,host_monitor=host,physical_input=False,child_windows_spawned=False)
 with (out/'scene.log').open('w',encoding='utf-8') as log:
     process=subprocess.Popen([str(binary),'--scene',str(scene),'--screen',host,'--seconds','40','--stall','0','--no-hud'],env=env,creationflags=flags,stdout=log,stderr=log)
     try:
         wait(lambda:ask('get windows_wm_available')=='true')
         ask('emit invoke')
         selected=wait(lambda:ask('get selected'))
-        assert selected==active and selected!=home,(selected,active,home,ask('get problem'))
+        assert selected==primary and selected!=home,(selected,primary,home,ask('get problem'))
         assert ask('get preview')=='all'
         report.update(passed=True,selected_monitor=selected,foreground_unchanged=True)
     finally:

@@ -1,4 +1,4 @@
-// Opened on the active application's monitor by the native adapter.
+// Opened on the primary monitor by the native adapter.
 scene WindowOverview {
     permissions { services: "env"; run: "pleamar-wm" }
     surface { size: full, full; level: overlay; keyboard: exclusive while overview_open; open: overview_visible; rate: 60 }
@@ -16,7 +16,7 @@ scene WindowOverview {
         "No open windows" = "No hay ventanas abiertas"
         "Preview unavailable" = "Vista previa no disponible"
         "Minimized" = "Minimizada"
-        "Windows did not activate this window. Try selecting it again." = "Windows no ha activado esta ventana. Prueba a seleccionarla de nuevo."
+        "Window activation has not been confirmed. Try selecting it again." = "No se ha confirmado la activación de esta ventana. Prueba a seleccionarla de nuevo."
         "The window view could not close." = "No se ha podido cerrar la vista de ventanas."
         "Shows up to 32 windows from every screen" = "Muestra hasta 32 ventanas de todas las pantallas"
     }

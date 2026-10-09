@@ -147,8 +147,12 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $screens.Count -eq 0) { throw 'No CI monitor.' }
           python windows/test-overview-native.py --binary $wm --monitor $screens[0].name --ci-activation --output .tools/overview-smoke
           if ($LASTEXITCODE -ne 0) { throw 'Native overview failed.' }
-          python windows/test-overview-native.py --binary $wm --monitor $screens[0].name --ci-activation --prewarm --output .tools/overview-warm-smoke
+          python windows/test-overview-native.py --binary $wm --monitor $screens[0].name --ci-activation --prewarm --keep-warm --output .tools/overview-warm-smoke
           if ($LASTEXITCODE -ne 0) { throw 'Prewarmed overview failed.' }
+          python windows/test-overview-exclusion.py --binary ../pleamar/target/release/pleamar.exe --monitor $screens[0].name --output .tools/overview-exclusion
+          if ($LASTEXITCODE -ne 0) { throw 'Native overview exclusion failed.' }
+          python windows/test-overview-active.py --binary ../pleamar/target/release/pleamar.exe --wm $wm --output .tools/overview-primary
+          if ($LASTEXITCODE -ne 0) { throw 'Native primary monitor routing failed.' }
       - name: Keep native overview evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -157,6 +161,8 @@ jobs:
           path: |
             marea/.tools/overview-smoke
             marea/.tools/overview-warm-smoke
+            marea/.tools/overview-exclusion
+            marea/.tools/overview-primary
           if-no-files-found: warn
       - name: Keep native dock evidence
         if: always()

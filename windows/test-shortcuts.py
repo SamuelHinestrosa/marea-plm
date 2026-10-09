@@ -57,6 +57,11 @@ assert(requests[5].args[1]["Win+Shift+Tab"]=="windows_previous" and requests[5].
 watcher({sequence=16,event="windows_previous"});assert(overview==0)
 watcher({sequence=17,event="windows_commit"});watcher({sequence=18,event="windows_cancel"})
 assert(commits==1 and cancels==1)
+fact.windows_overview_active=true
+for i,name in ipairs({"search","chat","controls","settings","notifications"}) do watcher({sequence=20+i,event=name}) end
+assert(#events==5,"Marea opened a panel while the overview owned interaction")
+fact.windows_overview_active=false
+watcher({sequence=26,event="settings"});assert(#events==6)
 handlers.windows_toggle_key();assert(requests[8].args[1]==false)
 requests[8].done("",0);requests[9].done({available=true,windows_key=false},nil)
 requests[10].done("disk full",1)

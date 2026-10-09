@@ -1,4 +1,4 @@
-"""Keep Marea's home controls separate from the active-program overview monitor."""
+"""Keep Marea's home controls separate from the primary overview monitor."""
 from pathlib import Path
 import argparse
 from logic_test import runner_arguments, run_checks
@@ -38,13 +38,13 @@ assert(current_monitor() == monitors[3], "home controls were routed away from th
 local function active_monitor(done) __ACTIVE__ end
 local active_reply, selected
 native_sys.ask_async = function(name, args, done)
-    assert(name == "window.state" and #args == 0)
+    assert(name == "window.primary" and #args == 0)
     active_reply = done
 end
 active_monitor(function(name, error) assert(error == nil); selected = name end)
 assert(selected == nil)
-active_reply({monitor=monitors[1]}, nil)
-assert(selected == monitors[1] and selected ~= current_monitor(), "overview followed Marea instead of the active program")
+active_reply(monitors[1], nil)
+assert(selected == monitors[1] and selected ~= current_monitor(), "overview followed Marea instead of the primary monitor")
 text["screen.2.name"] = "Replacement monitor 海"
 handlers["text:screen.2.name"]()
 assert(calls[2] == "Replacement monitor 海")

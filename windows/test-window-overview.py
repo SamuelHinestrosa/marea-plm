@@ -10,8 +10,8 @@ module = (Path(__file__).resolve().parents[1] / 'tools/windows-overview.luau').r
 checks = r'''
 local handlers, timers, requests = {}, {}, {}
 local fact, text = {overview_open=true,["win.0.open"]=true,["win.1.open"]=true,["win.focus"]=-1}, {}
-local warm = false
-local sys = {ask=function(service,key) assert(service=="env");return key=="MAREA_LOCALE" and "es" or warm and "1" or "0" end}
+local warm, keep_warm = false, false
+local sys = {ask=function(service,key) assert(service=="env");if key=="MAREA_OVERVIEW_KEEP_WARM" then return keep_warm and "1" or "0" end;return key=="MAREA_LOCALE" and "es" or key=="MAREA_OVERVIEW_WARM" and warm and "1" or "0" end}
 local function tr(s) return s end
 local function on(name,callback) handlers[name]=callback end
 local function after(ms,callback) timers[#timers+1]={ms=ms,fire=callback} end
@@ -36,7 +36,7 @@ for _,slot in ipairs({-1,32,0.5,"0",2}) do handlers.overview_select(slot) end
 assert(#timers==0 and #requests==0)
 handlers.overview_select(0);handlers.overview_select(0)
 timers[1].fire();assert(text.overview_status=="" and fact.overview_open)
-timers[2].fire();assert(text.overview_status:find("did not activate",1,true) and fact.overview_open)
+timers[2].fire();assert(text.overview_status:find("has not been confirmed",1,true) and fact.overview_open)
 fact["win.focus"]=0;handlers["fact:win.focus"](0)
 assert(fact.overview_open) -- Expired selection cannot dismiss a later view.
 handlers.overview_select(1)
@@ -55,6 +55,10 @@ handlers.overview_toggle();assert(fact.overview_open)
 timers[1].fire();assert(#requests==0)
 handlers.overview_close();assert(not fact.overview_open and #timers==2)
 timers[2].fire();assert(#requests==1)
+keep_warm = true; timers={};requests={};handlers={}
+install();assert(not fact.overview_open and #timers==0)
+handlers.overview_toggle();handlers.overview_close()
+assert(not fact.overview_open and #timers==0 and #requests==0)
 log("PASS: overview selection acknowledgement, reuse, closed input and stale idle timers")
 
 '''

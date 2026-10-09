@@ -1,6 +1,6 @@
 -- The native companion reports its actual session. Keep Linux's in_wm false:
 -- its dock, rain, ride and agent seat have separate capabilities.
-return function(run, hooks, entries, changed, screen, notice, spawn, active_screen)
+return function(run, hooks, entries, changed, screen, notice, spawn, primary_screen)
     local available, overview, dock, busy, state = false, false, false, false, nil
     local viewing = nil
     local dock_view = nil
@@ -91,6 +91,21 @@ return function(run, hooks, entries, changed, screen, notice, spawn, active_scre
     hooks.windows_focus_previous = function() request("emit focus_previous", true, true) end
     hooks.windows_close = function() request("emit close", true) end
     hooks.windows_fullscreen = function() request("emit fullscreen", true) end
+    local lock_generation = 0
+    local function exclusive(active)
+        -- Clear both on entry and exit: requests received while hidden must
+        -- never reopen a panel when the switcher releases ownership.
+        for _, key in ipairs({"open", "menu_open", "searching", "chatting", "tray_open", "reel_open", "note"}) do fact[key] = false end
+        fact.windows_overview_active = active
+        lock_generation += 1
+        if active then
+            local mine = lock_generation
+            after(6000, function()
+                if mine ~= lock_generation or (viewing and viewing.active) then return end
+                exclusive(false)
+            end)
+        end
+    end
     local open_overview
     open_overview = function(name, warm, prepare_cycle)
         if viewing then
@@ -121,10 +136,11 @@ return function(run, hooks, entries, changed, screen, notice, spawn, active_scre
                 if viewing ~= child then return end
                 child.pending = false
                 if code ~= 0 or tostring(output or ""):sub(1, 1) == "?" then
+                    exclusive(false)
                     notice(tr("The window view could not open.") .. " " .. tostring(output or ""):sub(1, 180))
                 end
             end, {env={PLEAMAR_SOCKET_DIR=child.endpoint}})
-            if not ok then child.pending = false; notice(tostring(error)) end
+            if not ok then child.pending = false; exclusive(false); notice(tostring(error)) end
             return
         end
         local child = {screen=name, endpoint="marea-overview-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 2147483647))}
@@ -136,14 +152,22 @@ return function(run, hooks, entries, changed, screen, notice, spawn, active_scre
             finished = true
             if viewing ~= child then return end
             viewing = nil
-            if child.next_screen then open_overview(child.next_screen, child.next_warm)
+            exclusive(false)
+            if child.next_screen then
+                if not child.next_warm then exclusive(true) end
+                open_overview(child.next_screen, child.next_warm)
             elseif code ~= 0 and not warm then notice(tr("The window view could not open.") .. " " .. (output ~= "" and tostring(output) or last_line):sub(1, 180)) end
         end
         local ok, error = pcall(spawn, "pleamar-wm", {"--scene", "tools/windows-overview.plm", "--screen", name,
             "--preview-monitor", "all", "--preview-project", "--window-actions", "--no-hud", "--stall", "0"},
-            function(line) last_line = tostring(line):sub(1, 180) end, done,
+            function(line)
+                if viewing ~= child then return end
+                last_line = tostring(line):sub(1, 180)
+                if last_line == "luau   · marea-overview-state:open" then child.active = true; exclusive(true)
+                elseif last_line == "luau   · marea-overview-state:closed" and child.active then child.active = false; exclusive(false) end
+            end, done,
             {cwd=".", errors=true, env={MAREA_LOCALE=tostring(fact.locale or "en"), PLEAMAR_SOCKET_DIR=child.endpoint,
-                MAREA_OVERVIEW_WARM=warm and "1" or "0"}})
+                MAREA_OVERVIEW_WARM=warm and "1" or "0", MAREA_OVERVIEW_KEEP_WARM="1"}})
         if not ok then done(tostring(error), 1) end
     end
     local resolving = false
@@ -154,6 +178,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn, active_scre
         end
         if warm and (viewing or not overview) then return end
         if not overview then request("status", true); return end
+        if not warm then exclusive(true) end
         local lookup = {warm=warm}
         resolving = lookup
         local completed = false
@@ -162,22 +187,23 @@ return function(run, hooks, entries, changed, screen, notice, spawn, active_scre
             completed, resolving = true, false
             local warm = lookup.warm
             if problem then
-                if not warm then notice(tr("The window view could not open.") .. " " .. tostring(problem):sub(1, 180)) end
+                if not warm then exclusive(false); notice(tr("The window view could not open.") .. " " .. tostring(problem):sub(1, 180)) end
                 return
             end
             name = managed_screen(name, warm)
-            if name then open_overview(name, warm) end
+            if name then open_overview(name, warm) elseif not warm then exclusive(false) end
         end
-        local ok, error = pcall(active_screen, resolved)
+        local ok, error = pcall(primary_screen, resolved)
         if not ok then resolved(nil, error) end
-        if not completed then after(2000, function() resolved(nil, tr("Active window lookup timed out.")) end) end
+        if not completed then after(2000, function() resolved(nil, tr("Primary monitor lookup timed out.")) end) end
     end
-    -- One ordered stream per held-Win gesture. The active monitor is resolved
+    -- One ordered stream per held-Win gesture. The primary monitor is resolved
     -- once; a slow lookup, cold renderer or IPC reply must not drop Tab presses.
     local cycle_session = nil
     local function cycle_fail(session, problem)
         if cycle_session ~= session then return end
         cycle_session = nil
+        exclusive(false)
         notice(tr("The window view could not open.") .. " " .. tostring(problem or ""):sub(1, 180))
     end
     local pump_cycle
@@ -220,6 +246,7 @@ return function(run, hooks, entries, changed, screen, notice, spawn, active_scre
             session.ending = false
         else
             if not overview then request("status", true); return end
+            exclusive(true)
             session = {queue={}, waits=0, pending=false, ready=false}
             cycle_session = session
         end
@@ -232,14 +259,14 @@ return function(run, hooks, entries, changed, screen, notice, spawn, active_scre
             session.resolving = false
             if problem then cycle_fail(session, problem); return end
             name = managed_screen(name, true)
-            if not name then cycle_fail(session, "Active screen is unavailable."); return end
+            if not name then cycle_fail(session, "Primary screen is unavailable."); return end
             session.screen = name
             open_overview(name, true, true)
             pump_cycle(session)
         end
-        local ok, error = pcall(active_screen, resolved)
+        local ok, error = pcall(primary_screen, resolved)
         if not ok then resolved(nil, error) end
-        after(2000, function() if session.resolving then resolved(nil, "Active window lookup timed out.") end end)
+        after(2000, function() if session.resolving then resolved(nil, "Primary monitor lookup timed out.") end end)
     end
     local function finish_cycle(command)
         local session = cycle_session

@@ -488,8 +488,8 @@ end)()(native_run, hooks, plugin_entries, set_menu, function()
     for k = 0, 2 do if fact["hosts." .. k] == true then return monitors[k + 1] end end
     return nil
 end, notice, native_spawn, function(done)
-    native_sys.ask_async("window.state", {}, function(state, error)
-        done(type(state) == "table" and state.monitor or nil, error)
+    native_sys.ask_async("window.primary", {}, function(name, error)
+        done(type(name) == "string" and name or nil, error)
     end)
 end)
 end
@@ -556,6 +556,12 @@ for language in (root / 'lang').glob('es*.plm'):
 entries = '\n'.join('        ' + json.dumps(key, ensure_ascii=False) + ' = ' + json.dumps(value, ensure_ascii=False)
     for key, value in windows_translations.items() if key not in existing)
 scene = replace_once(scene, 'scene Marea {', 'scene Marea {\n    translations es {\n' + entries + '\n    }')
+# The overview owns interaction across outputs, even if a delayed service
+# callback tries to reopen a panel while its surface is hidden.
+scene = replace_once(scene, 'scene Marea {', 'scene Marea {\n    fact windows_overview_active = false')
+scene = re.sub(r'^(        open: )(.+)$', r'\1(\2) and not windows_overview_active', scene, flags=re.M)
+scene = re.sub(r'^(        keyboard: on_demand while )(.+)$', r'\1(\2) and not windows_overview_active', scene, flags=re.M)
+logic = "local fact = (function()\n" + (root / 'windows/overview-exclusion.luau').read_text(encoding='utf-8') + "\nend)()(fact)\n" + logic
 (root / 'marea-desktop.plm').write_text(scene, encoding='utf-8')
 (root / 'marea-desktop.luau').write_text(logic, encoding='utf-8')
 print('Generated native Windows desktop profile (Linux originals preserved).')

@@ -13,6 +13,7 @@ p.add_argument('--monitor',required=True)
 p.add_argument('--output',type=Path,required=True)
 p.add_argument('--ci-activation',action='store_true')
 p.add_argument('--prewarm',action='store_true')
+p.add_argument('--keep-warm',action='store_true')
 a=p.parse_args()
 assert os.name=='nt'
 if a.ci_activation:
@@ -52,7 +53,7 @@ u.SendInput.argtypes=[W.UINT,C.POINTER(INPUT),C.c_int];u.SendInput.restype=W.UIN
 foreground=u.GetForegroundWindow();owned=[];process=None;cursor_adjustment=0
 report=dict(passed=False,monitor=screen['name'],primary=screen['primary'],activation=a.ci_activation,physical_input=False,warm_ms=[])
 env=dict(os.environ,PLEAMAR_CONFIG=str(out/'config'),PLEAMAR_SOCKET_DIR='overview-check-'+str(os.getpid()),
-    PLEAMAR_DEBUG_FOCUS='1',MAREA_LOCALE='es',MAREA_OVERVIEW_WARM='1' if a.prewarm else '0',PATH=str(binary.parent)+os.pathsep+os.environ.get('PATH',''))
+    PLEAMAR_DEBUG_FOCUS='1',MAREA_LOCALE='es',MAREA_OVERVIEW_KEEP_WARM='1' if a.keep_warm else '0',MAREA_OVERVIEW_WARM='1' if a.prewarm else '0',PATH=str(binary.parent)+os.pathsep+os.environ.get('PATH',''))
 source=(root/'tools/windows-overview.plm').read_text(encoding='utf-8')
 if not a.ci_activation:source=source.replace('keyboard: exclusive while overview_open','keyboard: none')
 # Observe inside the renderer: launching an IPC client can outlast a short
@@ -227,6 +228,11 @@ try:
         ask('emit overview_commit')
         assert ask('get overview_open')=='false','Release after cancellation reopened the overview'
         report['keyboard_cancel_ignores_release']=True
+        lifecycle=(out/'scene.log').read_text(encoding='utf-8')
+        assert 'luau   · marea-overview-state:open' in lifecycle
+        assert 'luau   · marea-overview-state:closed' in lifecycle
+        report['native_lifecycle_markers']=True
+        report['keep_warm']=a.keep_warm
         report.update(passed=True,same_process=True,hidden_captures_retired=True,foreground_unchanged=not a.ci_activation)
 finally:
     if process and process.poll() is None:

@@ -21,7 +21,8 @@ return function(native_sys, notice, hooks)
         sequence = value.sequence
         if previous == nil or previous == sequence then return end
         local action = actions[value.event]
-        if action then emit(action)
+        if action then
+            if not fact.windows_overview_active then emit(action) end
         elseif value.event == "windows" and hooks.windows_overview_cycle then hooks.windows_overview_cycle(1)
         elseif value.event == "windows_previous" and hooks.windows_overview_cycle then hooks.windows_overview_cycle(-1)
         elseif value.event == "windows_commit" and hooks.windows_overview_commit then hooks.windows_overview_commit()

@@ -7,7 +7,7 @@ r=Path(__file__).resolve().parents[1]
 checks=r'''
 local fact,text,handlers,timers,activated={overview_open=false,["win.count"]=6,["win.focus"]=0},{},{},{},{}
 for i=0,5 do fact["win."..i..".open"]=true end
-local sys={ask=function(_,key) return key=="MAREA_LOCALE" and "en" or "1" end}
+local sys={ask=function(_,key) return key=="MAREA_LOCALE" and "en" or key=="MAREA_OVERVIEW_WARM" and "1" or "0" end}
 local function tr(s) return s end
 local function on(name,fn) handlers[name]=fn end
 local function after(ms,fn) timers[#timers+1]=fn end

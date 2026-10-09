@@ -22,7 +22,9 @@ The switch is off by default. While enabled, Win is dedicated to Marea:
 | Win+Right or Win+Down | Next eligible window on that monitor |
 | Win+Q | Ask the active application or dialog to close |
 
-The switcher stays open throughout a held-Win gesture, includes eligible windows
+The switcher always opens on the Windows primary monitor. Marea closes its
+panels and suppresses their reopening while the switcher is active.
+It stays open throughout a held-Win gesture, includes eligible windows
 from all monitors (including minimized windows), wraps at either end and follows
 the selected page. Repeated presses are queued through a cold renderer startup;
 releasing Win early confirms after the catalogue becomes ready. Escape discards

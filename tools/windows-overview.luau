@@ -1,6 +1,9 @@
 local language = tostring(sys.ask("env", "MAREA_LOCALE") or "en")
 fact.locale = language == "es" and "es" or "en"
 fact.overview_open = sys.ask("env", "MAREA_OVERVIEW_WARM") ~= "1"
+local keep_warm = sys.ask("env", "MAREA_OVERVIEW_KEEP_WARM") == "1"
+local function report_state() log("marea-overview-state:" .. (fact.overview_open and "open" or "closed")) end
+report_state()
 local repair_selection = function() end
 local function catalogue()
     local place = 0
@@ -19,6 +22,7 @@ local cycling, pending_steps, release_pending, cycle_generation = false, {}, fal
 local function close()
     if not fact.overview_open then return end
     fact.overview_open = false
+    report_state()
     fact.keyboard_slot = -1
     cycling, pending_steps, release_pending = false, {}, false
     cycle_generation += 1
@@ -28,10 +32,10 @@ local function close()
     local mine = idle
     -- Keep the renderer warm for another shortcut, but release it after a minute.
     -- The closed surface owns no keyboard, hit regions, or window captures.
-    after(60000, function()
+    if not keep_warm then after(60000, function()
         if mine ~= idle or fact.overview_open then return end
         run("pleamar-wm", {"--say", "windows-overview", "quit"}, function() end)
-    end)
+    end) end
 end
 local function open()
     idle += 1
@@ -39,6 +43,7 @@ local function open()
     selected = nil
     text.overview_status = ""
     fact.overview_open = true
+    report_state()
 end
 on("overview_toggle", function()
     if fact.overview_open then close(); return end
@@ -117,15 +122,15 @@ on("overview_select", function(slot)
     local mine = attempt
     text.overview_status = ""
     focused()
-    after(1000, function()
+    after(3000, function()
         if attempt == mine and selected == slot and fact.overview_open then
             selected = nil
-            text.overview_status = tr("Windows did not activate this window. Try selecting it again.")
+            text.overview_status = tr("Window activation has not been confirmed. Try selecting it again.")
         end
     end)
 end)
 on("fact:win.focus", focused)
-if not fact.overview_open then
+if not fact.overview_open and not keep_warm then
     local mine = idle
     after(60000, function()
         if mine == idle and not fact.overview_open then

@@ -25,7 +25,7 @@ end
 local function spawn(command, argv, line, done, options)
     assert(command=="pleamar-wm" and argv[2]=="tools/windows-overview.plm")
     assert(argv[3]=="--screen" and argv[5]=="--preview-monitor" and argv[6]=="all" and argv[7]=="--preview-project")
-    children[#children+1]={screen=argv[4],done=done,warm=options.env.MAREA_OVERVIEW_WARM,
+    children[#children+1]={screen=argv[4],done=done,line=line,warm=options.env.MAREA_OVERVIEW_WARM,
         endpoint=options.env.PLEAMAR_SOCKET_DIR}
 end
 local install=(function() __MODULE__ end)()
@@ -36,11 +36,19 @@ install(run,hooks,entries,function() end,function() return B end,
 hooks.windows_overview(true);hooks.windows_overview()
 assert(#lookups==1 and #children==0)
 lookups[1](A)
-assert(#children==1 and children[1].screen==A and children[1].warm=="0", "used Marea's home instead of the active program")
+assert(#children==1 and children[1].screen==A and children[1].warm=="0", "used Marea's home instead of the primary display")
 hooks.windows_overview();lookups[2](A)
 assert(#children==1 and calls[1].command=="emit overview_toggle")
 calls[1].done("",0)
--- A monitor change retires the old child before launching another renderer.
+-- A prepared renderer does not release the lock with its initial closed report.
+assert(fact.windows_overview_active)
+children[1].line("luau   · marea-overview-state:closed");assert(fact.windows_overview_active)
+children[1].line("luau   · marea-overview-state:open");assert(fact.windows_overview_active and not fact.open)
+fact.open=true;fact.chatting=true
+children[1].line("luau   · marea-overview-state:closed")
+assert(not fact.windows_overview_active and not fact.open and not fact.chatting)
+-- Changing the primary display retires the old child before launching another renderer.
+
 hooks.windows_overview();lookups[3](B)
 assert(#children==1 and calls[2].command=="quit" and calls[2].endpoint==children[1].endpoint)
 calls[2].done("",0);assert(#children==1,"quit acknowledgement is not process exit")
@@ -73,6 +81,6 @@ hooks.windows_overview();lookups[10](A)
 assert(#children==4 and calls[5].command=="quit")
 children[4].done("",0)
 assert(#children==5 and children[5].screen==A and children[5].warm=="0")
-log("PASS: active-program monitor, warm reuse, cross-monitor retirement, failures and stale callbacks")
+log("PASS: primary-display monitor, warm reuse, cross-monitor retirement, failures and stale callbacks")
 '''
-run_checks(args, checks.replace('__MODULE__', module), 'PASS: active-program monitor', 'overview-routing')
+run_checks(args, checks.replace('__MODULE__', module), 'PASS: primary-display monitor', 'overview-routing')

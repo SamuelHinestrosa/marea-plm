@@ -22,12 +22,21 @@ source capture retains the source monitor's DPI. It does not resize applications
 The origin and dimensions use DWM's visible frame, excluding the invisible
 resize borders in `GetWindowRect`. Native validation also compares these
 dimensions with the captured image to avoid stretching its first frame.
-The view opens on the active application's monitor and gathers windows from
+The view always opens on the Windows primary monitor and gathers windows from
 every monitor. Minimized windows retain a selectable catalogue entry. The
 32-window limit and four-card pages remain explicit limitations.
 
 Keyboard ownership ends when closing starts. Capture resources retire after the
-closing animation; the warm process retires after its existing idle timeout.
+closing animation. Marea keeps its owned renderer warm until Marea exits;
+standalone invocations retain the 60-second idle timeout. Changing the active
+application or its monitor no longer recreates the renderer. The retained
+renderer still occupies memory; hidden captures are released.
+
+Marea closes its panels before opening the selector and suppresses its own
+surfaces, keyboard requests and delayed panel writes until it closes. Foreground
+acknowledgement uses the exact window identity before its owner and is delivered
+before catalogue refresh; another monitor is not an activation error. A real
+Windows foreground denial still reports an unconfirmed activation.
 The regular dock retains its existing monitor scope.
 
 Win+Tab is a held-key switcher: repeated Tab presses advance the highlighted
